@@ -1,0 +1,374 @@
+import 'dart:convert';
+
+class Estimation {
+  final String id;
+  final String reference;
+  final DateTime createdAt;
+  DateTime updatedAt;
+
+  // Section 1 — Informations générales
+  String typeId; // maison, appartement, chalet, terrain
+  String motif;  // vente, succession, divorce, etc.
+  DateTime dateVisite;
+  String proprietaireNom;
+  String proprietaireTel;
+  String proprietaireEmail;
+
+  // Section 2 — Description
+  int surfaceHabitable;
+  int surfaceTerrain;
+  int pieces;
+  int chambres;
+  String anneeConstruction;
+  int etatGeneral; // 0-4
+  List<String> orientations;
+  List<String> vues;
+  String dpeClasse;
+  String chauffageType;
+  List<String> revetementsol;
+
+  // Section 3 — Annexes
+  Map<String, bool> annexesActives;
+  int garagePlaces;
+  List<String> garageType;
+  int jardinSurface;
+  List<String> jardinEtat;
+  Map<String, dynamic> annexesDetails;
+
+  // Section 4 — État & équipements
+  String facade;
+  String toiture;
+  List<String> menuiseriesType;
+  List<String> vitrage;
+  String chauffageEtat;
+  int anneeChaudiere;
+  String electricite;
+  String isolation;
+
+  // Section 5 — Analyse marché
+  List<Map<String, dynamic>> comparables;
+
+  // Section 6 — Estimation
+  double ajustVue;
+  double ajustEtat;
+  double ajustDpe;
+  int ajustTravaux;
+  double prixFinal;
+  double fourchetteBasse;
+  double fourchetteHaute;
+  String conclusion;
+  DateTime validiteJusquau;
+
+  // Section 7 — Photos
+  List<String> photosPaths;
+
+  // Notes par section
+  Map<String, Map<String, dynamic>> notes;
+
+  Estimation({
+    required this.id,
+    required this.reference,
+    required this.createdAt,
+    required this.updatedAt,
+    this.typeId = 'maison',
+    this.motif = 'Vente',
+    required this.dateVisite,
+    this.proprietaireNom = '',
+    this.proprietaireTel = '',
+    this.proprietaireEmail = '',
+    this.surfaceHabitable = 100,
+    this.surfaceTerrain = 300,
+    this.pieces = 4,
+    this.chambres = 3,
+    this.anneeConstruction = '1990-2000',
+    this.etatGeneral = 2,
+    List<String>? orientations,
+    List<String>? vues,
+    this.dpeClasse = 'D',
+    this.chauffageType = 'Gaz naturel',
+    List<String>? revetementsol,
+    Map<String, bool>? annexesActives,
+    this.garagePlaces = 1,
+    List<String>? garageType,
+    this.jardinSurface = 300,
+    List<String>? jardinEtat,
+    Map<String, dynamic>? annexesDetails,
+    this.facade = 'Bon',
+    this.toiture = 'Bon',
+    List<String>? menuiseriesType,
+    List<String>? vitrage,
+    this.chauffageEtat = 'Bon',
+    this.anneeChaudiere = 2018,
+    this.electricite = 'Aux normes',
+    this.isolation = 'Bonne',
+    List<Map<String, dynamic>>? comparables,
+    this.ajustVue = 3,
+    this.ajustEtat = 5,
+    this.ajustDpe = -2,
+    this.ajustTravaux = 0,
+    this.prixFinal = 0,
+    this.fourchetteBasse = 0,
+    this.fourchetteHaute = 0,
+    this.conclusion = '',
+    DateTime? validiteJusquau,
+    List<String>? photosPaths,
+    Map<String, Map<String, dynamic>>? notes,
+  })  : orientations = orientations ?? ['S'],
+        vues = vues ?? [],
+        revetementsol = revetementsol ?? ['Parquet'],
+        annexesActives = annexesActives ??
+            {
+              'garage': true,
+              'terrasse': true,
+              'balcon': false,
+              'cave': true,
+              'jardin': true,
+              'piscine': false,
+              'parking': false,
+            },
+        garageType = garageType ?? ['Intégré'],
+        jardinEtat = jardinEtat ?? ['Entretenu'],
+        annexesDetails = annexesDetails ?? {},
+        menuiseriesType = menuiseriesType ?? ['PVC'],
+        vitrage = vitrage ?? ['Double'],
+        comparables = comparables ?? [],
+        validiteJusquau =
+            validiteJusquau ?? DateTime.now().add(const Duration(days: 365)),
+        photosPaths = photosPaths ?? [],
+        notes = notes ?? {};
+
+  double get prixMoyen {
+    if (comparables.isEmpty) return 3381;
+    final prices = comparables
+        .map<double>((c) => (c['prixM2'] as num?)?.toDouble() ?? 0)
+        .where((p) => p > 0)
+        .toList();
+    if (prices.isEmpty) return 3381;
+    prices.sort();
+    return prices[prices.length ~/ 2];
+  }
+
+  double get prixBase => prixMoyen * surfaceHabitable;
+
+  double get prixCalcule {
+    final totalPct = ajustVue + ajustEtat + ajustDpe;
+    final impact = prixBase * totalPct / 100 - ajustTravaux;
+    final raw = prixBase + impact;
+    return (raw / 1000).round() * 1000;
+  }
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'reference': reference,
+        'createdAt': createdAt.toIso8601String(),
+        'updatedAt': updatedAt.toIso8601String(),
+        'typeId': typeId,
+        'motif': motif,
+        'dateVisite': dateVisite.toIso8601String(),
+        'proprietaireNom': proprietaireNom,
+        'proprietaireTel': proprietaireTel,
+        'proprietaireEmail': proprietaireEmail,
+        'surfaceHabitable': surfaceHabitable,
+        'surfaceTerrain': surfaceTerrain,
+        'pieces': pieces,
+        'chambres': chambres,
+        'anneeConstruction': anneeConstruction,
+        'etatGeneral': etatGeneral,
+        'orientations': jsonEncode(orientations),
+        'vues': jsonEncode(vues),
+        'dpeClasse': dpeClasse,
+        'chauffageType': chauffageType,
+        'revetementsol': jsonEncode(revetementsol),
+        'annexesActives': jsonEncode(annexesActives),
+        'garagePlaces': garagePlaces,
+        'garageType': jsonEncode(garageType),
+        'jardinSurface': jardinSurface,
+        'jardinEtat': jsonEncode(jardinEtat),
+        'annexesDetails': jsonEncode(annexesDetails),
+        'facade': facade,
+        'toiture': toiture,
+        'menuiseriesType': jsonEncode(menuiseriesType),
+        'vitrage': jsonEncode(vitrage),
+        'chauffageEtat': chauffageEtat,
+        'anneeChaudiere': anneeChaudiere,
+        'electricite': electricite,
+        'isolation': isolation,
+        'comparables': jsonEncode(comparables),
+        'ajustVue': ajustVue,
+        'ajustEtat': ajustEtat,
+        'ajustDpe': ajustDpe,
+        'ajustTravaux': ajustTravaux,
+        'prixFinal': prixFinal,
+        'fourchetteBasse': fourchetteBasse,
+        'fourchetteHaute': fourchetteHaute,
+        'conclusion': conclusion,
+        'validiteJusquau': validiteJusquau.toIso8601String(),
+        'photosPaths': jsonEncode(photosPaths),
+        'notes': jsonEncode(notes),
+      };
+
+  factory Estimation.fromMap(Map<String, dynamic> m) {
+    List<String> decodeStrList(String? v) =>
+        v == null ? [] : List<String>.from(jsonDecode(v));
+    Map<String, bool> decodeBoolMap(String? v) =>
+        v == null ? {} : Map<String, bool>.from(jsonDecode(v));
+
+    return Estimation(
+      id: m['id'],
+      reference: m['reference'],
+      createdAt: DateTime.parse(m['createdAt']),
+      updatedAt: DateTime.parse(m['updatedAt']),
+      typeId: m['typeId'] ?? 'maison',
+      motif: m['motif'] ?? 'Vente',
+      dateVisite: DateTime.parse(m['dateVisite']),
+      proprietaireNom: m['proprietaireNom'] ?? '',
+      proprietaireTel: m['proprietaireTel'] ?? '',
+      proprietaireEmail: m['proprietaireEmail'] ?? '',
+      surfaceHabitable: m['surfaceHabitable'] ?? 100,
+      surfaceTerrain: m['surfaceTerrain'] ?? 300,
+      pieces: m['pieces'] ?? 4,
+      chambres: m['chambres'] ?? 3,
+      anneeConstruction: m['anneeConstruction'] ?? '1990-2000',
+      etatGeneral: m['etatGeneral'] ?? 2,
+      orientations: decodeStrList(m['orientations']),
+      vues: decodeStrList(m['vues']),
+      dpeClasse: m['dpeClasse'] ?? 'D',
+      chauffageType: m['chauffageType'] ?? 'Gaz naturel',
+      revetementsol: decodeStrList(m['revetementsol']),
+      annexesActives: decodeBoolMap(m['annexesActives']),
+      garagePlaces: m['garagePlaces'] ?? 1,
+      garageType: decodeStrList(m['garageType']),
+      jardinSurface: m['jardinSurface'] ?? 300,
+      jardinEtat: decodeStrList(m['jardinEtat']),
+      annexesDetails: m['annexesDetails'] != null
+          ? Map<String, dynamic>.from(jsonDecode(m['annexesDetails']))
+          : {},
+      facade: m['facade'] ?? 'Bon',
+      toiture: m['toiture'] ?? 'Bon',
+      menuiseriesType: decodeStrList(m['menuiseriesType']),
+      vitrage: decodeStrList(m['vitrage']),
+      chauffageEtat: m['chauffageEtat'] ?? 'Bon',
+      anneeChaudiere: m['anneeChaudiere'] ?? 2018,
+      electricite: m['electricite'] ?? 'Aux normes',
+      isolation: m['isolation'] ?? 'Bonne',
+      comparables: m['comparables'] != null
+          ? List<Map<String, dynamic>>.from(jsonDecode(m['comparables']))
+          : [],
+      ajustVue: (m['ajustVue'] as num?)?.toDouble() ?? 3,
+      ajustEtat: (m['ajustEtat'] as num?)?.toDouble() ?? 5,
+      ajustDpe: (m['ajustDpe'] as num?)?.toDouble() ?? -2,
+      ajustTravaux: m['ajustTravaux'] ?? 0,
+      prixFinal: (m['prixFinal'] as num?)?.toDouble() ?? 0,
+      fourchetteBasse: (m['fourchetteBasse'] as num?)?.toDouble() ?? 0,
+      fourchetteHaute: (m['fourchetteHaute'] as num?)?.toDouble() ?? 0,
+      conclusion: m['conclusion'] ?? '',
+      validiteJusquau: DateTime.parse(
+          m['validiteJusquau'] ?? DateTime.now().toIso8601String()),
+      photosPaths: decodeStrList(m['photosPaths']),
+      notes: m['notes'] != null
+          ? Map<String, Map<String, dynamic>>.from(
+              (jsonDecode(m['notes']) as Map).map(
+                (k, v) => MapEntry(k, Map<String, dynamic>.from(v)),
+              ),
+            )
+          : {},
+    );
+  }
+
+  Estimation copyWith({
+    String? typeId,
+    String? motif,
+    DateTime? dateVisite,
+    String? proprietaireNom,
+    String? proprietaireTel,
+    String? proprietaireEmail,
+    int? surfaceHabitable,
+    int? surfaceTerrain,
+    int? pieces,
+    int? chambres,
+    String? anneeConstruction,
+    int? etatGeneral,
+    List<String>? orientations,
+    List<String>? vues,
+    String? dpeClasse,
+    String? chauffageType,
+    List<String>? revetementsol,
+    Map<String, bool>? annexesActives,
+    int? garagePlaces,
+    List<String>? garageType,
+    int? jardinSurface,
+    List<String>? jardinEtat,
+    Map<String, dynamic>? annexesDetails,
+    String? facade,
+    String? toiture,
+    List<String>? menuiseriesType,
+    List<String>? vitrage,
+    String? chauffageEtat,
+    int? anneeChaudiere,
+    String? electricite,
+    String? isolation,
+    List<Map<String, dynamic>>? comparables,
+    double? ajustVue,
+    double? ajustEtat,
+    double? ajustDpe,
+    int? ajustTravaux,
+    double? prixFinal,
+    double? fourchetteBasse,
+    double? fourchetteHaute,
+    String? conclusion,
+    DateTime? validiteJusquau,
+    List<String>? photosPaths,
+    Map<String, Map<String, dynamic>>? notes,
+  }) {
+    final copy = Estimation(
+      id: id,
+      reference: reference,
+      createdAt: createdAt,
+      updatedAt: DateTime.now(),
+      typeId: typeId ?? this.typeId,
+      motif: motif ?? this.motif,
+      dateVisite: dateVisite ?? this.dateVisite,
+      proprietaireNom: proprietaireNom ?? this.proprietaireNom,
+      proprietaireTel: proprietaireTel ?? this.proprietaireTel,
+      proprietaireEmail: proprietaireEmail ?? this.proprietaireEmail,
+      surfaceHabitable: surfaceHabitable ?? this.surfaceHabitable,
+      surfaceTerrain: surfaceTerrain ?? this.surfaceTerrain,
+      pieces: pieces ?? this.pieces,
+      chambres: chambres ?? this.chambres,
+      anneeConstruction: anneeConstruction ?? this.anneeConstruction,
+      etatGeneral: etatGeneral ?? this.etatGeneral,
+      orientations: orientations ?? List.from(this.orientations),
+      vues: vues ?? List.from(this.vues),
+      dpeClasse: dpeClasse ?? this.dpeClasse,
+      chauffageType: chauffageType ?? this.chauffageType,
+      revetementsol: revetementsol ?? List.from(this.revetementsol),
+      annexesActives: annexesActives ?? Map.from(this.annexesActives),
+      garagePlaces: garagePlaces ?? this.garagePlaces,
+      garageType: garageType ?? List.from(this.garageType),
+      jardinSurface: jardinSurface ?? this.jardinSurface,
+      jardinEtat: jardinEtat ?? List.from(this.jardinEtat),
+      annexesDetails: annexesDetails ?? Map.from(this.annexesDetails),
+      facade: facade ?? this.facade,
+      toiture: toiture ?? this.toiture,
+      menuiseriesType: menuiseriesType ?? List.from(this.menuiseriesType),
+      vitrage: vitrage ?? List.from(this.vitrage),
+      chauffageEtat: chauffageEtat ?? this.chauffageEtat,
+      anneeChaudiere: anneeChaudiere ?? this.anneeChaudiere,
+      electricite: electricite ?? this.electricite,
+      isolation: isolation ?? this.isolation,
+      comparables: comparables ?? List.from(this.comparables),
+      ajustVue: ajustVue ?? this.ajustVue,
+      ajustEtat: ajustEtat ?? this.ajustEtat,
+      ajustDpe: ajustDpe ?? this.ajustDpe,
+      ajustTravaux: ajustTravaux ?? this.ajustTravaux,
+      prixFinal: prixFinal ?? this.prixFinal,
+      fourchetteBasse: fourchetteBasse ?? this.fourchetteBasse,
+      fourchetteHaute: fourchetteHaute ?? this.fourchetteHaute,
+      conclusion: conclusion ?? this.conclusion,
+      validiteJusquau: validiteJusquau ?? this.validiteJusquau,
+      photosPaths: photosPaths ?? List.from(this.photosPaths),
+      notes: notes ?? Map.from(this.notes),
+    );
+    return copy;
+  }
+}
