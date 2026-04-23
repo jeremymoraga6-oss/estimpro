@@ -19,6 +19,11 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
+      - name: Install NDK 28.2.13676358
+        run: |
+          echo "y" | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "ndk;28.2.13676358"
+          echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/28.2.13676358" >> $GITHUB_ENV
+
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.41.7'
@@ -28,16 +33,7 @@ jobs:
         run: flutter pub get
 
       - name: Build APK
-        run: |
-          flutter build apk --release 2>&1 | tee /tmp/build.log
-          EXIT=${PIPESTATUS[0]}
-          if [ $EXIT -ne 0 ]; then
-            echo "::error::=== LAST 80 LINES ==="
-            tail -80 /tmp/build.log | while IFS= read -r line; do
-              echo "::error::$line"
-            done
-            exit $EXIT
-          fi
+        run: flutter build apk --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
