@@ -27,17 +27,15 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Diagnostics
-        run: |
-          echo "FLUTTER_ROOT=$FLUTTER_ROOT"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
-          flutter --version
-          java -version
-
       - name: Build APK
-        env:
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.stacktrace=all"
-        run: flutter build apk --release
+        run: |
+          flutter build apk --release 2>&1 | tee /tmp/build.log
+          EXIT=${PIPESTATUS[0]}
+          if [ $EXIT -ne 0 ]; then
+            ERRS=$(grep -E "error:|FAILURE|Exception|Could not resolve|Caused by" /tmp/build.log | head -10 | tr '\n' '|')
+            echo "::error::BUILD FAILED: $ERRS"
+            exit $EXIT
+          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
