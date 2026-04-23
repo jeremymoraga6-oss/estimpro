@@ -22,7 +22,6 @@ jobs:
       - name: Install NDK 28.2.13676358
         run: |
           echo "y" | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "ndk;28.2.13676358"
-          echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/28.2.13676358" >> $GITHUB_ENV
 
       - uses: subosito/flutter-action@v2
         with:
@@ -33,7 +32,18 @@ jobs:
         run: flutter pub get
 
       - name: Build APK
-        run: flutter build apk --release
+        id: build
+        run: |
+          flutter build apk --release 2>&1 | tee /tmp/build.log
+          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+
+      - name: Write error to summary
+        if: always()
+        run: |
+          EXIT="${{ steps.build.outputs.exit_code }}"
+          echo "## Build log (last 100 lines)" >> $GITHUB_STEP_SUMMARY
+          tail -100 /tmp/build.log >> $GITHUB_STEP_SUMMARY || echo "No log" >> $GITHUB_STEP_SUMMARY
+          [ "$EXIT" != "0" ] && exit 1 || exit 0
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
