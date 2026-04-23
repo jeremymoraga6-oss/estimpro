@@ -128,18 +128,6 @@
       "languageVersion": "3.10"
     },
     {
-      "name": "http",
-      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/http-1.6.0",
-      "packageUri": "lib/",
-      "languageVersion": "3.4"
-    },
-    {
-      "name": "http_parser",
-      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/http_parser-4.1.2",
-      "packageUri": "lib/",
-      "languageVersion": "3.4"
-    },
-    {
       "name": "image",
       "rootUri": "file:///root/.pub-cache/hosted/pub.dev/image-4.8.0",
       "packageUri": "lib/",
@@ -278,12 +266,6 @@
       "languageVersion": "2.19"
     },
     {
-      "name": "pdf_widget_wrapper",
-      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/pdf_widget_wrapper-1.0.4",
-      "packageUri": "lib/",
-      "languageVersion": "2.18"
-    },
-    {
       "name": "petitparser",
       "rootUri": "file:///root/.pub-cache/hosted/pub.dev/petitparser-7.0.2",
       "packageUri": "lib/",
@@ -306,12 +288,6 @@
       "rootUri": "file:///root/.pub-cache/hosted/pub.dev/posix-6.5.0",
       "packageUri": "lib/",
       "languageVersion": "3.0"
-    },
-    {
-      "name": "printing",
-      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/printing-5.13.1",
-      "packageUri": "lib/",
-      "languageVersion": "3.3"
     },
     {
       "name": "pub_semver",
@@ -344,36 +320,6 @@
       "languageVersion": "3.1"
     },
     {
-      "name": "sqflite",
-      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/sqflite-2.4.2+1",
-      "packageUri": "lib/",
-      "languageVersion": "3.10"
-    },
-    {
-      "name": "sqflite_android",
-      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/sqflite_android-2.4.2+3",
-      "packageUri": "lib/",
-      "languageVersion": "3.10"
-    },
-    {
-      "name": "sqflite_common",
-      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/sqflite_common-2.5.6+1",
-      "packageUri": "lib/",
-      "languageVersion": "3.10"
-    },
-    {
-      "name": "sqflite_darwin",
-      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/sqflite_darwin-2.4.2",
-      "packageUri": "lib/",
-      "languageVersion": "3.7"
-    },
-    {
-      "name": "sqflite_platform_interface",
-      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/sqflite_platform_interface-2.4.0",
-      "packageUri": "lib/",
-      "languageVersion": "3.5"
-    },
-    {
       "name": "stack_trace",
       "rootUri": "file:///root/.pub-cache/hosted/pub.dev/stack_trace-1.12.1",
       "packageUri": "lib/",
@@ -390,12 +336,6 @@
       "rootUri": "file:///root/.pub-cache/hosted/pub.dev/string_scanner-1.4.1",
       "packageUri": "lib/",
       "languageVersion": "3.1"
-    },
-    {
-      "name": "synchronized",
-      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/synchronized-3.4.0+1",
-      "packageUri": "lib/",
-      "languageVersion": "3.11"
     },
     {
       "name": "term_glyph",

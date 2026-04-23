@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/estimation.dart';
@@ -38,8 +37,6 @@ class PdfService {
     final dir = await getApplicationDocumentsDirectory();
     final file = File('${dir.path}/${e.reference}.pdf');
     await file.writeAsBytes(await doc.save());
-
-    await Printing.sharePdf(bytes: await doc.save(), filename: '${e.reference}.pdf');
     return file;
   }
 

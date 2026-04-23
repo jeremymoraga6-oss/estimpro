@@ -1,5 +1,6 @@
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import '../models/estimation.dart';
 
 class DatabaseService {
@@ -7,98 +8,48 @@ class DatabaseService {
   factory DatabaseService() => _instance;
   DatabaseService._internal();
 
-  Database? _db;
-
-  Future<Database> get database async {
-    _db ??= await _initDb();
-    return _db!;
-  }
-
-  Future<Database> _initDb() async {
-    final path = join(await getDatabasesPath(), 'estimpro.db');
-    return openDatabase(
-      path,
-      version: 1,
-      onCreate: (db, version) async {
-        await db.execute('''
-          CREATE TABLE estimations (
-            id TEXT PRIMARY KEY,
-            reference TEXT,
-            createdAt TEXT,
-            updatedAt TEXT,
-            typeId TEXT,
-            motif TEXT,
-            dateVisite TEXT,
-            proprietaireNom TEXT,
-            proprietaireTel TEXT,
-            proprietaireEmail TEXT,
-            surfaceHabitable INTEGER,
-            surfaceTerrain INTEGER,
-            pieces INTEGER,
-            chambres INTEGER,
-            anneeConstruction TEXT,
-            etatGeneral INTEGER,
-            orientations TEXT,
-            vues TEXT,
-            dpeClasse TEXT,
-            chauffageType TEXT,
-            revetementsol TEXT,
-            annexesActives TEXT,
-            garagePlaces INTEGER,
-            garageType TEXT,
-            jardinSurface INTEGER,
-            jardinEtat TEXT,
-            annexesDetails TEXT,
-            facade TEXT,
-            toiture TEXT,
-            menuiseriesType TEXT,
-            vitrage TEXT,
-            chauffageEtat TEXT,
-            anneeChaudiere INTEGER,
-            electricite TEXT,
-            isolation TEXT,
-            comparables TEXT,
-            ajustVue REAL,
-            ajustEtat REAL,
-            ajustDpe REAL,
-            ajustTravaux INTEGER,
-            prixFinal REAL,
-            fourchetteBasse REAL,
-            fourchetteHaute REAL,
-            conclusion TEXT,
-            validiteJusquau TEXT,
-            photosPaths TEXT,
-            notes TEXT
-          )
-        ''');
-      },
-    );
-  }
-
-  Future<void> saveEstimation(Estimation e) async {
-    final db = await database;
-    await db.insert(
-      'estimations',
-      e.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+  Future<File> get _file async {
+    final dir = await getApplicationDocumentsDirectory();
+    return File('${dir.path}/estimations.json');
   }
 
   Future<List<Estimation>> loadAll() async {
-    final db = await database;
-    final rows = await db.query('estimations', orderBy: 'updatedAt DESC');
-    return rows.map(Estimation.fromMap).toList();
+    try {
+      final f = await _file;
+      if (!await f.exists()) return [];
+      final data = jsonDecode(await f.readAsString()) as List;
+      return data.map((m) => Estimation.fromMap(Map<String, dynamic>.from(m))).toList()
+        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> saveEstimation(Estimation e) async {
+    final all = await loadAll();
+    final idx = all.indexWhere((x) => x.id == e.id);
+    if (idx >= 0) {
+      all[idx] = e;
+    } else {
+      all.insert(0, e);
+    }
+    final f = await _file;
+    await f.writeAsString(jsonEncode(all.map((x) => x.toMap()).toList()));
   }
 
   Future<Estimation?> loadById(String id) async {
-    final db = await database;
-    final rows = await db.query('estimations', where: 'id = ?', whereArgs: [id]);
-    if (rows.isEmpty) return null;
-    return Estimation.fromMap(rows.first);
+    final all = await loadAll();
+    try {
+      return all.firstWhere((e) => e.id == id);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> delete(String id) async {
-    final db = await database;
-    await db.delete('estimations', where: 'id = ?', whereArgs: [id]);
+    final all = await loadAll();
+    all.removeWhere((e) => e.id == id);
+    final f = await _file;
+    await f.writeAsString(jsonEncode(all.map((x) => x.toMap()).toList()));
   }
 }
