@@ -27,20 +27,17 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Create local.properties
+      - name: Diagnostics
         run: |
-          echo "flutter.sdk=$(which flutter | sed 's|/bin/flutter||')" > android/local.properties
-          echo "sdk.dir=$ANDROID_SDK_ROOT" >> android/local.properties
+          echo "FLUTTER_ROOT=$FLUTTER_ROOT"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          flutter --version
+          java -version
 
       - name: Build APK
-        run: flutter build apk --release 2>&1 | tee /tmp/flutter_build.log; exit ${PIPESTATUS[0]}
-
-      - name: Upload build log on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: /tmp/flutter_build.log
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.stacktrace=all"
+        run: flutter build apk --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
