@@ -32,8 +32,10 @@ jobs:
           flutter build apk --release 2>&1 | tee /tmp/build.log
           EXIT=${PIPESTATUS[0]}
           if [ $EXIT -ne 0 ]; then
-            ERRS=$(grep -E "error:|FAILURE|Exception|Could not resolve|Caused by" /tmp/build.log | head -10 | tr '\n' '|')
-            echo "::error::BUILD FAILED: $ERRS"
+            echo "::error::=== LAST 80 LINES ==="
+            tail -80 /tmp/build.log | while IFS= read -r line; do
+              echo "::error::$line"
+            done
             exit $EXIT
           fi
 
