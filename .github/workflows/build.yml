@@ -24,8 +24,15 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Create local.properties
+        run: |
+          echo "flutter.sdk=$(which flutter | sed 's|/bin/flutter||')" > android/local.properties
+          echo "sdk.dir=$ANDROID_SDK_ROOT" >> android/local.properties
+          cat android/local.properties
+
       - name: Build APK
-        run: flutter build apk --release
+        run: flutter build apk --release --verbose 2>&1 | tail -200
+        continue-on-error: false
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
