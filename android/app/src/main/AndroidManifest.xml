@@ -30,7 +30,7 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
-        <!-- FileProvider pour les URIs de photos (Android 7+) -->
+        <!-- FileProvider pour les URIs de photos et PDF (Android 7+) -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -38,7 +38,7 @@
             android:grantUriPermissions="true">
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_provider_paths" />
+                android:resource="@xml/file_paths" />
         </provider>
     </application>
     <queries>
@@ -48,6 +48,10 @@
         </intent>
         <intent>
             <action android:name="android.intent.action.SEND"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:mimeType="application/pdf"/>
         </intent>
     </queries>
 </manifest>
