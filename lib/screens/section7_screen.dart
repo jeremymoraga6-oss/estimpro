@@ -8,7 +8,7 @@ import '../widgets/shared.dart';
 import '../widgets/app_header.dart';
 import '../services/pdf_service.dart';
 
-const _maxPhotos = 5;
+const _maxPhotos = 10;
 
 class Section7Screen extends StatefulWidget {
   final Estimation estimation;
