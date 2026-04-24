@@ -11,6 +11,13 @@ class Estimation {
   String typeId; // maison, appartement, chalet, terrain
   String motif;  // vente, succession, divorce, etc.
   DateTime dateVisite;
+  // Adresse du bien
+  String adresseComplete;
+  String codeInsee;
+  String codePostal;
+  double latitude;
+  double longitude;
+  String commune;
   String proprietaireNom;
   String proprietaireTel;
   String proprietaireEmail;
@@ -77,6 +84,12 @@ class Estimation {
     this.typeId = 'maison',
     this.motif = 'Vente',
     required this.dateVisite,
+    this.adresseComplete = '',
+    this.codeInsee = '',
+    this.codePostal = '',
+    this.latitude = 0,
+    this.longitude = 0,
+    this.commune = '',
     this.proprietaireNom = '',
     this.proprietaireTel = '',
     this.proprietaireEmail = '',
@@ -170,6 +183,12 @@ class Estimation {
         'typeId': typeId,
         'motif': motif,
         'dateVisite': dateVisite.toIso8601String(),
+        'adresseComplete': adresseComplete,
+        'codeInsee': codeInsee,
+        'codePostal': codePostal,
+        'latitude': latitude,
+        'longitude': longitude,
+        'commune': commune,
         'proprietaireNom': proprietaireNom,
         'proprietaireTel': proprietaireTel,
         'proprietaireEmail': proprietaireEmail,
@@ -227,6 +246,12 @@ class Estimation {
       typeId: m['typeId'] ?? 'maison',
       motif: m['motif'] ?? 'Vente',
       dateVisite: DateTime.parse(m['dateVisite']),
+      adresseComplete: m['adresseComplete'] as String? ?? '',
+      codeInsee: m['codeInsee'] as String? ?? '',
+      codePostal: m['codePostal'] as String? ?? '',
+      latitude: (m['latitude'] as num?)?.toDouble() ?? 0,
+      longitude: (m['longitude'] as num?)?.toDouble() ?? 0,
+      commune: m['commune'] as String? ?? '',
       proprietaireNom: m['proprietaireNom'] ?? '',
       proprietaireTel: m['proprietaireTel'] ?? '',
       proprietaireEmail: m['proprietaireEmail'] ?? '',
@@ -289,6 +314,12 @@ class Estimation {
     String? typeId,
     String? motif,
     DateTime? dateVisite,
+    String? adresseComplete,
+    String? codeInsee,
+    String? codePostal,
+    double? latitude,
+    double? longitude,
+    String? commune,
     String? proprietaireNom,
     String? proprietaireTel,
     String? proprietaireEmail,
@@ -340,6 +371,12 @@ class Estimation {
       typeId: typeId ?? this.typeId,
       motif: motif ?? this.motif,
       dateVisite: dateVisite ?? this.dateVisite,
+      adresseComplete: adresseComplete ?? this.adresseComplete,
+      codeInsee: codeInsee ?? this.codeInsee,
+      codePostal: codePostal ?? this.codePostal,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      commune: commune ?? this.commune,
       proprietaireNom: proprietaireNom ?? this.proprietaireNom,
       proprietaireTel: proprietaireTel ?? this.proprietaireTel,
       proprietaireEmail: proprietaireEmail ?? this.proprietaireEmail,

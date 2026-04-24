@@ -4,6 +4,7 @@ import '../models/estimation.dart';
 import '../widgets/shared.dart';
 import '../widgets/app_header.dart';
 import '../widgets/mes_notes.dart';
+import '../widgets/adresse_field.dart';
 
 class Section1Screen extends StatefulWidget {
   final Estimation estimation;
@@ -66,6 +67,38 @@ class _Section1ScreenState extends State<Section1Screen> {
               // Le bien
               SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 const CardTitleRow(icon: Icons.home_rounded, label: 'Le bien'),
+
+                const FieldLabel('Adresse du bien'),
+                const SizedBox(height: 5),
+                AdresseField(
+                  initialValue: _e.adresseComplete,
+                  onSelected: (s) => setState(() {
+                    _e = _e.copyWith(
+                      adresseComplete: s.label,
+                      codeInsee: s.codeInsee,
+                      codePostal: s.codePostal,
+                      latitude: s.latitude,
+                      longitude: s.longitude,
+                      commune: s.commune,
+                    );
+                    _save();
+                  }),
+                ),
+                if (_e.codeInsee.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(children: [
+                      const Icon(Icons.check_circle_outline,
+                          size: 12, color: kGreen),
+                      const SizedBox(width: 4),
+                      Text(
+                        'INSEE ${_e.codeInsee} · ${_e.commune} · ${_e.codePostal}',
+                        style:
+                            const TextStyle(fontSize: 11, color: kGreen),
+                      ),
+                    ]),
+                  ),
+                const SizedBox(height: 12),
 
                 const FieldLabel('Type de bien'),
                 const SizedBox(height: 5),

@@ -18,9 +18,8 @@ class Section5Screen extends StatefulWidget {
 
 class _Section5ScreenState extends State<Section5Screen> {
   late Estimation _e;
-  List<DvfTransaction> _dvf = [];
+  DvfFetchResult? _result;
   bool _loading = false;
-  String? _error;
   // null = tous, 'Maison', 'Appartement'
   String? _filterType;
 
@@ -34,16 +33,16 @@ class _Section5ScreenState extends State<Section5Screen> {
   void _update(Estimation e) { setState(() => _e = e); widget.onChanged(e); }
 
   Future<void> _loadDvf() async {
-    setState(() { _loading = true; _error = null; });
-    try {
-      final results = await DvfService().fetch(typeLocal: _filterType);
-      setState(() { _dvf = results; _loading = false; });
-    } catch (e) {
-      setState(() { _error = e.toString(); _loading = false; });
-    }
+    setState(() { _loading = true; _result = null; });
+    final r = await DvfService().fetch(
+      codeInsee: _e.codeInsee,
+      typeLocal: _filterType,
+      surface: _e.surfaceHabitable.toDouble(),
+    );
+    setState(() { _result = r; _loading = false; });
   }
 
-  List<DvfTransaction> get _filtered => _dvf;
+  List<DvfTransaction> get _filtered => _result?.transactions ?? [];
 
   double get _median {
     final prices = _e.comparables.map<double>((c) => (c['prixM2'] as num?)?.toDouble() ?? 0).where((p) => p > 0).toList()..sort();
@@ -106,6 +105,35 @@ class _Section5ScreenState extends State<Section5Screen> {
               ]),
             ])),
 
+            // Debug bandeau
+            if (_result != null)
+              Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F5F5),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFDDDDDD)),
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    const Icon(Icons.bug_report_outlined, size: 13, color: Color(0xFF888888)),
+                    const SizedBox(width: 5),
+                    const Text('DEBUG DVF', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF888888), letterSpacing: 0.6)),
+                  ]),
+                  const SizedBox(height: 4),
+                  Text('INSEE : ${_result!.codeInsee}', style: const TextStyle(fontSize: 10, color: Color(0xFF666666))),
+                  const SizedBox(height: 2),
+                  Text('Résultats bruts : ${_result!.nombreBrut}  →  après filtres : ${_filtered.length}', style: const TextStyle(fontSize: 10, color: Color(0xFF666666))),
+                  const SizedBox(height: 2),
+                  Text(_result!.urlUtilisee, style: const TextStyle(fontSize: 9, color: Color(0xFF999999)), overflow: TextOverflow.ellipsis, maxLines: 2),
+                  if (_result!.erreur != null) ...[
+                    const SizedBox(height: 2),
+                    Text('Erreur : ${_result!.erreur}', style: const TextStyle(fontSize: 10, color: Colors.red)),
+                  ],
+                ]),
+              ),
+
             // Results
             if (_loading)
               const Padding(
@@ -116,7 +144,7 @@ class _Section5ScreenState extends State<Section5Screen> {
                   Text('Chargement des ventes DVF…', style: TextStyle(fontSize: 12, color: kGrey)),
                 ]),
               )
-            else if (_error != null)
+            else if (_result?.erreur != null && _filtered.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Column(children: [
@@ -127,12 +155,20 @@ class _Section5ScreenState extends State<Section5Screen> {
                   TextButton.icon(onPressed: _loadDvf, icon: const Icon(Icons.refresh, size: 16), label: const Text('Réessayer')),
                 ]),
               )
-            else if (_filtered.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Text('Aucune vente trouvée', style: TextStyle(fontSize: 13, color: kGrey)),
+            else if (!_loading && _result != null && _filtered.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Column(children: [
+                  const Icon(Icons.search_off_rounded, color: kLightGrey, size: 36),
+                  const SizedBox(height: 10),
+                  const Text('Aucune vente trouvée dans ce secteur.', style: TextStyle(fontSize: 13, color: kGrey), textAlign: TextAlign.center),
+                  const SizedBox(height: 4),
+                  Text('Code INSEE utilisé : ${_result!.codeInsee}', style: const TextStyle(fontSize: 11, color: kLightGrey)),
+                  const SizedBox(height: 4),
+                  const Text('Essayez d\'élargir la recherche.', style: TextStyle(fontSize: 11, color: kLightGrey, fontStyle: FontStyle.italic)),
+                ]),
               )
-            else ...[
+            else if (_filtered.isNotEmpty) ...[
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
