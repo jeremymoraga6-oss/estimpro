@@ -32,6 +32,10 @@ class PdfService {
           pw.SizedBox(height: 20),
           _conclusionSection(e),
         ],
+        if (e.photosPaths.isNotEmpty) ...[
+          pw.SizedBox(height: 20),
+          _photosSection(e),
+        ],
       ],
     ));
 
@@ -142,6 +146,32 @@ class PdfService {
       _row('Fourchette', '${fmt(low)} — ${fmt(high)}'),
       _row('Validité', _fmtDate(e.validiteJusquau)),
     ]);
+  }
+
+  pw.Widget _photosSection(Estimation e) {
+    final images = <pw.Widget>[];
+    for (final path in e.photosPaths) {
+      try {
+        final bytes = File(path).readAsBytesSync();
+        images.add(pw.Expanded(
+          child: pw.Container(
+            margin: const pw.EdgeInsets.all(3),
+            child: pw.Image(pw.MemoryImage(bytes), fit: pw.BoxFit.cover, height: 160),
+          ),
+        ));
+      } catch (_) {}
+    }
+    if (images.isEmpty) return pw.SizedBox();
+
+    final rows = <pw.Widget>[];
+    for (var i = 0; i < images.length; i += 2) {
+      rows.add(pw.Row(children: [
+        images[i],
+        if (i + 1 < images.length) images[i + 1] else pw.Expanded(child: pw.SizedBox()),
+      ]));
+      if (i + 2 < images.length) rows.add(pw.SizedBox(height: 4));
+    }
+    return _card('PHOTOS DU BIEN', rows);
   }
 
   pw.Widget _conclusionSection(Estimation e) => _card('CONCLUSION', [

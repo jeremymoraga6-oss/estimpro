@@ -1,11 +1,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import '../theme.dart';
 import '../models/estimation.dart';
 import '../widgets/shared.dart';
 import '../widgets/app_header.dart';
 import '../services/pdf_service.dart';
+
+const _maxPhotos = 5;
 
 class Section7Screen extends StatefulWidget {
   final Estimation estimation;
@@ -49,21 +52,20 @@ class _Section7ScreenState extends State<Section7Screen> {
   }
 
   Future<void> _pickFromCamera() async {
-    if (_e.photosPaths.length >= 20) return;
+    if (_e.photosPaths.length >= _maxPhotos) return;
     final XFile? img = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
-    if (img != null) {
-      final paths = List<String>.from(_e.photosPaths)..add(img.path);
-      _update(_e.copyWith(photosPaths: paths));
-    }
+    if (img == null) return;
+    // Copie dans cacheDir pour persistance dans la session
+    final cacheDir = await getTemporaryDirectory();
+    final dest = File('${cacheDir.path}/photo_${DateTime.now().millisecondsSinceEpoch}.jpg');
+    await File(img.path).copy(dest.path);
+    final paths = List<String>.from(_e.photosPaths)..add(dest.path);
+    _update(_e.copyWith(photosPaths: paths));
   }
 
-  Future<void> _pickFromGallery() async {
-    if (_e.photosPaths.length >= 20) return;
-    final List<XFile> imgs = await _picker.pickMultiImage(imageQuality: 85, limit: 20 - _e.photosPaths.length);
-    if (imgs.isNotEmpty) {
-      final paths = List<String>.from(_e.photosPaths)..addAll(imgs.map((x) => x.path));
-      _update(_e.copyWith(photosPaths: paths));
-    }
+  Future<void> _deletePhoto(int index) async {
+    final paths = List<String>.from(_e.photosPaths)..removeAt(index);
+    _update(_e.copyWith(photosPaths: paths));
   }
 
   String _fmt(double n) =>
@@ -93,7 +95,7 @@ class _Section7ScreenState extends State<Section7Screen> {
             SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 const CardTitleRow(icon: Icons.camera_alt_outlined, label: 'Photos du bien'),
-                Text('${_e.photosPaths.length} / 20', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kGreen)),
+                Text('${_e.photosPaths.length} / $_maxPhotos', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kGreen)),
               ]),
               const SizedBox(height: 12),
 
@@ -102,79 +104,72 @@ class _Section7ScreenState extends State<Section7Screen> {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 8, mainAxisSpacing: 8),
-                itemCount: _e.photosPaths.length + (_e.photosPaths.length < 20 ? 1 : 0),
+                itemCount: _e.photosPaths.length + (_e.photosPaths.length < _maxPhotos ? 1 : 0),
                 itemBuilder: (ctx, i) {
                   if (i == _e.photosPaths.length) {
                     return GestureDetector(
-                      onTap: () => _showPickerDialog(context),
+                      onTap: _pickFromCamera,
                       child: Container(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: kGreen.withValues(alpha: 0.5), width: 2, style: BorderStyle.solid),
                           color: kGreen.withValues(alpha: 0.05),
                         ),
-                        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                           Icon(Icons.add_a_photo_outlined, size: 22, color: kGreen),
-                          const SizedBox(height: 4),
-                          const Text('Ajouter', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: kGreen)),
+                          SizedBox(height: 4),
+                          Text('Ajouter', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: kGreen)),
                         ]),
                       ),
                     );
                   }
                   final path = _e.photosPaths[i];
-                  return Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image.file(
-                          File(path),
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            decoration: BoxDecoration(color: const Color(0xFFD4C5A9), borderRadius: BorderRadius.circular(10)),
-                            child: const Icon(Icons.broken_image_outlined, color: Color(0xFF8B7355)),
+                  return GestureDetector(
+                    onLongPress: () => _confirmDelete(context, i),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.file(
+                            File(path),
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              decoration: BoxDecoration(color: const Color(0xFFD4C5A9), borderRadius: BorderRadius.circular(10)),
+                              child: const Icon(Icons.broken_image_outlined, color: Color(0xFF8B7355)),
+                            ),
                           ),
                         ),
-                      ),
-                      Positioned(
-                        top: 4, right: 4,
-                        child: GestureDetector(
-                          onTap: () {
-                            final paths = List<String>.from(_e.photosPaths)..removeAt(i);
-                            _update(_e.copyWith(photosPaths: paths));
-                          },
-                          child: Container(
-                            width: 22, height: 22,
-                            decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), shape: BoxShape.circle),
-                            child: const Icon(Icons.close, size: 12, color: Colors.white),
+                        Positioned(
+                          top: 4, right: 4,
+                          child: GestureDetector(
+                            onTap: () => _deletePhoto(i),
+                            child: Container(
+                              width: 22, height: 22,
+                              decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), shape: BoxShape.circle),
+                              child: const Icon(Icons.close, size: 12, color: Colors.white),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   );
                 },
               ),
               const SizedBox(height: 12),
 
-              Row(children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _pickFromCamera,
-                    icon: const Icon(Icons.camera_alt_outlined, size: 16),
-                    label: const Text('Caméra', style: TextStyle(fontSize: 12)),
-                    style: OutlinedButton.styleFrom(foregroundColor: kGreen, side: const BorderSide(color: kGreen)),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _e.photosPaths.length < _maxPhotos ? _pickFromCamera : null,
+                  icon: const Icon(Icons.camera_alt_outlined, size: 16),
+                  label: Text(
+                    _e.photosPaths.length < _maxPhotos ? 'Ajouter une photo' : 'Maximum atteint ($_maxPhotos photos)',
+                    style: const TextStyle(fontSize: 13),
                   ),
+                  style: OutlinedButton.styleFrom(foregroundColor: kGreen, side: const BorderSide(color: kGreen)),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _pickFromGallery,
-                    icon: const Icon(Icons.photo_library_outlined, size: 16),
-                    label: const Text('Galerie', style: TextStyle(fontSize: 12)),
-                    style: OutlinedButton.styleFrom(foregroundColor: kGreen, side: const BorderSide(color: kGreen)),
-                  ),
-                ),
-              ]),
+              ),
             ])),
 
             // Checklist card
@@ -271,23 +266,18 @@ class _Section7ScreenState extends State<Section7Screen> {
     ]);
   }
 
-  void _showPickerDialog(BuildContext context) {
-    showModalBottomSheet(
+  void _confirmDelete(BuildContext context, int index) {
+    showDialog(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (_) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          ListTile(
-            leading: const Icon(Icons.camera_alt_outlined, color: kGreen),
-            title: const Text('Appareil photo'),
-            onTap: () { Navigator.pop(context); _pickFromCamera(); },
+      builder: (ctx) => AlertDialog(
+        title: const Text('Supprimer la photo ?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () { Navigator.pop(ctx); _deletePhoto(index); },
+            child: const Text('Supprimer', style: TextStyle(color: Colors.red)),
           ),
-          ListTile(
-            leading: const Icon(Icons.photo_library_outlined, color: kGreen),
-            title: const Text('Galerie photos'),
-            onTap: () { Navigator.pop(context); _pickFromGallery(); },
-          ),
-        ]),
+        ],
       ),
     );
   }
