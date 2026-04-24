@@ -242,12 +242,6 @@
       "languageVersion": "3.3"
     },
     {
-      "name": "js",
-      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/js-0.7.2",
-      "packageUri": "lib/",
-      "languageVersion": "3.7"
-    },
-    {
       "name": "json_annotation",
       "rootUri": "file:///root/.pub-cache/hosted/pub.dev/json_annotation-4.11.0",
       "packageUri": "lib/",
@@ -543,19 +537,19 @@
     },
     {
       "name": "speech_to_text",
-      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/speech_to_text-6.6.2",
+      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/speech_to_text-7.3.0",
       "packageUri": "lib/",
-      "languageVersion": "3.0"
-    },
-    {
-      "name": "speech_to_text_macos",
-      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/speech_to_text_macos-1.1.0",
-      "packageUri": "lib/",
-      "languageVersion": "3.0"
+      "languageVersion": "3.3"
     },
     {
       "name": "speech_to_text_platform_interface",
       "rootUri": "file:///root/.pub-cache/hosted/pub.dev/speech_to_text_platform_interface-2.3.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
+    },
+    {
+      "name": "speech_to_text_windows",
+      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/speech_to_text_windows-1.0.0+beta.8",
       "packageUri": "lib/",
       "languageVersion": "3.0"
     },

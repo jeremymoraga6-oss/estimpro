@@ -51,17 +51,31 @@
     },
     {
       "name": "speech_to_text",
-      "version": "6.6.2",
+      "version": "7.3.0",
       "dependencies": [
         "clock",
         "flutter",
         "flutter_web_plugins",
-        "js",
         "json_annotation",
         "meta",
         "pedantic",
-        "speech_to_text_macos",
-        "speech_to_text_platform_interface"
+        "speech_to_text_platform_interface",
+        "speech_to_text_windows",
+        "web"
+      ]
+    },
+    {
+      "name": "record",
+      "version": "5.2.1",
+      "dependencies": [
+        "flutter",
+        "record_android",
+        "record_darwin",
+        "record_linux",
+        "record_platform_interface",
+        "record_web",
+        "record_windows",
+        "uuid"
       ]
     },
     {
@@ -273,19 +287,94 @@
       ]
     },
     {
-      "name": "speech_to_text_macos",
-      "version": "1.1.0",
+      "name": "speech_to_text_windows",
+      "version": "1.0.0+beta.8",
       "dependencies": [
         "flutter",
-        "plugin_platform_interface",
         "speech_to_text_platform_interface"
       ]
+    },
+    {
+      "name": "web",
+      "version": "1.1.1",
+      "dependencies": []
     },
     {
       "name": "flutter_web_plugins",
       "version": "0.0.0",
       "dependencies": [
         "flutter"
+      ]
+    },
+    {
+      "name": "pedantic",
+      "version": "1.11.1",
+      "dependencies": []
+    },
+    {
+      "name": "json_annotation",
+      "version": "4.11.0",
+      "dependencies": [
+        "meta"
+      ]
+    },
+    {
+      "name": "speech_to_text_platform_interface",
+      "version": "2.3.0",
+      "dependencies": [
+        "flutter",
+        "meta",
+        "plugin_platform_interface"
+      ]
+    },
+    {
+      "name": "record_darwin",
+      "version": "1.2.2",
+      "dependencies": [
+        "flutter",
+        "record_platform_interface"
+      ]
+    },
+    {
+      "name": "record_android",
+      "version": "1.5.1",
+      "dependencies": [
+        "flutter",
+        "record_platform_interface"
+      ]
+    },
+    {
+      "name": "record_linux",
+      "version": "0.7.2",
+      "dependencies": [
+        "flutter",
+        "record_platform_interface"
+      ]
+    },
+    {
+      "name": "record_windows",
+      "version": "1.0.7",
+      "dependencies": [
+        "flutter",
+        "record_platform_interface"
+      ]
+    },
+    {
+      "name": "record_web",
+      "version": "1.3.0",
+      "dependencies": [
+        "flutter",
+        "flutter_web_plugins",
+        "record_platform_interface",
+        "web"
+      ]
+    },
+    {
+      "name": "record_platform_interface",
+      "version": "1.5.0",
+      "dependencies": [
+        "flutter",
+        "plugin_platform_interface"
       ]
     },
     {
@@ -347,11 +436,6 @@
         "flutter",
         "open_file_platform_interface"
       ]
-    },
-    {
-      "name": "web",
-      "version": "1.1.1",
-      "dependencies": []
     },
     {
       "name": "http_parser",
@@ -936,96 +1020,6 @@
         "collection",
         "meta",
         "pub_semver"
-      ]
-    },
-    {
-      "name": "js",
-      "version": "0.7.2",
-      "dependencies": []
-    },
-    {
-      "name": "record",
-      "version": "5.2.1",
-      "dependencies": [
-        "flutter",
-        "record_android",
-        "record_darwin",
-        "record_linux",
-        "record_platform_interface",
-        "record_web",
-        "record_windows",
-        "uuid"
-      ]
-    },
-    {
-      "name": "record_windows",
-      "version": "1.0.7",
-      "dependencies": [
-        "flutter",
-        "record_platform_interface"
-      ]
-    },
-    {
-      "name": "record_platform_interface",
-      "version": "1.5.0",
-      "dependencies": [
-        "flutter",
-        "plugin_platform_interface"
-      ]
-    },
-    {
-      "name": "record_darwin",
-      "version": "1.2.2",
-      "dependencies": [
-        "flutter",
-        "record_platform_interface"
-      ]
-    },
-    {
-      "name": "speech_to_text_platform_interface",
-      "version": "2.3.0",
-      "dependencies": [
-        "flutter",
-        "meta",
-        "plugin_platform_interface"
-      ]
-    },
-    {
-      "name": "record_linux",
-      "version": "0.7.2",
-      "dependencies": [
-        "flutter",
-        "record_platform_interface"
-      ]
-    },
-    {
-      "name": "pedantic",
-      "version": "1.11.1",
-      "dependencies": []
-    },
-    {
-      "name": "record_web",
-      "version": "1.3.0",
-      "dependencies": [
-        "flutter",
-        "flutter_web_plugins",
-        "record_platform_interface",
-        "web"
-      ]
-    },
-    {
-      "name": "record_android",
-      "version": "1.5.1",
-      "dependencies": [
-        "flutter",
-        "record_platform_interface"
-      ]
-    },
-    {
-      "name": "json_annotation",
-      "version": "4.11.0",
-      "dependencies": [
-        "meta"
       ]
     }
   ],
