@@ -53,6 +53,14 @@ class Estimation {
   String electricite;
   String isolation;
 
+  // Section 2 — Prestations (notation étoiles 1-4)
+  int noteCuisine;
+  int noteSol;
+  int noteSdb;
+  int noteFenetres;
+  int noteChauffage;
+  int noteEtatPrestation;
+
   // Section 5 — Analyse marché
   List<Map<String, dynamic>> comparables;
 
@@ -118,6 +126,12 @@ class Estimation {
     this.anneeChaudiere = 2018,
     this.electricite = 'Aux normes',
     this.isolation = 'Bonne',
+    this.noteCuisine = 2,
+    this.noteSol = 2,
+    this.noteSdb = 2,
+    this.noteFenetres = 2,
+    this.noteChauffage = 2,
+    this.noteEtatPrestation = 2,
     List<Map<String, dynamic>>? comparables,
     this.ajustVue = 3,
     this.ajustEtat = 5,
@@ -155,6 +169,28 @@ class Estimation {
         photosPaths = photosPaths ?? [],
         notes = notes ?? {};
 
+  double get scorePrestations =>
+      noteCuisine * 0.15 + noteSol * 0.15 + noteSdb * 0.15 +
+      noteFenetres * 0.15 + noteChauffage * 0.20 + noteEtatPrestation * 0.20;
+
+  double get coefficientPrestations {
+    final s = scorePrestations;
+    if (s < 1.5) return -10;
+    if (s < 2.2) return -3;
+    if (s < 3.0) return 0;
+    if (s <= 3.5) return 4;
+    return 8;
+  }
+
+  String get labelCoefficientPrestations {
+    final s = scorePrestations;
+    if (s < 1.5) return 'très dégradé';
+    if (s < 2.2) return 'en dessous de la moyenne';
+    if (s < 3.0) return 'standard marché';
+    if (s <= 3.5) return 'bonne qualité';
+    return 'haut de gamme';
+  }
+
   double get prixMoyen {
     if (comparables.isEmpty) return 3381;
     final prices = comparables
@@ -166,7 +202,8 @@ class Estimation {
     return prices[prices.length ~/ 2];
   }
 
-  double get prixBase => prixMoyen * surfaceHabitable;
+  double get prixM2Retenu => prixMoyen * (1 + coefficientPrestations / 100);
+  double get prixBase => prixM2Retenu * surfaceHabitable;
 
   double get prixCalcule {
     final totalPct = ajustVue + ajustEtat + ajustDpe;
@@ -217,6 +254,12 @@ class Estimation {
         'anneeChaudiere': anneeChaudiere,
         'electricite': electricite,
         'isolation': isolation,
+        'noteCuisine': noteCuisine,
+        'noteSol': noteSol,
+        'noteSdb': noteSdb,
+        'noteFenetres': noteFenetres,
+        'noteChauffage': noteChauffage,
+        'noteEtatPrestation': noteEtatPrestation,
         'comparables': jsonEncode(comparables),
         'ajustVue': ajustVue,
         'ajustEtat': ajustEtat,
@@ -282,6 +325,12 @@ class Estimation {
       anneeChaudiere: m['anneeChaudiere'] ?? 2018,
       electricite: m['electricite'] ?? 'Aux normes',
       isolation: m['isolation'] ?? 'Bonne',
+      noteCuisine: m['noteCuisine'] as int? ?? 2,
+      noteSol: m['noteSol'] as int? ?? 2,
+      noteSdb: m['noteSdb'] as int? ?? 2,
+      noteFenetres: m['noteFenetres'] as int? ?? 2,
+      noteChauffage: m['noteChauffage'] as int? ?? 2,
+      noteEtatPrestation: m['noteEtatPrestation'] as int? ?? 2,
       comparables: m['comparables'] != null
           ? List<Map<String, dynamic>>.from(jsonDecode(m['comparables']))
           : [],
@@ -348,6 +397,12 @@ class Estimation {
     int? anneeChaudiere,
     String? electricite,
     String? isolation,
+    int? noteCuisine,
+    int? noteSol,
+    int? noteSdb,
+    int? noteFenetres,
+    int? noteChauffage,
+    int? noteEtatPrestation,
     List<Map<String, dynamic>>? comparables,
     double? ajustVue,
     double? ajustEtat,
@@ -405,6 +460,12 @@ class Estimation {
       anneeChaudiere: anneeChaudiere ?? this.anneeChaudiere,
       electricite: electricite ?? this.electricite,
       isolation: isolation ?? this.isolation,
+      noteCuisine: noteCuisine ?? this.noteCuisine,
+      noteSol: noteSol ?? this.noteSol,
+      noteSdb: noteSdb ?? this.noteSdb,
+      noteFenetres: noteFenetres ?? this.noteFenetres,
+      noteChauffage: noteChauffage ?? this.noteChauffage,
+      noteEtatPrestation: noteEtatPrestation ?? this.noteEtatPrestation,
       comparables: comparables ?? List.from(this.comparables),
       ajustVue: ajustVue ?? this.ajustVue,
       ajustEtat: ajustEtat ?? this.ajustEtat,

@@ -29,6 +29,8 @@ class PdfService {
         pw.SizedBox(height: 20),
         _marcheSection(e),
         pw.SizedBox(height: 20),
+        _prestationsSection(e),
+        pw.SizedBox(height: 20),
         _estimationSection(e, price),
         if (e.conclusion.isNotEmpty) ...[
           pw.SizedBox(height: 20),
@@ -142,6 +144,31 @@ class PdfService {
         _row('Comparables', '${e.comparables.length} ventes'),
         ...e.comparables.map((c) => _row('  • ${c['addr'] ?? ''}', '${(c['prixM2'] as num?)?.round()} €/m²')),
       ]);
+
+  pw.Widget _prestationsSection(Estimation e) {
+    String stars(int n) => '${'★' * n}${'☆' * (4 - n)}';
+    fmt(double v) => '${v.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} €';
+    final coeff = e.coefficientPrestations;
+    final impact = e.prixM2Retenu * e.surfaceHabitable - e.prixMoyen * e.surfaceHabitable;
+
+    return _card('QUALITÉ DES PRESTATIONS', [
+      _row('Cuisine',              '${stars(e.noteCuisine)} (${e.noteCuisine}/4)'),
+      _row('Sol',                  '${stars(e.noteSol)} (${e.noteSol}/4)'),
+      _row('Salle de bain / Eau',  '${stars(e.noteSdb)} (${e.noteSdb}/4)'),
+      _row('Fenêtres / Menuiseries','${stars(e.noteFenetres)} (${e.noteFenetres}/4)'),
+      _row('Chauffage',            '${stars(e.noteChauffage)} (${e.noteChauffage}/4)'),
+      _row('État général',         '${stars(e.noteEtatPrestation)} (${e.noteEtatPrestation}/4)'),
+      pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(vertical: 6),
+        child: pw.Container(height: 0.5, color: PdfColors.grey300),
+      ),
+      _row('Score pondéré', '${e.scorePrestations.toStringAsFixed(1)}/4', bold: true),
+      _row('Ajustement', '${coeff >= 0 ? '+' : ''}${coeff.toInt()}% — ${e.labelCoefficientPrestations}'),
+      _row('Prix m² médian DVF', '${e.prixMoyen.round()} €/m²'),
+      _row('Prix m² retenu', '${e.prixM2Retenu.round()} €/m²', bold: true),
+      _row('Impact sur la valeur', '${impact >= 0 ? '+' : ''}${fmt(impact)}'),
+    ]);
+  }
 
   pw.Widget _estimationSection(Estimation e, double price) {
     final low = e.fourchetteBasse > 0 ? e.fourchetteBasse : price * 0.95;

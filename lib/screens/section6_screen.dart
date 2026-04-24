@@ -4,6 +4,7 @@ import '../models/estimation.dart';
 import '../widgets/shared.dart';
 import '../widgets/app_header.dart';
 import '../widgets/mes_notes.dart';
+import '../widgets/star_rating.dart';
 
 class Section6Screen extends StatefulWidget {
   final Estimation estimation;
@@ -129,6 +130,38 @@ class _Section6ScreenState extends State<Section6Screen> {
                   child: const Text('POINT DE DÉPART', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF95A5A6), letterSpacing: 0.5)),
                 ),
               ]),
+            ])),
+
+            // Prestations
+            SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const CardTitleRow(icon: Icons.workspace_premium_outlined, label: 'Qualité des prestations'),
+              StarDisplay(label: 'Cuisine', rating: _e.noteCuisine),
+              StarDisplay(label: 'Sol', rating: _e.noteSol),
+              StarDisplay(label: 'Salle de bain', rating: _e.noteSdb),
+              StarDisplay(label: 'Fenêtres / Menuiseries', rating: _e.noteFenetres),
+              StarDisplay(label: 'Chauffage', rating: _e.noteChauffage),
+              StarDisplay(label: 'État général', rating: _e.noteEtatPrestation),
+              const CardDivider(),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Text('Score pondéré : ${_e.scorePrestations.toStringAsFixed(1)}/4',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
+                Text('${_e.coefficientPrestations >= 0 ? '+' : ''}${_e.coefficientPrestations.toInt()}%',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800,
+                        color: _e.coefficientPrestations > 0 ? kGreen : _e.coefficientPrestations < 0 ? kRed : kGrey)),
+              ]),
+              const SizedBox(height: 2),
+              Text(_e.labelCoefficientPrestations,
+                  style: const TextStyle(fontSize: 11, color: kGrey, fontStyle: FontStyle.italic)),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: const Color(0xFFF7F9F6), borderRadius: BorderRadius.circular(8)),
+                child: Column(children: [
+                  _PriceDetailRow('Prix m² médian DVF :', '${_e.prixMoyen.round()} €/m²'),
+                  _PriceDetailRow('Ajustement prestations :', '${_e.coefficientPrestations >= 0 ? '+' : ''}${_e.coefficientPrestations.toInt()}%'),
+                  _PriceDetailRow('Prix m² retenu :', '${_e.prixM2Retenu.round()} €/m²', bold: true),
+                ]),
+              ),
             ])),
 
             // Ajustements
@@ -301,6 +334,22 @@ class _Section6ScreenState extends State<Section6Screen> {
     const months = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
     return '${d.day} ${months[d.month - 1]} ${d.year}';
   }
+}
+
+class _PriceDetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool bold;
+  const _PriceDetailRow(this.label, this.value, {this.bold = false});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 3),
+        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text(label, style: const TextStyle(fontSize: 11, color: kGrey)),
+          Text(value, style: TextStyle(fontSize: 11, fontWeight: bold ? FontWeight.w700 : FontWeight.w500, color: bold ? kGreen : kCharcoal)),
+        ]),
+      );
 }
 
 class _AdjRow extends StatelessWidget {

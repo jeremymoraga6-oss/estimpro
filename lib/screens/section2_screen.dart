@@ -4,6 +4,36 @@ import '../models/estimation.dart';
 import '../widgets/shared.dart';
 import '../widgets/app_header.dart';
 import '../widgets/mes_notes.dart';
+import '../widgets/star_rating.dart';
+
+class _ScoreBadge extends StatelessWidget {
+  final double score;
+  final double coeff;
+  final String label;
+  const _ScoreBadge({required this.score, required this.coeff, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final positive = coeff >= 0;
+    final color = coeff > 0 ? kGreen : coeff < 0 ? kRed : kGrey;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 1.5),
+      ),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Score pondéré : ${score.toStringAsFixed(1)}/4', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
+          Text(label, style: TextStyle(fontSize: 11, color: color, fontStyle: FontStyle.italic)),
+        ]),
+        Text('${positive ? '+' : ''}${coeff.toInt()}%',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: color)),
+      ]),
+    );
+  }
+}
 
 class Section2Screen extends StatefulWidget {
   final Estimation estimation;
@@ -102,7 +132,28 @@ class _Section2ScreenState extends State<Section2Screen> {
               }).toList()),
             ])),
 
-            // Qualité
+            // Qualité des prestations
+            SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const CardTitleRow(icon: Icons.workspace_premium_outlined, label: 'Qualité des prestations'),
+              const Text('Impact sur le prix m² retenu', style: TextStyle(fontSize: 11, color: kGrey, fontStyle: FontStyle.italic)),
+              const SizedBox(height: 10),
+              StarRating(label: 'Cuisine', icon: '🍳', rating: _e.noteCuisine,
+                  onRatingChange: (v) => _update(_e.copyWith(noteCuisine: v))),
+              StarRating(label: 'Sol', icon: '🪵', rating: _e.noteSol,
+                  onRatingChange: (v) => _update(_e.copyWith(noteSol: v))),
+              StarRating(label: 'Salle de bain / Eau', icon: '🚿', rating: _e.noteSdb,
+                  onRatingChange: (v) => _update(_e.copyWith(noteSdb: v))),
+              StarRating(label: 'Fenêtres / Menuiseries', icon: '🪟', rating: _e.noteFenetres,
+                  onRatingChange: (v) => _update(_e.copyWith(noteFenetres: v))),
+              StarRating(label: 'Chauffage', icon: '🔥', rating: _e.noteChauffage,
+                  onRatingChange: (v) => _update(_e.copyWith(noteChauffage: v))),
+              StarRating(label: 'État général', icon: '🏠', rating: _e.noteEtatPrestation,
+                  onRatingChange: (v) => _update(_e.copyWith(noteEtatPrestation: v))),
+              const SizedBox(height: 10),
+              _ScoreBadge(score: _e.scorePrestations, coeff: _e.coefficientPrestations, label: _e.labelCoefficientPrestations),
+            ])),
+
+            // Qualité complémentaire
             SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const CardTitleRow(icon: Icons.star_outline_rounded, label: 'Qualité'),
 
