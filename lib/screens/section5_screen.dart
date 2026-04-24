@@ -3,6 +3,7 @@ import '../theme.dart';
 import '../models/estimation.dart';
 import '../widgets/shared.dart';
 import '../widgets/app_header.dart';
+import '../services/dvf_service.dart';
 
 class Section5Screen extends StatefulWidget {
   final Estimation estimation;
@@ -17,24 +18,32 @@ class Section5Screen extends StatefulWidget {
 
 class _Section5ScreenState extends State<Section5Screen> {
   late Estimation _e;
-
-  static const _defaultComps = [
-    {'addr': '14 Chemin des Granges', 'desc': 'Maison · 112 m² · Bonneville', 'date': 'Mars 2026', 'prix': 385000.0, 'prixM2': 3437.0},
-    {'addr': '7 Route du Môle', 'desc': 'Maison · 125 m² · Ayse', 'date': 'Janvier 2026', 'prix': 410000.0, 'prixM2': 3280.0},
-    {'addr': 'Les Granges Dessus', 'desc': 'Maison · 108 m² · Saint-Pierre-en-Faucigny', 'date': 'Février 2026', 'prix': 370000.0, 'prixM2': 3426.0},
-  ];
+  List<DvfTransaction> _dvf = [];
+  bool _loading = false;
+  String? _error;
+  // null = tous, 'Maison', 'Appartement'
+  String? _filterType;
 
   @override
   void initState() {
     super.initState();
     _e = widget.estimation;
-    if (_e.comparables.isEmpty) {
-      _e = _e.copyWith(comparables: List<Map<String, dynamic>>.from(_defaultComps));
-      widget.onChanged(_e);
-    }
+    _loadDvf();
   }
 
   void _update(Estimation e) { setState(() => _e = e); widget.onChanged(e); }
+
+  Future<void> _loadDvf() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      final results = await DvfService().fetch(typeLocal: _filterType);
+      setState(() { _dvf = results; _loading = false; });
+    } catch (e) {
+      setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  List<DvfTransaction> get _filtered => _dvf;
 
   double get _median {
     final prices = _e.comparables.map<double>((c) => (c['prixM2'] as num?)?.toDouble() ?? 0).where((p) => p > 0).toList()..sort();
@@ -45,6 +54,20 @@ class _Section5ScreenState extends State<Section5Screen> {
   double get _min => _e.comparables.isEmpty ? 0 : _e.comparables.map<double>((c) => (c['prixM2'] as num?)?.toDouble() ?? 0).reduce((a, b) => a < b ? a : b);
   double get _max => _e.comparables.isEmpty ? 0 : _e.comparables.map<double>((c) => (c['prixM2'] as num?)?.toDouble() ?? 0).reduce((a, b) => a > b ? a : b);
 
+  bool _isSelected(DvfTransaction tx) => _e.comparables.any((c) => c['addr'] == tx.toComparable()['addr'] && c['date'] == tx.toComparable()['date']);
+
+  void _toggle(DvfTransaction tx) {
+    final comp = tx.toComparable();
+    final list = List<Map<String, dynamic>>.from(_e.comparables);
+    final idx = list.indexWhere((c) => c['addr'] == comp['addr'] && c['date'] == comp['date']);
+    if (idx >= 0) {
+      list.removeAt(idx);
+    } else {
+      list.add(comp);
+    }
+    _update(_e.copyWith(comparables: list));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(children: [
@@ -54,7 +77,7 @@ class _Section5ScreenState extends State<Section5Screen> {
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
           child: Column(children: [
 
-            // DVF card
+            // DVF header card
             SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Row(children: [
@@ -71,44 +94,87 @@ class _Section5ScreenState extends State<Section5Screen> {
                   child: const Text('SOURCE OFFICIELLE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: kGreen, letterSpacing: 0.8)),
                 ),
               ]),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
 
-              // Comparables
-              ..._e.comparables.asMap().entries.map((entry) => _CompCard(
-                comp: entry.value,
-                onDelete: () {
-                  final list = List<Map<String, dynamic>>.from(_e.comparables)..removeAt(entry.key);
-                  _update(_e.copyWith(comparables: list));
-                },
-              )),
-
-              // Add comparable
-              GestureDetector(
-                onTap: () => _addComparable(context),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: kGreen.withOpacity(0.4), width: 2, style: BorderStyle.solid),
-                  ),
-                  child: Column(children: [
-                    Container(
-                      width: 32, height: 32,
-                      decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: kGreen, width: 2, style: BorderStyle.solid)),
-                      child: const Icon(Icons.add, size: 16, color: kGreen),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text('Ajouter un comparable DVF', style: TextStyle(fontSize: 12, color: kGreen, fontWeight: FontWeight.w600)),
-                    const Text('Rechercher dans DVF', style: TextStyle(fontSize: 11, color: Color(0xFF95A5A6))),
-                  ]),
-                ),
-              ),
+              // Type filter chips
+              Row(children: [
+                _TypeChip(label: 'Tous', selected: _filterType == null, onTap: () { setState(() => _filterType = null); _loadDvf(); }),
+                const SizedBox(width: 8),
+                _TypeChip(label: 'Maison', selected: _filterType == 'Maison', onTap: () { setState(() => _filterType = 'Maison'); _loadDvf(); }),
+                const SizedBox(width: 8),
+                _TypeChip(label: 'Appartement', selected: _filterType == 'Appartement', onTap: () { setState(() => _filterType = 'Appartement'); _loadDvf(); }),
+              ]),
             ])),
+
+            // Results
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 32),
+                child: Column(children: [
+                  CircularProgressIndicator(color: kGreen, strokeWidth: 2.5),
+                  SizedBox(height: 12),
+                  Text('Chargement des ventes DVF…', style: TextStyle(fontSize: 12, color: kGrey)),
+                ]),
+              )
+            else if (_error != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Column(children: [
+                  const Icon(Icons.wifi_off_rounded, color: kLightGrey, size: 36),
+                  const SizedBox(height: 10),
+                  const Text('Impossible de charger les données DVF', style: TextStyle(fontSize: 13, color: kGrey)),
+                  const SizedBox(height: 6),
+                  TextButton.icon(onPressed: _loadDvf, icon: const Icon(Icons.refresh, size: 16), label: const Text('Réessayer')),
+                ]),
+              )
+            else if (_filtered.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Text('Aucune vente trouvée', style: TextStyle(fontSize: 13, color: kGrey)),
+              )
+            else ...[
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  Text('${_filtered.length} vente${_filtered.length > 1 ? 's' : ''} — appuyez pour sélectionner',
+                      style: const TextStyle(fontSize: 11, color: kGrey)),
+                  Text('${_e.comparables.length} sélectionné${_e.comparables.length > 1 ? 's' : ''}',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kGreen)),
+                ]),
+              ),
+              ..._filtered.map((tx) => _DvfCard(
+                tx: tx,
+                selected: _isSelected(tx),
+                onTap: () => _toggle(tx),
+              )),
+            ],
+
+            // Manual add
+            GestureDetector(
+              onTap: () => _addManual(context),
+              child: Container(
+                margin: const EdgeInsets.only(top: 4, bottom: 4),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: kGreen.withOpacity(0.4), width: 2, style: BorderStyle.solid),
+                ),
+                child: Column(children: [
+                  Container(
+                    width: 32, height: 32,
+                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: kGreen, width: 2, style: BorderStyle.solid)),
+                    child: const Icon(Icons.add, size: 16, color: kGreen),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text('Ajouter un comparable manuellement', style: TextStyle(fontSize: 12, color: kGreen, fontWeight: FontWeight.w600)),
+                ]),
+              ),
+            ),
 
             // Synthèse
             if (_e.comparables.isNotEmpty)
               Container(
-                margin: const EdgeInsets.only(bottom: 14),
+                margin: const EdgeInsets.only(top: 10, bottom: 14),
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: const Color(0xFFE8F5E9),
@@ -119,12 +185,11 @@ class _Section5ScreenState extends State<Section5Screen> {
                   Row(children: [
                     const Icon(Icons.check_circle_outline, color: kGreen, size: 18),
                     const SizedBox(width: 8),
-                    Text('Synthèse DVF', style: kCardTitle.copyWith(color: kGreen)),
+                    Text('Synthèse — ${_e.comparables.length} comparable${_e.comparables.length > 1 ? 's' : ''}', style: kCardTitle.copyWith(color: kGreen)),
                   ]),
                   const SizedBox(height: 14),
                   _SynthRow('Prix médian DVF :', '${_median.round()} €/m²', green: true),
                   _SynthRow('Fourchette constatée :', '${_min.round()} — ${_max.round()} €/m²'),
-                  _SynthRow('Délai moyen constaté :', '47 jours'),
                   const Divider(color: Color(0xFFB8DFB8), height: 20),
                   Text(
                     'Votre bien se positionne dans la médiane du marché local.',
@@ -141,7 +206,7 @@ class _Section5ScreenState extends State<Section5Screen> {
     ]);
   }
 
-  void _addComparable(BuildContext context) {
+  void _addManual(BuildContext context) {
     final addrCtrl = TextEditingController();
     final descCtrl = TextEditingController();
     final prixCtrl = TextEditingController();
@@ -173,7 +238,7 @@ class _Section5ScreenState extends State<Section5Screen> {
                 final comp = {
                   'addr': addrCtrl.text,
                   'desc': descCtrl.text,
-                  'date': 'Avril 2026',
+                  'date': 'Avr. 2026',
                   'prix': double.tryParse(prixCtrl.text) ?? 0.0,
                   'prixM2': double.tryParse(m2Ctrl.text) ?? 0.0,
                 };
@@ -199,44 +264,90 @@ class _Section5ScreenState extends State<Section5Screen> {
       );
 }
 
-class _CompCard extends StatelessWidget {
-  final Map<String, dynamic> comp;
-  final VoidCallback onDelete;
-  const _CompCard({required this.comp, required this.onDelete});
+class _TypeChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _TypeChip({required this.label, required this.selected, required this.onTap});
 
   @override
-  Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(left: BorderSide(color: kGreen, width: 4)),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: const [BoxShadow(color: Color(0x10000000), blurRadius: 8, offset: Offset(0, 2))],
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+            color: selected ? kGreen : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: selected ? kGreen : kBorderColor, width: 1.5),
+          ),
+          child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: selected ? Colors.white : kGrey)),
         ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Expanded(child: Text(comp['addr'] ?? '', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal))),
-            GestureDetector(onTap: onDelete, child: const Icon(Icons.close, size: 16, color: kLightGrey)),
+      );
+}
+
+class _DvfCard extends StatelessWidget {
+  final DvfTransaction tx;
+  final bool selected;
+  final VoidCallback onTap;
+  const _DvfCard({required this.tx, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFFE8F5E9) : Colors.white,
+            border: Border(left: BorderSide(color: selected ? kGreen : const Color(0xFFE0E0E0), width: 4)),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: const [BoxShadow(color: Color(0x0F000000), blurRadius: 8, offset: Offset(0, 2))],
+          ),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(
+                  tx.toComparable()['addr'] as String? ?? '',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${tx.typeLocal} · ${tx.surfaceReelleBati.round()} m² · ${tx.nomCommune}',
+                  style: const TextStyle(fontSize: 11, color: kGrey),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Vendu : ${tx.formattedDate}',
+                  style: const TextStyle(fontSize: 11, color: kLightGrey, fontStyle: FontStyle.italic),
+                ),
+                const SizedBox(height: 8),
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  Text(
+                    '${tx.valeurFonciere.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} €',
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kCharcoal),
+                  ),
+                  Row(children: [
+                    Text(
+                      '${tx.prixM2.round()} €/m²',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kGreen),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(color: kGreen.withOpacity(0.12), borderRadius: BorderRadius.circular(4)),
+                      child: const Text('DVF', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: kGreen, letterSpacing: 0.6)),
+                    ),
+                  ]),
+                ]),
+              ]),
+            ),
+            const SizedBox(width: 8),
+            if (selected) const Icon(Icons.check_circle_rounded, color: kGreen, size: 22)
+            else const Icon(Icons.radio_button_unchecked, color: kLightGrey, size: 22),
           ]),
-          const SizedBox(height: 2),
-          Text(comp['desc'] ?? '', style: const TextStyle(fontSize: 11, color: Color(0xFF95A5A6))),
-          const SizedBox(height: 2),
-          Text('Vendu : ${comp['date'] ?? ''}', style: const TextStyle(fontSize: 11, color: kLightGrey, fontStyle: FontStyle.italic)),
-          const SizedBox(height: 8),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text('${(comp['prix'] as num?)?.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} €',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kCharcoal)),
-            Row(children: [
-              Text('${(comp['prixM2'] as num?)?.round()} €/m²',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kGreen)),
-              const SizedBox(width: 6),
-              Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(color: kGreen.withOpacity(0.12), borderRadius: BorderRadius.circular(4)),
-                  child: const Text('DVF', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: kGreen, letterSpacing: 0.6))),
-            ]),
-          ]),
-        ]),
+        ),
       );
 }
 

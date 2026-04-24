@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../theme.dart';
 import '../models/estimation.dart';
 import '../widgets/shared.dart';
@@ -20,7 +22,7 @@ class _Section7ScreenState extends State<Section7Screen> {
   late Estimation _e;
   bool _generating = false;
   bool _generated = false;
-
+  final _picker = ImagePicker();
 
   @override
   void initState() { super.initState(); _e = widget.estimation; }
@@ -46,9 +48,26 @@ class _Section7ScreenState extends State<Section7Screen> {
     }
   }
 
-  String _fmt(double n) {
-    return '${n.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} €';
+  Future<void> _pickFromCamera() async {
+    if (_e.photosPaths.length >= 20) return;
+    final XFile? img = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+    if (img != null) {
+      final paths = List<String>.from(_e.photosPaths)..add(img.path);
+      _update(_e.copyWith(photosPaths: paths));
+    }
   }
+
+  Future<void> _pickFromGallery() async {
+    if (_e.photosPaths.length >= 20) return;
+    final List<XFile> imgs = await _picker.pickMultiImage(imageQuality: 85, limit: 20 - _e.photosPaths.length);
+    if (imgs.isNotEmpty) {
+      final paths = List<String>.from(_e.photosPaths)..addAll(imgs.map((x) => x.path));
+      _update(_e.copyWith(photosPaths: paths));
+    }
+  }
+
+  String _fmt(double n) =>
+      '${n.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} €';
 
   @override
   Widget build(BuildContext context) {
@@ -83,48 +102,51 @@ class _Section7ScreenState extends State<Section7Screen> {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 8, mainAxisSpacing: 8),
-                itemCount: _e.photosPaths.length + 1,
+                itemCount: _e.photosPaths.length + (_e.photosPaths.length < 20 ? 1 : 0),
                 itemBuilder: (ctx, i) {
-                  if (i == 0) {
+                  if (i == _e.photosPaths.length) {
                     return GestureDetector(
-                      onTap: () => _pickPhoto(context),
-                      child: AspectRatio(
-                        aspectRatio: 1,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: kGreen.withOpacity(0.5), width: 2, style: BorderStyle.solid),
-                            color: kGreen.withOpacity(0.05),
-                          ),
-                          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                            Icon(Icons.add, size: 22, color: kGreen),
-                            const SizedBox(height: 4),
-                            const Text('Ajouter', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: kGreen)),
-                          ]),
+                      onTap: () => _showPickerDialog(context),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: kGreen.withValues(alpha: 0.5), width: 2, style: BorderStyle.solid),
+                          color: kGreen.withValues(alpha: 0.05),
                         ),
+                        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          Icon(Icons.add_a_photo_outlined, size: 22, color: kGreen),
+                          const SizedBox(height: 4),
+                          const Text('Ajouter', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: kGreen)),
+                        ]),
                       ),
                     );
                   }
+                  final path = _e.photosPaths[i];
                   return Stack(
+                    fit: StackFit.expand,
                     children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(10),
-                          color: const Color(0xFFD4C5A9),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.file(
+                          File(path),
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            decoration: BoxDecoration(color: const Color(0xFFD4C5A9), borderRadius: BorderRadius.circular(10)),
+                            child: const Icon(Icons.broken_image_outlined, color: Color(0xFF8B7355)),
+                          ),
                         ),
-                        child: const Center(child: Icon(Icons.image_outlined, size: 24, color: Color(0xFF8B7355))),
                       ),
                       Positioned(
                         top: 4, right: 4,
                         child: GestureDetector(
                           onTap: () {
-                            final paths = List<String>.from(_e.photosPaths)..removeAt(i - 1);
+                            final paths = List<String>.from(_e.photosPaths)..removeAt(i);
                             _update(_e.copyWith(photosPaths: paths));
                           },
                           child: Container(
-                            width: 20, height: 20,
-                            decoration: BoxDecoration(color: Colors.black.withOpacity(0.45), shape: BoxShape.circle),
-                            child: const Icon(Icons.close, size: 10, color: Colors.white),
+                            width: 22, height: 22,
+                            decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), shape: BoxShape.circle),
+                            child: const Icon(Icons.close, size: 12, color: Colors.white),
                           ),
                         ),
                       ),
@@ -137,17 +159,17 @@ class _Section7ScreenState extends State<Section7Screen> {
               Row(children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => _pickPhoto(context),
-                    icon: const Text('📷', style: TextStyle(fontSize: 14)),
-                    label: const Text('Appareil photo', style: TextStyle(fontSize: 12)),
+                    onPressed: _pickFromCamera,
+                    icon: const Icon(Icons.camera_alt_outlined, size: 16),
+                    label: const Text('Caméra', style: TextStyle(fontSize: 12)),
                     style: OutlinedButton.styleFrom(foregroundColor: kGreen, side: const BorderSide(color: kGreen)),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => _pickPhoto(context),
-                    icon: const Text('🖼', style: TextStyle(fontSize: 14)),
+                    onPressed: _pickFromGallery,
+                    icon: const Icon(Icons.photo_library_outlined, size: 16),
                     label: const Text('Galerie', style: TextStyle(fontSize: 12)),
                     style: OutlinedButton.styleFrom(foregroundColor: kGreen, side: const BorderSide(color: kGreen)),
                   ),
@@ -170,7 +192,7 @@ class _Section7ScreenState extends State<Section7Screen> {
                         width: 24, height: 24,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: isOk ? kGreen.withOpacity(0.1) : const Color(0xFFFFF9E6),
+                          color: isOk ? kGreen.withValues(alpha: 0.1) : const Color(0xFFFFF9E6),
                           border: Border.all(color: isOk ? kGreen : const Color(0xFFF9A825), width: 1.5),
                         ),
                         child: Icon(isOk ? Icons.check : Icons.warning_amber_rounded,
@@ -220,8 +242,8 @@ class _Section7ScreenState extends State<Section7Screen> {
               icon: _generating
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
                   : Icon(_generated ? Icons.check : Icons.picture_as_pdf_outlined, size: 20),
-              label: Text(_generating ? 'Génération en cours…' : _generated ? 'PDF généré avec succès ✓' : 'Générer le PDF',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              label: Text(_generating ? 'Génération en cours…' : _generated ? 'PDF généré ✓ — Partager à nouveau' : 'Générer et partager le PDF',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _generated ? const Color(0xFFE8F5E9) : kGreen,
                 foregroundColor: _generated ? kGreen : Colors.white,
@@ -249,9 +271,24 @@ class _Section7ScreenState extends State<Section7Screen> {
     ]);
   }
 
-  void _pickPhoto(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Galerie / caméra disponible sur appareil physique'), duration: Duration(seconds: 2)),
+  void _showPickerDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (_) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            leading: const Icon(Icons.camera_alt_outlined, color: kGreen),
+            title: const Text('Appareil photo'),
+            onTap: () { Navigator.pop(context); _pickFromCamera(); },
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_library_outlined, color: kGreen),
+            title: const Text('Galerie photos'),
+            onTap: () { Navigator.pop(context); _pickFromGallery(); },
+          ),
+        ]),
+      ),
     );
   }
 }
@@ -263,12 +300,11 @@ class _PdfPreview extends StatelessWidget {
   Widget _blurLine(double w, {double opacity = 0.12}) => Container(
         height: 8, width: w,
         margin: const EdgeInsets.symmetric(vertical: 3),
-        decoration: BoxDecoration(color: kCharcoal.withOpacity(opacity), borderRadius: BorderRadius.circular(4)),
+        decoration: BoxDecoration(color: kCharcoal.withValues(alpha: opacity), borderRadius: BorderRadius.circular(4)),
       );
 
-  String _fmt(double n) {
-    return '${n.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} €';
-  }
+  String _fmt(double n) =>
+      '${n.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} €';
 
   @override
   Widget build(BuildContext context) {
@@ -277,8 +313,8 @@ class _PdfPreview extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(6),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.14), blurRadius: 24, offset: const Offset(0, 8)),
-                    BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.14), blurRadius: 24, offset: const Offset(0, 8)),
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2))],
       ),
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
