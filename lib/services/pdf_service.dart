@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/estimation.dart';
+import '../models/vendeur_note.dart';
 
 class PdfService {
   Future<File> generate(Estimation e) async {
@@ -36,6 +37,10 @@ class PdfService {
         if (e.photosPaths.isNotEmpty) ...[
           pw.SizedBox(height: 20),
           _photosSection(e),
+        ],
+        if (e.notesVendeur != null) ...[
+          pw.SizedBox(height: 20),
+          _notesVendeurSection(e.notesVendeur!),
         ],
       ],
     ));
@@ -151,6 +156,30 @@ class PdfService {
       _row('Fourchette', '${fmt(low)} — ${fmt(high)}'),
       _row('Validité', _fmtDate(e.validiteJusquau)),
     ]);
+  }
+
+  pw.Widget _notesVendeurSection(VendeurNote n) {
+    final rows = <pw.Widget>[];
+    if (n.motivationVente.isNotEmpty) rows.add(_row('Motivation vente', n.motivationVente));
+    if (n.delaiSouhaite.isNotEmpty)   rows.add(_row('Délai souhaité', n.delaiSouhaite));
+    if (n.prixSouhaite.isNotEmpty)    rows.add(_row('Prix souhaité', n.prixSouhaite));
+    if (n.travauxDeclares.isNotEmpty) rows.add(_row('Travaux déclarés', n.travauxDeclares));
+    if (n.situationPersonnelle.isNotEmpty) rows.add(_row('Situation', n.situationPersonnelle));
+    if (n.pointsForts.isNotEmpty) {
+      rows.add(_row('Points forts', n.pointsForts.map((s) => '• $s').join('\n')));
+    }
+    if (n.pointsFaibles.isNotEmpty) {
+      rows.add(_row('Points faibles', n.pointsFaibles.map((s) => '• $s').join('\n')));
+    }
+    if (rows.isEmpty && n.transcription.isNotEmpty) {
+      rows.add(pw.Padding(
+        padding: const pw.EdgeInsets.only(top: 4),
+        child: pw.Text(n.transcription,
+            style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey800)),
+      ));
+    }
+    if (rows.isEmpty) return pw.SizedBox();
+    return _card('NOTES VENDEUR', rows);
   }
 
   pw.Widget _photosSection(Estimation e) {

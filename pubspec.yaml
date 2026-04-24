@@ -17,6 +17,8 @@ dependencies:
   share_plus: ^10.0.0
   http: ^1.2.1
   open_file: ^3.5.7
+  record: ^5.1.2
+  speech_to_text: ^6.6.2
 
 dev_dependencies:
   flutter_test:

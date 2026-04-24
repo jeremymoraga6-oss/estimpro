@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../models/estimation.dart';
 import '../services/database_service.dart';
+import '../theme.dart';
 import 'section1_screen.dart';
 import 'section2_screen.dart';
 import 'section3_screen.dart';
@@ -9,6 +10,7 @@ import 'section4_screen.dart';
 import 'section5_screen.dart';
 import 'section6_screen.dart';
 import 'section7_screen.dart';
+import 'note_vocale_screen.dart';
 
 class EstimationFlow extends StatefulWidget {
   final Estimation? existing;
@@ -65,8 +67,13 @@ class _EstimationFlowState extends State<EstimationFlow> {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      body: SafeArea(
-        child: _buildStep(),
+      body: SafeArea(child: _buildStep()),
+      floatingActionButton: _MicFab(
+        hasNote: _e.notesVendeur != null,
+        onTap: () async {
+          final note = await showNoteVocaleSheet(context, _e.notesVendeur);
+          if (note != null) await _onChanged(_e.copyWith(notesVendeur: note));
+        },
       ),
     );
   }
@@ -91,4 +98,29 @@ class _EstimationFlowState extends State<EstimationFlow> {
         return Section1Screen(estimation: _e, onChanged: _onChanged, onNext: _next);
     }
   }
+}
+
+class _MicFab extends StatelessWidget {
+  final bool hasNote;
+  final VoidCallback onTap;
+  const _MicFab({required this.hasNote, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => FloatingActionButton(
+        onPressed: onTap,
+        backgroundColor: hasNote ? kGreen : const Color(0xFF37474F),
+        tooltip: 'Note vocale vendeur',
+        child: Stack(alignment: Alignment.center, children: [
+          const Icon(Icons.mic_rounded, color: Colors.white, size: 26),
+          if (hasNote)
+            Positioned(
+              top: 4, right: 4,
+              child: Container(
+                width: 10, height: 10,
+                decoration: const BoxDecoration(
+                    color: Colors.white, shape: BoxShape.circle),
+              ),
+            ),
+        ]),
+      );
 }

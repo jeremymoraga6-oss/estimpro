@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'vendeur_note.dart';
 
 class Estimation {
   final String id;
@@ -62,6 +63,9 @@ class Estimation {
   // Section 7 — Photos
   List<String> photosPaths;
 
+  // Notes vocales vendeur
+  VendeurNote? notesVendeur;
+
   // Notes par section
   Map<String, Map<String, dynamic>> notes;
 
@@ -112,6 +116,7 @@ class Estimation {
     this.conclusion = '',
     DateTime? validiteJusquau,
     List<String>? photosPaths,
+    this.notesVendeur,
     Map<String, Map<String, dynamic>>? notes,
   })  : orientations = orientations ?? ['S'],
         vues = vues ?? [],
@@ -204,6 +209,7 @@ class Estimation {
         'conclusion': conclusion,
         'validiteJusquau': validiteJusquau.toIso8601String(),
         'photosPaths': jsonEncode(photosPaths),
+        'notesVendeur': notesVendeur != null ? jsonEncode(notesVendeur!.toMap()) : null,
         'notes': jsonEncode(notes),
       };
 
@@ -265,6 +271,10 @@ class Estimation {
       validiteJusquau: DateTime.parse(
           m['validiteJusquau'] ?? DateTime.now().toIso8601String()),
       photosPaths: decodeStrList(m['photosPaths']),
+      notesVendeur: m['notesVendeur'] != null
+          ? VendeurNote.fromMap(
+              Map<String, dynamic>.from(jsonDecode(m['notesVendeur'] as String)))
+          : null,
       notes: m['notes'] != null
           ? Map<String, Map<String, dynamic>>.from(
               (jsonDecode(m['notes']) as Map).map(
@@ -318,6 +328,8 @@ class Estimation {
     String? conclusion,
     DateTime? validiteJusquau,
     List<String>? photosPaths,
+    VendeurNote? notesVendeur,
+    bool clearNotesVendeur = false,
     Map<String, Map<String, dynamic>>? notes,
   }) {
     final copy = Estimation(
@@ -367,6 +379,7 @@ class Estimation {
       conclusion: conclusion ?? this.conclusion,
       validiteJusquau: validiteJusquau ?? this.validiteJusquau,
       photosPaths: photosPaths ?? List.from(this.photosPaths),
+      notesVendeur: clearNotesVendeur ? null : (notesVendeur ?? this.notesVendeur),
       notes: notes ?? Map.from(this.notes),
     );
     return copy;
