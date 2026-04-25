@@ -44,43 +44,21 @@ class DvfTransaction {
     return '${months[month]} ${parts[0]}';
   }
 
-  /// Parse a DVF+ Cerema open-data mutation record.
-  /// Fields: datemut, valeurfonc, sbati, libtypbien, l_codinsee, libinsee, l_nomvoie
-  factory DvfTransaction.fromCerema(Map<String, dynamic> j) {
-    // Commune code — l_codinsee is a list (one mutation can span multiple communes)
-    final codeInseeRaw = j['l_codinsee'];
-    final codeInsee = (codeInseeRaw is List && codeInseeRaw.isNotEmpty)
-        ? codeInseeRaw.first?.toString() ?? ''
-        : j['codinsee']?.toString() ?? '';
-
-    // Commune name
-    final libnomRaw = j['l_libinsee'];
-    final libNom = j['libinsee']?.toString() ??
-        ((libnomRaw is List && libnomRaw.isNotEmpty)
-            ? libnomRaw.first?.toString() ?? ''
-            : '');
-
-    // Street name — l_nomvoie is a list per mutation
-    final nomVoieRaw = j['l_nomvoie'];
-    final nomVoie = (nomVoieRaw is List && nomVoieRaw.isNotEmpty)
-        ? nomVoieRaw.first?.toString() ?? ''
-        : '';
-
-    // Date — DVF+ stores as YYYYMMDD integer or YYYY-MM-DD string
-    var datemut = j['datemut']?.toString() ?? '';
-    if (datemut.length == 8 && !datemut.contains('-')) {
-      datemut =
-          '${datemut.substring(0, 4)}-${datemut.substring(4, 6)}-${datemut.substring(6, 8)}';
-    }
-
+  /// Parse a DVF géolocalisées record (tabular-api or api.cquest.org format).
+  factory DvfTransaction.fromTabular(Map<String, dynamic> j) {
+    final addrParts = [
+      j['adresse_numero']?.toString(),
+      j['adresse_nom_voie']?.toString(),
+    ].where((v) => v != null && v.isNotEmpty);
     return DvfTransaction(
-      dateMutation: datemut,
-      valeurFonciere: _parseDouble(j['valeurfonc']),
-      adresse: nomVoie,
-      codeCommune: codeInsee,
-      nomCommune: libNom,
-      typeLocal: j['libtypbien']?.toString() ?? '',
-      surfaceReelleBati: _parseDouble(j['sbati']),
+      dateMutation: j['date_mutation'] as String? ?? '',
+      valeurFonciere: _parseDouble(j['valeur_fonciere']),
+      adresse: addrParts.join(' '),
+      codeCommune: j['code_commune']?.toString() ?? '',
+      nomCommune: j['nom_commune']?.toString() ??
+          j['commune']?.toString() ?? '',
+      typeLocal: j['type_local']?.toString() ?? '',
+      surfaceReelleBati: _parseDouble(j['surface_reelle_bati']),
     );
   }
 
@@ -109,12 +87,17 @@ class DvfFetchResult {
 }
 
 class DvfService {
-  // Cerema DVF+ open-data API — maintained by Cerema & DGALN
-  static const _baseUrl = 'https://apidf-preprod.cerema.fr';
-  static const _endpoint = '/dvf_opendata/mutations/';
+  // api.cquest.org — micro-API DVF, même champs que DVF géolocalisées
+  static const _cquestBase = 'https://api.cquest.org/dvf';
 
-  /// Fetches DVF+ transactions for a single INSEE code.
-  /// Applies surface filter (±30%) and date filter (< 3 ans) after fetch.
+  // Fallback : tabular-api data.gouv.fr — resource ID découvert dynamiquement
+  static const _tabularBase = 'https://tabular-api.data.gouv.fr/api/resources/';
+  static const _catalogUrl =
+      'https://www.data.gouv.fr/api/1/datasets/demandes-de-valeurs-foncieres-geolocalisees/';
+  static String? _cachedResourceId;
+
+  /// Fetches DVF transactions for a single INSEE code.
+  /// Tries api.cquest.org first, then tabular-api as fallback.
   Future<DvfFetchResult> fetch({
     required String codeInsee,
     String? typeLocal,
@@ -130,25 +113,87 @@ class DvfService {
       );
     }
 
-    final params = <String, String>{
-      'codinsee': codeInsee,
-      'page_size': '200',
-    };
-    if (typeLocal != null) params['libtypbien'] = typeLocal;
+    // --- Source 1 : api.cquest.org ---
+    final cquestResult = await _fetchCquest(codeInsee, typeLocal);
+    if (cquestResult != null) {
+      return _applyFilters(cquestResult, surface);
+    }
 
-    final uri =
-        Uri.parse('$_baseUrl$_endpoint').replace(queryParameters: params);
+    // --- Source 2 : tabular-api.data.gouv.fr (resource ID dynamique) ---
+    return _fetchTabular(codeInsee, typeLocal, surface);
+  }
+
+  // ── api.cquest.org ──────────────────────────────────────────────────────
+
+  Future<_RawResult?> _fetchCquest(String codeInsee, String? typeLocal) async {
+    final params = <String, String>{'code_commune': codeInsee};
+    if (typeLocal != null) params['type_local'] = typeLocal;
+
+    final uri = Uri.parse(_cquestBase).replace(queryParameters: params);
     final urlStr = uri.toString();
-    debugPrint('[DVF] GET $urlStr');
+    debugPrint('[DVF/cquest] GET $urlStr');
 
     try {
       final resp = await http
           .get(uri, headers: {'Accept': 'application/json'})
-          .timeout(const Duration(seconds: 20));
-
-      debugPrint('[DVF] status ${resp.statusCode}');
+          .timeout(const Duration(seconds: 15));
+      debugPrint('[DVF/cquest] status ${resp.statusCode}');
 
       if (resp.statusCode != 200) {
+        debugPrint('[DVF/cquest] échec HTTP ${resp.statusCode}');
+        return null;
+      }
+
+      final body = jsonDecode(resp.body) as Map<String, dynamic>;
+      // cquest renvoie { nb_resultats: N, resultats: [...] }
+      final raw = (body['resultats']) as List<dynamic>? ?? [];
+      final count = (body['nb_resultats'] as num?)?.toInt() ?? raw.length;
+
+      final txs = raw
+          .map((item) =>
+              DvfTransaction.fromTabular(item as Map<String, dynamic>))
+          .toList();
+
+      return _RawResult(transactions: txs, nombreBrut: count, url: urlStr);
+    } catch (e) {
+      debugPrint('[DVF/cquest] exception : $e');
+      return null;
+    }
+  }
+
+  // ── tabular-api (fallback) ───────────────────────────────────────────────
+
+  Future<DvfFetchResult> _fetchTabular(
+      String codeInsee, String? typeLocal, double? surface) async {
+    final resourceId = await _resolveResourceId();
+    if (resourceId == null) {
+      return DvfFetchResult(
+        transactions: [],
+        codeInsee: codeInsee,
+        urlUtilisee: _cquestBase,
+        nombreBrut: 0,
+        erreur: 'Aucune source DVF disponible (cquest indisponible, resource ID introuvable)',
+      );
+    }
+
+    final params = <String, String>{
+      'code_commune__exact': codeInsee,
+      'page_size': '100',
+    };
+    if (typeLocal != null) params['type_local__exact'] = typeLocal;
+
+    final uri = Uri.parse('$_tabularBase$resourceId/data/')
+        .replace(queryParameters: params);
+    final urlStr = uri.toString();
+    debugPrint('[DVF/tabular] GET $urlStr');
+
+    try {
+      final resp =
+          await http.get(uri).timeout(const Duration(seconds: 20));
+      debugPrint('[DVF/tabular] status ${resp.statusCode}');
+
+      if (resp.statusCode != 200) {
+        _cachedResourceId = null; // invalide le cache si 404
         return DvfFetchResult(
           transactions: [],
           codeInsee: codeInsee,
@@ -159,53 +204,20 @@ class DvfService {
       }
 
       final body = jsonDecode(resp.body) as Map<String, dynamic>;
-      // Cerema DRF API returns { count: N, next: ..., results: [...] }
-      final raw =
-          (body['results'] ?? body['data']) as List<dynamic>? ?? [];
-      final nombreBrut =
-          (body['count'] as num?)?.toInt() ?? raw.length;
-      debugPrint('[DVF] résultats bruts : $nombreBrut');
+      final raw = (body['data'] ?? body['results']) as List<dynamic>? ?? [];
+      final nombreBrut = raw.length;
 
-      var results = raw
+      final txs = raw
           .map((item) =>
-              DvfTransaction.fromCerema(item as Map<String, dynamic>))
-          .where((tx) => tx.valeurFonciere > 0 && tx.surfaceReelleBati > 0)
+              DvfTransaction.fromTabular(item as Map<String, dynamic>))
           .toList();
 
-      // Date filter — keep last 3 years
-      final cutoff = DateTime.now().subtract(const Duration(days: 3 * 365));
-      results = results.where((tx) {
-        if (tx.dateMutation.isEmpty) return true;
-        try {
-          return DateTime.parse(tx.dateMutation).isAfter(cutoff);
-        } catch (_) {
-          return true;
-        }
-      }).toList();
-
-      // Surface filter ±30%
-      if (surface != null && surface > 0) {
-        final lo = surface * 0.70;
-        final hi = surface * 1.30;
-        results = results
-            .where((tx) =>
-                tx.surfaceReelleBati >= lo && tx.surfaceReelleBati <= hi)
-            .toList();
-      }
-
-      // Sort by date descending
-      results.sort((a, b) => b.dateMutation.compareTo(a.dateMutation));
-
-      debugPrint('[DVF] après filtres : ${results.length}');
-
-      return DvfFetchResult(
-        transactions: results,
-        codeInsee: codeInsee,
-        urlUtilisee: urlStr,
-        nombreBrut: nombreBrut,
+      return _applyFilters(
+        _RawResult(transactions: txs, nombreBrut: nombreBrut, url: urlStr),
+        surface,
       );
     } catch (e) {
-      debugPrint('[DVF] exception : $e');
+      debugPrint('[DVF/tabular] exception : $e');
       return DvfFetchResult(
         transactions: [],
         codeInsee: codeInsee,
@@ -215,4 +227,77 @@ class DvfService {
       );
     }
   }
+
+  /// Discovers the current tabular-api resource ID from the data.gouv.fr catalog.
+  Future<String?> _resolveResourceId() async {
+    if (_cachedResourceId != null) return _cachedResourceId;
+    try {
+      final resp = await http
+          .get(Uri.parse(_catalogUrl))
+          .timeout(const Duration(seconds: 10));
+      if (resp.statusCode != 200) return null;
+      final body = jsonDecode(resp.body) as Map<String, dynamic>;
+      final resources = (body['resources'] as List<dynamic>?) ?? [];
+      // Cherche le premier CSV (le plus récent uploadé en premier)
+      for (final r in resources) {
+        final fmt = r['format']?.toString().toLowerCase() ?? '';
+        if (fmt == 'csv') {
+          _cachedResourceId = r['id']?.toString();
+          debugPrint('[DVF/tabular] resource ID découvert : $_cachedResourceId');
+          return _cachedResourceId;
+        }
+      }
+    } catch (e) {
+      debugPrint('[DVF/tabular] catalog error : $e');
+    }
+    return null;
+  }
+
+  // ── filtres communs ──────────────────────────────────────────────────────
+
+  DvfFetchResult _applyFilters(_RawResult raw, double? surface) {
+    var results = raw.transactions
+        .where((tx) => tx.valeurFonciere > 0 && tx.surfaceReelleBati > 0)
+        .toList();
+
+    final cutoff = DateTime.now().subtract(const Duration(days: 3 * 365));
+    results = results.where((tx) {
+      if (tx.dateMutation.isEmpty) return true;
+      try {
+        return DateTime.parse(tx.dateMutation).isAfter(cutoff);
+      } catch (_) {
+        return true;
+      }
+    }).toList();
+
+    if (surface != null && surface > 0) {
+      final lo = surface * 0.70;
+      final hi = surface * 1.30;
+      results = results
+          .where((tx) =>
+              tx.surfaceReelleBati >= lo && tx.surfaceReelleBati <= hi)
+          .toList();
+    }
+
+    results.sort((a, b) => b.dateMutation.compareTo(a.dateMutation));
+
+    debugPrint('[DVF] après filtres : ${results.length}');
+
+    return DvfFetchResult(
+      transactions: results,
+      codeInsee: results.isNotEmpty ? results.first.codeCommune : '',
+      urlUtilisee: raw.url,
+      nombreBrut: raw.nombreBrut,
+    );
+  }
+}
+
+class _RawResult {
+  final List<DvfTransaction> transactions;
+  final int nombreBrut;
+  final String url;
+  _RawResult(
+      {required this.transactions,
+      required this.nombreBrut,
+      required this.url});
 }
