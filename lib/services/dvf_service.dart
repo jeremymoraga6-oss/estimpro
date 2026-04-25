@@ -44,20 +44,43 @@ class DvfTransaction {
     return '${months[month]} ${parts[0]}';
   }
 
-  factory DvfTransaction.fromTabular(Map<String, dynamic> j) {
-    final addrParts = [
-      j['adresse_numero']?.toString(),
-      j['adresse_nom_voie']?.toString(),
-    ].where((v) => v != null && v.isNotEmpty);
+  /// Parse a DVF+ Cerema open-data mutation record.
+  /// Fields: datemut, valeurfonc, sbati, libtypbien, l_codinsee, libinsee, l_nomvoie
+  factory DvfTransaction.fromCerema(Map<String, dynamic> j) {
+    // Commune code — l_codinsee is a list (one mutation can span multiple communes)
+    final codeInseeRaw = j['l_codinsee'];
+    final codeInsee = (codeInseeRaw is List && codeInseeRaw.isNotEmpty)
+        ? codeInseeRaw.first?.toString() ?? ''
+        : j['codinsee']?.toString() ?? '';
+
+    // Commune name
+    final libnomRaw = j['l_libinsee'];
+    final libNom = j['libinsee']?.toString() ??
+        ((libnomRaw is List && libnomRaw.isNotEmpty)
+            ? libnomRaw.first?.toString() ?? ''
+            : '');
+
+    // Street name — l_nomvoie is a list per mutation
+    final nomVoieRaw = j['l_nomvoie'];
+    final nomVoie = (nomVoieRaw is List && nomVoieRaw.isNotEmpty)
+        ? nomVoieRaw.first?.toString() ?? ''
+        : '';
+
+    // Date — DVF+ stores as YYYYMMDD integer or YYYY-MM-DD string
+    var datemut = j['datemut']?.toString() ?? '';
+    if (datemut.length == 8 && !datemut.contains('-')) {
+      datemut =
+          '${datemut.substring(0, 4)}-${datemut.substring(4, 6)}-${datemut.substring(6, 8)}';
+    }
+
     return DvfTransaction(
-      dateMutation: j['date_mutation'] as String? ?? '',
-      valeurFonciere: _parseDouble(j['valeur_fonciere']),
-      adresse: addrParts.join(' '),
-      codeCommune: j['code_commune']?.toString() ?? '',
-      nomCommune: j['nom_commune']?.toString() ??
-          j['commune']?.toString() ?? '',
-      typeLocal: j['type_local']?.toString() ?? '',
-      surfaceReelleBati: _parseDouble(j['surface_reelle_bati']),
+      dateMutation: datemut,
+      valeurFonciere: _parseDouble(j['valeurfonc']),
+      adresse: nomVoie,
+      codeCommune: codeInsee,
+      nomCommune: libNom,
+      typeLocal: j['libtypbien']?.toString() ?? '',
+      surfaceReelleBati: _parseDouble(j['sbati']),
     );
   }
 
@@ -86,12 +109,11 @@ class DvfFetchResult {
 }
 
 class DvfService {
-  // Tabular API — resource DVF data.gouv.fr
-  static const _tabularBase =
-      'https://tabular-api.data.gouv.fr/api/resources/'
-      '90a98de0-f562-4328-aa16-fe0dd1dca60f/data/';
+  // Cerema DVF+ open-data API — maintained by Cerema & DGALN
+  static const _baseUrl = 'https://apidf-preprod.cerema.fr';
+  static const _endpoint = '/dvf_opendata/mutations/';
 
-  /// Fetches DVF transactions for a single INSEE code.
+  /// Fetches DVF+ transactions for a single INSEE code.
   /// Applies surface filter (±30%) and date filter (< 3 ans) after fetch.
   Future<DvfFetchResult> fetch({
     required String codeInsee,
@@ -109,18 +131,20 @@ class DvfService {
     }
 
     final params = <String, String>{
-      'code_commune__exact': codeInsee,
-      'page_size': '100',
+      'codinsee': codeInsee,
+      'page_size': '200',
     };
-    if (typeLocal != null) params['type_local__exact'] = typeLocal;
+    if (typeLocal != null) params['libtypbien'] = typeLocal;
 
-    final uri = Uri.parse(_tabularBase).replace(queryParameters: params);
+    final uri =
+        Uri.parse('$_baseUrl$_endpoint').replace(queryParameters: params);
     final urlStr = uri.toString();
     debugPrint('[DVF] GET $urlStr');
 
     try {
-      final resp =
-          await http.get(uri).timeout(const Duration(seconds: 20));
+      final resp = await http
+          .get(uri, headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 20));
 
       debugPrint('[DVF] status ${resp.statusCode}');
 
@@ -135,14 +159,16 @@ class DvfService {
       }
 
       final body = jsonDecode(resp.body) as Map<String, dynamic>;
-      // tabular-api returns { data: [...] } or { results: [...] }
-      final raw = (body['data'] ?? body['results']) as List<dynamic>? ?? [];
-      final nombreBrut = raw.length;
+      // Cerema DRF API returns { count: N, next: ..., results: [...] }
+      final raw =
+          (body['results'] ?? body['data']) as List<dynamic>? ?? [];
+      final nombreBrut =
+          (body['count'] as num?)?.toInt() ?? raw.length;
       debugPrint('[DVF] résultats bruts : $nombreBrut');
 
       var results = raw
           .map((item) =>
-              DvfTransaction.fromTabular(item as Map<String, dynamic>))
+              DvfTransaction.fromCerema(item as Map<String, dynamic>))
           .where((tx) => tx.valeurFonciere > 0 && tx.surfaceReelleBati > 0)
           .toList();
 
