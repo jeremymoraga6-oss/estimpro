@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'vendeur_note.dart';
+import '../services/georisques_service.dart';
 
 class Estimation {
   final String id;
@@ -78,6 +79,9 @@ class Estimation {
   // Section 7 — Photos
   List<String> photosPaths;
 
+  // IAL — Risques naturels & technologiques (Géorisques)
+  GeorisquesData? risques;
+
   // Notes vocales vendeur
   VendeurNote? notesVendeur;
 
@@ -143,6 +147,7 @@ class Estimation {
     this.conclusion = '',
     DateTime? validiteJusquau,
     List<String>? photosPaths,
+    this.risques,
     this.notesVendeur,
     Map<String, Map<String, dynamic>>? notes,
   })  : orientations = orientations ?? ['S'],
@@ -271,6 +276,7 @@ class Estimation {
         'conclusion': conclusion,
         'validiteJusquau': validiteJusquau.toIso8601String(),
         'photosPaths': jsonEncode(photosPaths),
+        'risques': risques != null ? jsonEncode(risques!.toMap()) : null,
         'notesVendeur': notesVendeur != null ? jsonEncode(notesVendeur!.toMap()) : null,
         'notes': jsonEncode(notes),
       };
@@ -345,6 +351,10 @@ class Estimation {
       validiteJusquau: DateTime.parse(
           m['validiteJusquau'] ?? DateTime.now().toIso8601String()),
       photosPaths: decodeStrList(m['photosPaths']),
+      risques: m['risques'] != null
+          ? GeorisquesData.fromMap(
+              Map<String, dynamic>.from(jsonDecode(m['risques'] as String)))
+          : null,
       notesVendeur: m['notesVendeur'] != null
           ? VendeurNote.fromMap(
               Map<String, dynamic>.from(jsonDecode(m['notesVendeur'] as String)))
@@ -414,6 +424,8 @@ class Estimation {
     String? conclusion,
     DateTime? validiteJusquau,
     List<String>? photosPaths,
+    GeorisquesData? risques,
+    bool clearRisques = false,
     VendeurNote? notesVendeur,
     bool clearNotesVendeur = false,
     Map<String, Map<String, dynamic>>? notes,
@@ -477,6 +489,7 @@ class Estimation {
       conclusion: conclusion ?? this.conclusion,
       validiteJusquau: validiteJusquau ?? this.validiteJusquau,
       photosPaths: photosPaths ?? List.from(this.photosPaths),
+      risques: clearRisques ? null : (risques ?? this.risques),
       notesVendeur: clearNotesVendeur ? null : (notesVendeur ?? this.notesVendeur),
       notes: notes ?? Map.from(this.notes),
     );

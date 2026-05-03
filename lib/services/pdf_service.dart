@@ -7,6 +7,7 @@ import 'package:open_file/open_file.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/estimation.dart';
 import '../models/vendeur_note.dart';
+import 'georisques_service.dart';
 
 class PdfService {
   Future<File> generate(Estimation e) async {
@@ -32,6 +33,10 @@ class PdfService {
         _prestationsSection(e),
         pw.SizedBox(height: 20),
         _estimationSection(e, price),
+        if (e.risques != null && e.risques!.hasData) ...[
+          pw.SizedBox(height: 20),
+          _risquesSection(e.risques!),
+        ],
         if (e.conclusion.isNotEmpty) ...[
           pw.SizedBox(height: 20),
           _conclusionSection(e),
@@ -183,6 +188,44 @@ class PdfService {
       _row('Fourchette', '${fmt(low)} — ${fmt(high)}'),
       _row('Validité', _fmtDate(e.validiteJusquau)),
     ]);
+  }
+
+  pw.Widget _risquesSection(GeorisquesData r) {
+    final rows = <pw.Widget>[];
+
+    rows.add(_row(
+        'Niveau sismique',
+        r.niveauSismique.isEmpty ? '—' : 'Zone ${r.niveauSismique} / 5',
+        bold: true));
+    rows.add(_row('Potentiel radon',
+        r.potentielRadon.isEmpty ? '—' : r.potentielRadon));
+    rows.add(_row('Retrait-gonflement argile (RGA)',
+        r.niveauArgile.isEmpty ? '—' : r.niveauArgile));
+
+    if (r.risquesNaturels.isNotEmpty) {
+      rows.add(pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(vertical: 6),
+        child: pw.Container(height: 0.5, color: PdfColors.grey300),
+      ));
+      rows.add(_row('Risques naturels recensés',
+          r.risquesNaturels.map((s) => '• $s').join('\n')));
+    }
+    if (r.risquesTechnologiques.isNotEmpty) {
+      rows.add(_row('Risques technologiques',
+          r.risquesTechnologiques.map((s) => '• $s').join('\n')));
+    }
+    if (r.nbCatnat > 0) {
+      rows.add(_row('Arrêtés Cat. Nat. recensés', '${r.nbCatnat}'));
+    }
+
+    rows.add(pw.SizedBox(height: 6));
+    rows.add(pw.Text(
+      'Information transmise au futur acquéreur — obligation IAL (Code de l\'environnement art. L.125-5). Source : Géorisques (officiel).',
+      style: const pw.TextStyle(
+          fontSize: 8, color: PdfColors.grey600, lineSpacing: 1.3),
+    ));
+
+    return _card('RISQUES NATURELS & TECHNOLOGIQUES (IAL)', rows);
   }
 
   pw.Widget _notesVendeurSection(VendeurNote n) {

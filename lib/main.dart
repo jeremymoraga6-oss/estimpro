@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'theme.dart';
 import 'screens/home_screen.dart';
+import 'services/crash_reporter.dart';
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  runApp(const EstimProApp());
+  CrashReporter.install(() {
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    runApp(const EstimProApp());
+  });
 }
 
 class EstimProApp extends StatelessWidget {

@@ -4,6 +4,7 @@ import '../models/estimation.dart';
 import '../widgets/shared.dart';
 import '../widgets/app_header.dart';
 import '../services/dvf_service.dart';
+import '../services/georisques_service.dart';
 
 class Section5Screen extends StatefulWidget {
   final Estimation estimation;
@@ -20,6 +21,7 @@ class _Section5ScreenState extends State<Section5Screen> {
   late Estimation _e;
   DvfFetchResult? _result;
   bool _loading = false;
+  bool _loadingRisques = false;
   // null = tous, 'Maison', 'Appartement'
   String? _filterType;
 
@@ -28,6 +30,7 @@ class _Section5ScreenState extends State<Section5Screen> {
     super.initState();
     _e = widget.estimation;
     _loadDvf();
+    if (_e.risques == null) _loadRisques();
   }
 
   void _update(Estimation e) { setState(() => _e = e); widget.onChanged(e); }
@@ -40,6 +43,19 @@ class _Section5ScreenState extends State<Section5Screen> {
       surface: _e.surfaceHabitable.toDouble(),
     );
     setState(() { _result = r; _loading = false; });
+  }
+
+  Future<void> _loadRisques() async {
+    if (_e.codeInsee.isEmpty) return;
+    setState(() => _loadingRisques = true);
+    final r = await GeorisquesService().fetch(
+      codeInsee: _e.codeInsee,
+      latitude: _e.latitude,
+      longitude: _e.longitude,
+    );
+    if (!mounted) return;
+    setState(() => _loadingRisques = false);
+    _update(_e.copyWith(risques: r));
   }
 
   List<DvfTransaction> get _filtered => _result?.transactions ?? [];
@@ -205,6 +221,13 @@ class _Section5ScreenState extends State<Section5Screen> {
                   const Text('Ajouter un comparable manuellement', style: TextStyle(fontSize: 12, color: kGreen, fontWeight: FontWeight.w600)),
                 ]),
               ),
+            ),
+
+            // Risques naturels & technologiques (IAL)
+            _RisquesCard(
+              data: _e.risques,
+              loading: _loadingRisques,
+              onRefresh: _loadRisques,
             ),
 
             // Synthèse
@@ -400,5 +423,174 @@ class _SynthRow extends StatelessWidget {
           Text(label, style: const TextStyle(fontSize: 12, color: kGrey)),
           Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: green ? kGreen : kCharcoal)),
         ]),
+      );
+}
+
+class _RisquesCard extends StatelessWidget {
+  final GeorisquesData? data;
+  final bool loading;
+  final VoidCallback onRefresh;
+  const _RisquesCard({required this.data, required this.loading, required this.onRefresh});
+
+  Color _sismiqueColor(String z) {
+    final n = int.tryParse(z) ?? 0;
+    if (n >= 4) return kRed;
+    if (n == 3) return kAmber;
+    if (n >= 1) return kGreen;
+    return kGrey;
+  }
+
+  Color _radonColor(String r) {
+    if (r == 'Important') return kRed;
+    if (r == 'Moyen') return kAmber;
+    if (r == 'Faible') return kGreen;
+    return kGrey;
+  }
+
+  Color _argileColor(String a) {
+    if (a == 'Fort') return kRed;
+    if (a == 'Moyen') return kAmber;
+    if (a == 'Faible') return kGreen;
+    return kGrey;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SectionCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Row(children: [
+            const Icon(Icons.warning_amber_rounded, color: kAmber, size: 18),
+            const SizedBox(width: 8),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+              Text('Risques naturels & technologiques',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kCharcoal)),
+              Text('IAL — Source Géorisques (officiel)',
+                  style: TextStyle(fontSize: 11, color: kGrey)),
+            ]),
+          ]),
+          IconButton(
+            onPressed: loading ? null : onRefresh,
+            icon: loading
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: kGreen))
+                : const Icon(Icons.refresh_rounded, color: kGreen, size: 20),
+            tooltip: 'Actualiser',
+          ),
+        ]),
+        const SizedBox(height: 6),
+
+        if (data == null && !loading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text('Aucune donnée chargée — appuyez sur ↻ pour interroger Géorisques.',
+                style: TextStyle(fontSize: 11, color: kLightGrey, fontStyle: FontStyle.italic)),
+          )
+        else if (data != null && data!.erreur != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Text('Erreur : ${data!.erreur}', style: const TextStyle(fontSize: 11, color: Colors.red)),
+          )
+        else if (data != null) ...[
+          const SizedBox(height: 4),
+          // Indicateurs principaux
+          Row(children: [
+            Expanded(child: _RiskTile(
+              icon: Icons.public_rounded,
+              label: 'Sismicité',
+              value: data!.niveauSismique.isEmpty ? '—' : 'Zone ${data!.niveauSismique}/5',
+              color: _sismiqueColor(data!.niveauSismique),
+            )),
+            const SizedBox(width: 8),
+            Expanded(child: _RiskTile(
+              icon: Icons.air_rounded,
+              label: 'Radon',
+              value: data!.potentielRadon.isEmpty ? '—' : data!.potentielRadon,
+              color: _radonColor(data!.potentielRadon),
+            )),
+            const SizedBox(width: 8),
+            Expanded(child: _RiskTile(
+              icon: Icons.layers_rounded,
+              label: 'Argile (RGA)',
+              value: data!.niveauArgile.isEmpty ? '—' : data!.niveauArgile,
+              color: _argileColor(data!.niveauArgile),
+            )),
+          ]),
+          const SizedBox(height: 12),
+
+          if (data!.risquesNaturels.isNotEmpty) ...[
+            const Text('Risques naturels recensés', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: kCharcoal)),
+            const SizedBox(height: 4),
+            Wrap(spacing: 6, runSpacing: 6, children: data!.risquesNaturels.map((r) => _RiskChip(label: r, color: kAmber)).toList()),
+            const SizedBox(height: 10),
+          ],
+
+          if (data!.risquesTechnologiques.isNotEmpty) ...[
+            const Text('Risques technologiques', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: kCharcoal)),
+            const SizedBox(height: 4),
+            Wrap(spacing: 6, runSpacing: 6, children: data!.risquesTechnologiques.map((r) => _RiskChip(label: r, color: kRed)).toList()),
+            const SizedBox(height: 10),
+          ],
+
+          if (data!.nbCatnat > 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(
+                '${data!.nbCatnat} arrêté${data!.nbCatnat > 1 ? 's' : ''} de catastrophe naturelle sur la commune',
+                style: const TextStyle(fontSize: 11, color: kGrey, fontStyle: FontStyle.italic),
+              ),
+            ),
+
+          const SizedBox(height: 4),
+          const Text(
+            'Information transmise au futur acquéreur (obligation IAL — Code de l\'environnement L.125-5).',
+            style: TextStyle(fontSize: 10, color: kLightGrey, fontStyle: FontStyle.italic),
+          ),
+        ],
+      ]),
+    );
+  }
+}
+
+class _RiskTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+  const _RiskTile({required this.icon, required this.label, required this.value, required this.color});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.3), width: 1.2),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 4),
+            Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
+          ]),
+          const SizedBox(height: 4),
+          Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
+        ]),
+      );
+}
+
+class _RiskChip extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _RiskChip({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
       );
 }
