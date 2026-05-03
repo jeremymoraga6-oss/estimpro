@@ -41,8 +41,17 @@ class _Section5ScreenState extends State<Section5Screen> {
       codeInsee: _e.codeInsee,
       typeLocal: _filterType,
       surface: _e.surfaceHabitable.toDouble(),
+      radiusKm: _e.dvfRadiusKm > 0 ? _e.dvfRadiusKm : null,
+      latitude: _e.latitude,
+      longitude: _e.longitude,
     );
     setState(() { _result = r; _loading = false; });
+  }
+
+  void _setRadius(double km) {
+    if (_e.dvfRadiusKm == km) return;
+    _update(_e.copyWith(dvfRadiusKm: km));
+    _loadDvf();
   }
 
   Future<void> _loadRisques() async {
@@ -119,6 +128,22 @@ class _Section5ScreenState extends State<Section5Screen> {
                 const SizedBox(width: 8),
                 _TypeChip(label: 'Appartement', selected: _filterType == 'Appartement', onTap: () { setState(() => _filterType = 'Appartement'); _loadDvf(); }),
               ]),
+              const SizedBox(height: 10),
+
+              // Radius filter
+              Row(children: [
+                const Icon(Icons.radar_rounded, size: 14, color: kGrey),
+                const SizedBox(width: 6),
+                const Text('Rayon :', style: TextStyle(fontSize: 11, color: kGrey, fontWeight: FontWeight.w600)),
+                const SizedBox(width: 8),
+                _TypeChip(label: 'Commune', selected: _e.dvfRadiusKm == 0, onTap: () => _setRadius(0)),
+                const SizedBox(width: 6),
+                _TypeChip(label: '1 km', selected: _e.dvfRadiusKm == 1, onTap: () => _setRadius(1)),
+                const SizedBox(width: 6),
+                _TypeChip(label: '3 km', selected: _e.dvfRadiusKm == 3, onTap: () => _setRadius(3)),
+                const SizedBox(width: 6),
+                _TypeChip(label: '5 km', selected: _e.dvfRadiusKm == 5, onTap: () => _setRadius(5)),
+              ]),
             ])),
 
             // Debug bandeau
@@ -188,7 +213,10 @@ class _Section5ScreenState extends State<Section5Screen> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Text('${_filtered.length} vente${_filtered.length > 1 ? 's' : ''} — appuyez pour sélectionner',
+                  Text(
+                      _e.dvfRadiusKm > 0
+                          ? '${_filtered.length} vente${_filtered.length > 1 ? 's' : ''} dans un rayon de ${_e.dvfRadiusKm.toInt()} km'
+                          : '${_filtered.length} vente${_filtered.length > 1 ? 's' : ''} sur la commune',
                       style: const TextStyle(fontSize: 11, color: kGrey)),
                   Text('${_e.comparables.length} sélectionné${_e.comparables.length > 1 ? 's' : ''}',
                       style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kGreen)),
@@ -377,10 +405,30 @@ class _DvfCard extends StatelessWidget {
                   style: const TextStyle(fontSize: 11, color: kGrey),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  'Vendu : ${tx.formattedDate}',
-                  style: const TextStyle(fontSize: 11, color: kLightGrey, fontStyle: FontStyle.italic),
-                ),
+                Row(children: [
+                  Text(
+                    'Vendu : ${tx.formattedDate}',
+                    style: const TextStyle(fontSize: 11, color: kLightGrey, fontStyle: FontStyle.italic),
+                  ),
+                  if (tx.distanceKm != null) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: kGreen.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.near_me_rounded, size: 9, color: kGreen),
+                        const SizedBox(width: 2),
+                        Text(
+                          '${tx.distanceKm!.toStringAsFixed(1)} km',
+                          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: kGreen),
+                        ),
+                      ]),
+                    ),
+                  ],
+                ]),
                 const SizedBox(height: 8),
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                   Text(

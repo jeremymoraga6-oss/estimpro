@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'geo_service.dart';
 
 class DvfTransaction {
   final String dateMutation;
@@ -9,6 +10,9 @@ class DvfTransaction {
   final String nomCommune;
   final String typeLocal;
   final double surfaceReelleBati;
+  final double latitude;
+  final double longitude;
+  final double? distanceKm; // distance au bien estimé (null si pas de rayon)
 
   const DvfTransaction({
     required this.dateMutation,
@@ -18,7 +22,23 @@ class DvfTransaction {
     required this.nomCommune,
     required this.typeLocal,
     required this.surfaceReelleBati,
+    this.latitude = 0,
+    this.longitude = 0,
+    this.distanceKm,
   });
+
+  DvfTransaction withDistance(double km) => DvfTransaction(
+        dateMutation: dateMutation,
+        valeurFonciere: valeurFonciere,
+        adresse: adresse,
+        codeCommune: codeCommune,
+        nomCommune: nomCommune,
+        typeLocal: typeLocal,
+        surfaceReelleBati: surfaceReelleBati,
+        latitude: latitude,
+        longitude: longitude,
+        distanceKm: km,
+      );
 
   double get prixM2 =>
       surfaceReelleBati > 0 ? valeurFonciere / surfaceReelleBati : 0;
@@ -26,7 +46,8 @@ class DvfTransaction {
 
   Map<String, dynamic> toComparable() => {
         'addr': adresse.isNotEmpty ? adresse : nomCommune,
-        'desc': '$typeLocal · ${surfaceReelleBati.round()} m² · $nomCommune',
+        'desc': '$typeLocal · ${surfaceReelleBati.round()} m² · $nomCommune'
+            '${distanceKm != null ? ' · ${distanceKm!.toStringAsFixed(1)} km' : ''}',
         'date': _fmtDate(dateMutation),
         'prix': valeurFonciere,
         'prixM2': prixM2.roundToDouble(),
@@ -56,6 +77,8 @@ class DvfTransaction {
       nomCommune: r['nom_commune'] ?? '',
       typeLocal: r['type_local'] ?? '',
       surfaceReelleBati: _parseDouble(r['surface_reelle_bati']),
+      latitude: _parseDouble(r['latitude']),
+      longitude: _parseDouble(r['longitude']),
     );
   }
 
@@ -90,11 +113,18 @@ class DvfService {
   static const _base = 'https://files.data.gouv.fr/geo-dvf/latest/csv';
 
   /// Fetch DVF transactions for a commune across the last 3-4 years,
-  /// with optional surface (±30%) and type filtering.
+  /// with optional surface (±30%), type, and radius (km) filtering.
+  ///
+  /// If [radiusKm] is set with [latitude]/[longitude], the search expands to
+  /// neighboring communes whose center is within radius+5km, then each
+  /// transaction is filtered by exact Haversine distance.
   Future<DvfFetchResult> fetch({
     required String codeInsee,
     String? typeLocal,
     double? surface,
+    double? radiusKm,
+    double? latitude,
+    double? longitude,
   }) async {
     if (codeInsee.isEmpty) {
       return const DvfFetchResult(
@@ -117,24 +147,51 @@ class DvfService {
       );
     }
 
+    // Détermine la liste des communes à interroger
+    final useRadius = radiusKm != null &&
+        radiusKm > 0 &&
+        latitude != null &&
+        longitude != null &&
+        latitude != 0 &&
+        longitude != 0;
+
+    final communeCodes = <String>[codeInsee];
+    if (useRadius) {
+      final nearby = await GeoService()
+          .communesInDept(dep: dep, lat: latitude, lon: longitude);
+      // Buffer de 5 km : les communes peuvent s'étendre au-delà de leur centre
+      final buffer = 5.0;
+      // Limite à 25 communes max pour ne pas exploser le nombre de requêtes
+      final filtered = nearby
+          .where((c) => c.distanceKm <= radiusKm + buffer)
+          .take(25)
+          .map((c) => c.code)
+          .toSet();
+      filtered.add(codeInsee); // toujours inclure la commune de base
+      communeCodes
+        ..clear()
+        ..addAll(filtered);
+      debugPrint('[DVF] rayon ${radiusKm}km → ${communeCodes.length} communes');
+    }
+
     // Couvre la fenêtre 3 ans + buffer (le filtre de date final s'occupe du reste)
     final now = DateTime.now();
-    final years = [
-      now.year,
-      now.year - 1,
-      now.year - 2,
-      now.year - 3,
-    ];
+    final years = [now.year, now.year - 1, now.year - 2, now.year - 3];
 
-    debugPrint('[DVF] INSEE=$codeInsee dep=$dep years=$years');
+    debugPrint('[DVF] INSEE=$codeInsee dep=$dep years=$years communes=${communeCodes.length}');
 
-    final firstUrl =
-        '$_base/${years.first}/communes/$dep/$codeInsee.csv';
+    // Construit l'URL d'exemple pour le debug
+    final firstUrl = '$_base/${years.first}/communes/$dep/$codeInsee.csv';
 
-    // Fetch all years in parallel
-    final results = await Future.wait(
-      years.map((y) => _fetchYear(year: y, dep: dep, codeInsee: codeInsee)),
-    );
+    // Fetch all (commune × year) pairs in parallel
+    final tasks = <Future<_YearResult>>[];
+    for (final c in communeCodes) {
+      final cdep = _depFromInsee(c);
+      for (final y in years) {
+        tasks.add(_fetchYear(year: y, dep: cdep, codeInsee: c));
+      }
+    }
+    final results = await Future.wait(tasks);
 
     final allRows = <DvfTransaction>[];
     var totalBrut = 0;
@@ -146,8 +203,9 @@ class DvfService {
       if (r.error != null) errors.add(r.error!);
     }
 
-    if (allRows.isEmpty && errors.isNotEmpty && errors.length == years.length) {
-      // Toutes les années ont échoué
+    if (allRows.isEmpty &&
+        errors.isNotEmpty &&
+        errors.length == tasks.length) {
       return DvfFetchResult(
         transactions: [],
         codeInsee: codeInsee,
@@ -157,11 +215,12 @@ class DvfService {
       );
     }
 
-    // Filtres
+    // Filtre 1 — données valides
     var filtered = allRows
         .where((tx) => tx.valeurFonciere > 0 && tx.surfaceReelleBati > 0)
         .toList();
 
+    // Filtre 2 — date < 3 ans
     final cutoff = DateTime.now().subtract(const Duration(days: 3 * 365));
     filtered = filtered.where((tx) {
       if (tx.dateMutation.isEmpty) return true;
@@ -172,6 +231,7 @@ class DvfService {
       }
     }).toList();
 
+    // Filtre 3 — type
     if (typeLocal != null && typeLocal.isNotEmpty) {
       filtered = filtered
           .where((tx) =>
@@ -179,6 +239,7 @@ class DvfService {
           .toList();
     }
 
+    // Filtre 4 — surface ±30%
     if (surface != null && surface > 0) {
       final lo = surface * 0.70;
       final hi = surface * 1.30;
@@ -188,7 +249,20 @@ class DvfService {
           .toList();
     }
 
-    filtered.sort((a, b) => b.dateMutation.compareTo(a.dateMutation));
+    // Filtre 5 — distance exacte au bien (et calcule la distance par tx)
+    if (useRadius) {
+      final withDist = <DvfTransaction>[];
+      for (final tx in filtered) {
+        if (tx.latitude == 0 || tx.longitude == 0) continue;
+        final d = GeoService.haversineKm(
+            latitude, longitude, tx.latitude, tx.longitude);
+        if (d <= radiusKm) withDist.add(tx.withDistance(d));
+      }
+      filtered = withDist;
+      filtered.sort((a, b) => (a.distanceKm ?? 0).compareTo(b.distanceKm ?? 0));
+    } else {
+      filtered.sort((a, b) => b.dateMutation.compareTo(a.dateMutation));
+    }
 
     debugPrint('[DVF] brut=$totalBrut → après filtres=${filtered.length}');
 

@@ -64,6 +64,7 @@ class Estimation {
 
   // Section 5 — Analyse marché
   List<Map<String, dynamic>> comparables;
+  double dvfRadiusKm; // 0 = commune uniquement, sinon rayon en km
 
   // Section 6 — Estimation
   double ajustVue;
@@ -137,6 +138,7 @@ class Estimation {
     this.noteChauffage = 2,
     this.noteEtatPrestation = 2,
     List<Map<String, dynamic>>? comparables,
+    this.dvfRadiusKm = 3,
     this.ajustVue = 3,
     this.ajustEtat = 5,
     this.ajustDpe = -2,
@@ -266,6 +268,7 @@ class Estimation {
         'noteChauffage': noteChauffage,
         'noteEtatPrestation': noteEtatPrestation,
         'comparables': jsonEncode(comparables),
+        'dvfRadiusKm': dvfRadiusKm,
         'ajustVue': ajustVue,
         'ajustEtat': ajustEtat,
         'ajustDpe': ajustDpe,
@@ -340,6 +343,7 @@ class Estimation {
       comparables: m['comparables'] != null
           ? List<Map<String, dynamic>>.from(jsonDecode(m['comparables']))
           : [],
+      dvfRadiusKm: (m['dvfRadiusKm'] as num?)?.toDouble() ?? 3,
       ajustVue: (m['ajustVue'] as num?)?.toDouble() ?? 3,
       ajustEtat: (m['ajustEtat'] as num?)?.toDouble() ?? 5,
       ajustDpe: (m['ajustDpe'] as num?)?.toDouble() ?? -2,
@@ -414,6 +418,7 @@ class Estimation {
     int? noteChauffage,
     int? noteEtatPrestation,
     List<Map<String, dynamic>>? comparables,
+    double? dvfRadiusKm,
     double? ajustVue,
     double? ajustEtat,
     double? ajustDpe,
@@ -479,6 +484,7 @@ class Estimation {
       noteChauffage: noteChauffage ?? this.noteChauffage,
       noteEtatPrestation: noteEtatPrestation ?? this.noteEtatPrestation,
       comparables: comparables ?? List.from(this.comparables),
+      dvfRadiusKm: dvfRadiusKm ?? this.dvfRadiusKm,
       ajustVue: ajustVue ?? this.ajustVue,
       ajustEtat: ajustEtat ?? this.ajustEtat,
       ajustDpe: ajustDpe ?? this.ajustDpe,
