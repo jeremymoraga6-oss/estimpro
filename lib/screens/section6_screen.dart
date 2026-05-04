@@ -164,6 +164,8 @@ class _Section6ScreenState extends State<Section6Screen> {
                     _PriceDetailRow('Exposition :', '${_e.ajustExposition >= 0 ? '+' : ''}${_e.ajustExposition.toStringAsFixed(1)}%'),
                   if (_e.ajustParking != 0)
                     _PriceDetailRow('Parking :', '${_e.ajustParking >= 0 ? '+' : '−'}${_fmt((_e.ajustParking.abs()).toDouble())}'),
+                  if (_e.ajustPiscine > 0)
+                    _PriceDetailRow('Piscine :', '+${_fmt(_e.ajustPiscine.toDouble())}'),
                 ]),
               ),
             ])),
@@ -259,6 +261,57 @@ class _Section6ScreenState extends State<Section6Screen> {
                 const Text('−8 000 € sans parking · +5 000 € avec parking supplémentaire', style: TextStyle(fontSize: 10, color: kLightGrey)),
               ]),
               const SizedBox(height: 14),
+
+              // Piscine stepper (visible si piscine active)
+              if (_e.annexesActives['piscine'] == true) ...[
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    const Row(children: [
+                      Icon(Icons.pool_outlined, size: 14, color: kGreen),
+                      SizedBox(width: 6),
+                      Text('Prime piscine', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kCharcoal)),
+                    ]),
+                    Text(
+                      _e.ajustPiscine > 0 ? '+${_fmt(_e.ajustPiscine.toDouble())}' : 'Non valorisée',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                          color: _e.ajustPiscine > 0 ? kGreen : const Color(0xFF95A5A6)),
+                    ),
+                  ]),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                        color: kGreen.withOpacity(0.04),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: kGreen.withOpacity(0.2), width: 1.5)),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      GestureDetector(
+                        onTap: () => _update(_e.copyWith(ajustPiscine: _e.ajustPiscine > 0 ? _e.ajustPiscine - 1000 : 0)),
+                        child: Container(width: 32, height: 32,
+                            decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: kLightGrey, width: 1.5), color: Colors.white),
+                            child: const Icon(Icons.remove, size: 14, color: kGrey)),
+                      ),
+                      Column(children: [
+                        Text(
+                          _e.ajustPiscine > 0 ? '+${_fmt(_e.ajustPiscine.toDouble())}' : '0 €',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kCharcoal),
+                        ),
+                        const Text('PriceHubble ne la valorise pas', style: TextStyle(fontSize: 9, color: kGrey)),
+                      ]),
+                      GestureDetector(
+                        onTap: () => _update(_e.copyWith(ajustPiscine: _e.ajustPiscine + 1000)),
+                        child: Container(width: 32, height: 32,
+                            decoration: const BoxDecoration(shape: BoxShape.circle, color: kGreen),
+                            child: const Icon(Icons.add, size: 14, color: Colors.white)),
+                      ),
+                    ]),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text('Calibré terrain : +10 000 € (piscine standard) à +20 000 € (piscine récente / équipée)',
+                      style: TextStyle(fontSize: 10, color: kLightGrey)),
+                ]),
+                const SizedBox(height: 14),
+              ],
 
               // Travaux stepper
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -576,9 +629,9 @@ class _AutoVigilanceCard extends StatelessWidget {
     }
 
     // Piscine
-    if (e.annexesActives['piscine'] == true) {
+    if (e.annexesActives['piscine'] == true && e.ajustPiscine == 0) {
       points.add((
-        text: 'Piscine : atout différenciant sur ce secteur — valorisable +10 à +20k€ selon état et équipements.',
+        text: 'Piscine présente mais non valorisée — appliquer +10 000 à +20 000 € (PriceHubble ne la prend pas en compte).',
         color: kGreen,
         icon: Icons.pool_outlined,
       ));

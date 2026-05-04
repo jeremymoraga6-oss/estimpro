@@ -76,6 +76,7 @@ class Estimation {
   double ajustEnvironnement; // % bruit/nuisances (0 à -5%) — route, voie ferrée, industrie
   int ajustTravaux;
   int ajustParking; // € bonus/malus stationnement (négatif = malus sans parking)
+  int ajustPiscine; // € prime piscine (calibrée 10 000–20 000€ selon état)
   double prixFinal;
   double fourchetteBasse;
   double fourchetteHaute;
@@ -153,6 +154,7 @@ class Estimation {
     this.ajustEnvironnement = 0,
     this.ajustTravaux = 0,
     this.ajustParking = 0,
+    this.ajustPiscine = 0,
     this.prixFinal = 0,
     this.fourchetteBasse = 0,
     this.fourchetteHaute = 0,
@@ -261,7 +263,7 @@ class Estimation {
 
   double get prixCalcule {
     final totalPct = ajustVue + ajustEtat + ajustDpe + ajustExposition + ajustEnvironnement;
-    final impact = prixBase * totalPct / 100 - ajustTravaux + ajustParking;
+    final impact = prixBase * totalPct / 100 - ajustTravaux + ajustParking + ajustPiscine;
     final raw = prixBase + impact;
     return (raw / 1000).round() * 1000;
   }
@@ -325,6 +327,7 @@ class Estimation {
         'ajustEnvironnement': ajustEnvironnement,
         'ajustTravaux': ajustTravaux,
         'ajustParking': ajustParking,
+        'ajustPiscine': ajustPiscine,
         'prixFinal': prixFinal,
         'fourchetteBasse': fourchetteBasse,
         'fourchetteHaute': fourchetteHaute,
@@ -405,6 +408,7 @@ class Estimation {
       ajustEnvironnement: (m['ajustEnvironnement'] as num?)?.toDouble() ?? 0,
       ajustTravaux: m['ajustTravaux'] ?? 0,
       ajustParking: m['ajustParking'] as int? ?? 0,
+      ajustPiscine: m['ajustPiscine'] as int? ?? 0,
       prixFinal: (m['prixFinal'] as num?)?.toDouble() ?? 0,
       fourchetteBasse: (m['fourchetteBasse'] as num?)?.toDouble() ?? 0,
       fourchetteHaute: (m['fourchetteHaute'] as num?)?.toDouble() ?? 0,
@@ -485,6 +489,7 @@ class Estimation {
     double? ajustEnvironnement,
     int? ajustTravaux,
     int? ajustParking,
+    int? ajustPiscine,
     double? prixFinal,
     double? fourchetteBasse,
     double? fourchetteHaute,
@@ -556,6 +561,7 @@ class Estimation {
       ajustEnvironnement: ajustEnvironnement ?? this.ajustEnvironnement,
       ajustTravaux: ajustTravaux ?? this.ajustTravaux,
       ajustParking: ajustParking ?? this.ajustParking,
+      ajustPiscine: ajustPiscine ?? this.ajustPiscine,
       prixFinal: prixFinal ?? this.prixFinal,
       fourchetteBasse: fourchetteBasse ?? this.fourchetteBasse,
       fourchetteHaute: fourchetteHaute ?? this.fourchetteHaute,

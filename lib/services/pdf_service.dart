@@ -189,6 +189,7 @@ class PdfService {
         _row('Environnement / Nuisances', '${e.ajustEnvironnement.toStringAsFixed(1)}%'),
       if (e.ajustParking < 0) _row('Sans stationnement', '−${fmt((-e.ajustParking).toDouble())}'),
       if (e.ajustParking > 0) _row('Parking supplémentaire', '+${fmt(e.ajustParking.toDouble())}'),
+      if (e.ajustPiscine > 0) _row('Prime piscine', '+${fmt(e.ajustPiscine.toDouble())}'),
       if (e.ajustTravaux > 0) _row('Travaux', '−${fmt(e.ajustTravaux.toDouble())}'),
       _row('Valeur estimée', fmt(price), bold: true),
       _row('Fourchette', '${fmt(low)} — ${fmt(high)}'),
