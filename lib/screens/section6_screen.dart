@@ -26,7 +26,7 @@ class _Section6ScreenState extends State<Section6Screen> {
     super.initState();
     _e = widget.estimation;
     _conclusionCtrl = TextEditingController(text: _e.conclusion.isEmpty
-        ? 'Bien positionné dans la médiane DVF du secteur. Décote légère DPE compensée par la rénovation et la vue dégagée.'
+        ? 'Bien positionné dans la médiane DVF du secteur. Valeur cohérente avec les transactions récentes et le contexte de marché local.'
         : _e.conclusion);
   }
 
@@ -175,9 +175,16 @@ class _Section6ScreenState extends State<Section6Screen> {
                   onChanged: (v) => _update(_e.copyWith(ajustVue: v))),
               _AdjRow(label: 'Rénové / Bon état', val: _e.ajustEtat, min: -5, max: 8,
                   onChanged: (v) => _update(_e.copyWith(ajustEtat: v))),
-              _AdjRow(label: 'Performance énergétique (DPE ${_e.dpeClasse})', val: _e.ajustDpe, min: -8, max: 3,
-                  note: 'DPE ${_e.dpeClasse} · ${_e.ajustDpe < 0 ? 'légère décote' : 'bonus'}',
-                  onChanged: (v) => _update(_e.copyWith(ajustDpe: v))),
+              _AdjRow(
+                label: 'Performance énergétique (DPE ${_e.dpeClasse})',
+                val: _e.ajustDpe,
+                min: -8,
+                max: 3,
+                note: 'DPE ${_e.dpeClasse} · ${_e.ajustDpe < 0 ? 'décote' : _e.ajustDpe > 0 ? 'bonus' : 'neutre'}',
+                recommended: _e.recommendedAjustDpe,
+                onChanged: (v) => _update(_e.copyWith(ajustDpe: v)),
+                onReset: () => _update(_e.copyWith(ajustDpe: _e.recommendedAjustDpe)),
+              ),
 
               // Travaux stepper
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -281,6 +288,14 @@ class _Section6ScreenState extends State<Section6Screen> {
               const Text('Modifiez si nécessaire', style: TextStyle(fontSize: 10, color: kLightGrey, fontStyle: FontStyle.italic)),
             ])),
 
+            // Auto vigilance
+            _AutoVigilanceCard(estimation: _e, onInsert: (text) {
+              final cur = _conclusionCtrl.text;
+              final updated = cur.isEmpty ? text : '$cur\n$text';
+              _conclusionCtrl.text = updated;
+              _update(_e.copyWith(conclusion: updated));
+            }),
+
             // Conclusion
             SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const CardTitleRow(icon: Icons.edit_note_rounded, label: 'Conclusion'),
@@ -358,20 +373,47 @@ class _AdjRow extends StatelessWidget {
   final double min;
   final double max;
   final String? note;
+  final double? recommended;
+  final VoidCallback? onReset;
   final ValueChanged<double> onChanged;
-  const _AdjRow({required this.label, required this.val, required this.min, required this.max, this.note, required this.onChanged});
+  const _AdjRow({required this.label, required this.val, required this.min, required this.max, this.note, this.recommended, this.onReset, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
     final pct = val.round();
     final impactStr = pct >= 0 ? '+$pct%' : '$pct%';
     final color = pct > 0 ? kGreen : pct < 0 ? kRed : const Color(0xFF95A5A6);
+    final showResetHint = recommended != null && (val - recommended!).abs() > 0.4;
+    final recPct = recommended?.round() ?? 0;
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kCharcoal)),
-          Text(impactStr, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            if (showResetHint && onReset != null)
+              GestureDetector(
+                onTap: onReset,
+                child: Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: kAmber.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: kAmber.withOpacity(0.4)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.auto_fix_high_rounded, size: 10, color: kAmber),
+                    const SizedBox(width: 3),
+                    Text(
+                      'Calibré : ${recPct >= 0 ? '+' : ''}$recPct%',
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: kAmber),
+                    ),
+                  ]),
+                ),
+              ),
+            Text(impactStr, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+          ]),
         ]),
         SliderTheme(
           data: SliderThemeData(
@@ -390,6 +432,147 @@ class _AdjRow extends StatelessWidget {
           if (note != null) Text(note!, style: const TextStyle(fontSize: 10, color: kLightGrey, fontStyle: FontStyle.italic)),
           Text(max >= 0 ? '+${max.round()}%' : '${max.round()}%', style: const TextStyle(fontSize: 10, color: kLightGrey)),
         ]),
+      ]),
+    );
+  }
+}
+
+/// Génère des points de vigilance automatiques basés sur les caractéristiques du bien
+class _AutoVigilanceCard extends StatelessWidget {
+  final Estimation estimation;
+  final ValueChanged<String> onInsert;
+  const _AutoVigilanceCard({required this.estimation, required this.onInsert});
+
+  List<({String text, Color color, IconData icon})> _buildPoints() {
+    final e = estimation;
+    final points = <({String text, Color color, IconData icon})>[];
+
+    // DPE
+    if (e.dpeClasse == 'F' || e.dpeClasse == 'G') {
+      points.add((
+        text: 'DPE ${e.dpeClasse} : passoire thermique — décote à intégrer, certains acquéreurs refuseront sans travaux de rénovation.',
+        color: kRed,
+        icon: Icons.energy_savings_leaf_outlined,
+      ));
+    } else if (e.dpeClasse == 'E') {
+      points.add((
+        text: 'DPE E : performance énergétique limitée — légère décote probable, évoquer les aides MaPrimeRénov\'.',
+        color: kAmber,
+        icon: Icons.energy_savings_leaf_outlined,
+      ));
+    } else if (e.dpeClasse == 'C') {
+      points.add((
+        text: 'DPE C : bonne performance énergétique — atout commercial vs concurrence, légère prime justifiée.',
+        color: kGreen,
+        icon: Icons.energy_savings_leaf_outlined,
+      ));
+    } else if (e.dpeClasse == 'A' || e.dpeClasse == 'B') {
+      points.add((
+        text: 'DPE ${e.dpeClasse} : excellente performance énergétique — atout commercial majeur, prime significative justifiée.',
+        color: kGreen,
+        icon: Icons.energy_savings_leaf_outlined,
+      ));
+    }
+
+    // État général
+    if (e.etatGeneral == 0) {
+      points.add((
+        text: 'État dégradé : travaux importants à prévoir — positionnement prix prudent, budget travaux à communiquer.',
+        color: kRed,
+        icon: Icons.build_outlined,
+      ));
+    } else if (e.etatGeneral == 1) {
+      points.add((
+        text: 'Quelques travaux d\'entretien à prévoir — intégrer dans la négociation.',
+        color: kAmber,
+        icon: Icons.build_outlined,
+      ));
+    }
+
+    // Travaux planifiés
+    if (e.ajustTravaux > 20000) {
+      points.add((
+        text: 'Budget travaux significatif (${(e.ajustTravaux / 1000).round()}k€) — bien communiquer aux acquéreurs pour justifier le prix.',
+        color: kAmber,
+        icon: Icons.home_repair_service_outlined,
+      ));
+    }
+
+    // Piscine
+    if (e.annexesActives['piscine'] == true) {
+      points.add((
+        text: 'Piscine : atout différenciant sur ce secteur — valorisable +10 à +20k€ selon état et équipements.',
+        color: kGreen,
+        icon: Icons.pool_outlined,
+      ));
+    }
+
+    // Grande surface maison
+    if (e.typeId == 'maison' && e.surfaceHabitable > 160) {
+      points.add((
+        text: 'Grande surface (${e.surfaceHabitable} m²) : cible acheteurs familiale, délai de vente potentiellement plus long.',
+        color: kAmber,
+        icon: Icons.straighten_outlined,
+      ));
+    }
+
+    // Construction ancienne
+    if (e.anneeConstruction == 'Avant 1949' || e.anneeConstruction == '1949-1970') {
+      points.add((
+        text: 'Construction ancienne : attention aux diagnostics (plomb, amiante) — prévoir avant mise en vente.',
+        color: kAmber,
+        icon: Icons.warning_amber_outlined,
+      ));
+    }
+
+    return points;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final points = _buildPoints();
+    if (points.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF8E1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: kAmber.withOpacity(0.3), width: 1.5),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.tips_and_updates_rounded, color: kAmber, size: 16),
+          const SizedBox(width: 8),
+          const Text('Points de vigilance suggérés',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal)),
+          const Spacer(),
+          const Text('Appuyer pour insérer', style: TextStyle(fontSize: 10, color: kGrey, fontStyle: FontStyle.italic)),
+        ]),
+        const SizedBox(height: 10),
+        ...points.map((p) => GestureDetector(
+          onTap: () => onInsert(p.text),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: p.color.withOpacity(0.25)),
+            ),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(p.icon, size: 14, color: p.color),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(p.text,
+                    style: TextStyle(fontSize: 11, color: kCharcoal.withOpacity(0.85), height: 1.45)),
+              ),
+              const SizedBox(width: 6),
+              Icon(Icons.add_circle_outline_rounded, size: 16, color: p.color.withOpacity(0.7)),
+            ]),
+          ),
+        )),
       ]),
     );
   }

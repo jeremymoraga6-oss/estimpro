@@ -222,6 +222,7 @@ class _Section5ScreenState extends State<Section5Screen> {
                       style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kGreen)),
                 ]),
               ),
+              _MarketStatsCard(transactions: _filtered),
               ..._filtered.map((tx) => _DvfCard(
                 tx: tx,
                 selected: _isSelected(tx),
@@ -640,5 +641,137 @@ class _RiskChip extends StatelessWidget {
           border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
+      );
+}
+
+/// Carte statistiques de marché calculées depuis les DVF chargés
+class _MarketStatsCard extends StatelessWidget {
+  final List<DvfTransaction> transactions;
+  const _MarketStatsCard({required this.transactions});
+
+  double? _medianM2(List<DvfTransaction> txs) {
+    final prices = txs.map((t) => t.prixM2).where((p) => p > 0).toList()..sort();
+    if (prices.isEmpty) return null;
+    return prices[prices.length ~/ 2];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final cutoff12 = now.subtract(const Duration(days: 365));
+    final cutoff36 = now.subtract(const Duration(days: 3 * 365));
+
+    final recent = transactions.where((tx) {
+      if (tx.dateMutation.isEmpty) return false;
+      try {
+        return DateTime.parse(tx.dateMutation).isAfter(cutoff12);
+      } catch (_) {
+        return false;
+      }
+    }).toList();
+
+    final older = transactions.where((tx) {
+      if (tx.dateMutation.isEmpty) return false;
+      try {
+        final d = DateTime.parse(tx.dateMutation);
+        return d.isBefore(cutoff12) && d.isAfter(cutoff36);
+      } catch (_) {
+        return false;
+      }
+    }).toList();
+
+    final med12 = _medianM2(recent);
+    final med36 = _medianM2(older);
+
+    double? trend;
+    if (med12 != null && med36 != null && med36 > 0) {
+      trend = ((med12 - med36) / med36) * 100;
+    }
+
+    if (med12 == null && med36 == null) return const SizedBox.shrink();
+
+    final trendColor = trend == null
+        ? kGrey
+        : trend >= 2
+            ? kGreen
+            : trend <= -2
+                ? kRed
+                : kAmber;
+    final trendLabel = trend == null
+        ? 'N/A'
+        : '${trend >= 0 ? '+' : ''}${trend.toStringAsFixed(1)}%';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FA),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE8EEE8), width: 1.5),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.trending_up_rounded, size: 14, color: kGreen),
+          const SizedBox(width: 6),
+          const Text('Tendance marché — données DVF',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(
+            child: _StatCell(
+              label: '12 derniers mois',
+              value: med12 != null ? '${med12.round()} €/m²' : '—',
+              sub: '${recent.length} vente${recent.length > 1 ? 's' : ''}',
+              color: kGreen,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _StatCell(
+              label: '13–36 mois',
+              value: med36 != null ? '${med36.round()} €/m²' : '—',
+              sub: '${older.length} vente${older.length > 1 ? 's' : ''}',
+              color: kGrey,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _StatCell(
+              label: 'Tendance',
+              value: trendLabel,
+              sub: trend != null
+                  ? (trend >= 2 ? 'marché en hausse' : trend <= -2 ? 'marché en recul' : 'marché stable')
+                  : 'données insuffisantes',
+              color: trendColor,
+            ),
+          ),
+        ]),
+      ]),
+    );
+  }
+}
+
+class _StatCell extends StatelessWidget {
+  final String label;
+  final String value;
+  final String sub;
+  final Color color;
+  const _StatCell({required this.label, required this.value, required this.sub, required this.color});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: color)),
+          const SizedBox(height: 3),
+          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal)),
+          const SizedBox(height: 2),
+          Text(sub, style: const TextStyle(fontSize: 9, color: kGrey), maxLines: 1, overflow: TextOverflow.ellipsis),
+        ]),
       );
 }

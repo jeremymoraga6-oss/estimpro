@@ -141,7 +141,7 @@ class Estimation {
     this.dvfRadiusKm = 3,
     this.ajustVue = 3,
     this.ajustEtat = 5,
-    this.ajustDpe = -2,
+    this.ajustDpe = 0,
     this.ajustTravaux = 0,
     this.prixFinal = 0,
     this.fourchetteBasse = 0,
@@ -175,6 +175,22 @@ class Estimation {
             validiteJusquau ?? DateTime.now().add(const Duration(days: 365)),
         photosPaths = photosPaths ?? [],
         notes = notes ?? {};
+
+  // Coefficients DPE calibrés depuis exemples terrain (Bonneville DPE F, Saint-Pierre DPE E)
+  static double dpeCoefficient(String classe) {
+    switch (classe.toUpperCase()) {
+      case 'A': return 5.0;
+      case 'B': return 3.0;
+      case 'C': return 2.0;  // calibré Arenthon DPE C — atout commercial
+      case 'D': return 0.0;
+      case 'E': return -3.0; // calibré Saint-Pierre DPE E
+      case 'F': return -5.0; // calibré Bonneville DPE F
+      case 'G': return -8.0;
+      default: return 0.0;
+    }
+  }
+
+  double get recommendedAjustDpe => Estimation.dpeCoefficient(dpeClasse);
 
   double get scorePrestations =>
       noteCuisine * 0.15 + noteSol * 0.15 + noteSdb * 0.15 +
@@ -346,7 +362,7 @@ class Estimation {
       dvfRadiusKm: (m['dvfRadiusKm'] as num?)?.toDouble() ?? 3,
       ajustVue: (m['ajustVue'] as num?)?.toDouble() ?? 3,
       ajustEtat: (m['ajustEtat'] as num?)?.toDouble() ?? 5,
-      ajustDpe: (m['ajustDpe'] as num?)?.toDouble() ?? -2,
+      ajustDpe: (m['ajustDpe'] as num?)?.toDouble() ?? 0,
       ajustTravaux: m['ajustTravaux'] ?? 0,
       prixFinal: (m['prixFinal'] as num?)?.toDouble() ?? 0,
       fourchetteBasse: (m['fourchetteBasse'] as num?)?.toDouble() ?? 0,
