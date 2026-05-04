@@ -182,7 +182,11 @@ class PdfService {
     return _card('ESTIMATION', [
       _row('Vue dégagée', '${e.ajustVue >= 0 ? '+' : ''}${e.ajustVue.toStringAsFixed(1)}%'),
       _row('État / Rénovation', '${e.ajustEtat >= 0 ? '+' : ''}${e.ajustEtat.toStringAsFixed(1)}%'),
-      _row('Performance DPE', '${e.ajustDpe >= 0 ? '+' : ''}${e.ajustDpe.toStringAsFixed(1)}%'),
+      _row('Performance DPE (${e.dpeClasse})', '${e.ajustDpe >= 0 ? '+' : ''}${e.ajustDpe.toStringAsFixed(1)}%'),
+      if (e.ajustExposition != 0)
+        _row('Exposition (${e.orientations.join('/')})', '${e.ajustExposition >= 0 ? '+' : ''}${e.ajustExposition.toStringAsFixed(1)}%'),
+      if (e.ajustParking < 0) _row('Sans stationnement', '−${fmt((-e.ajustParking).toDouble())}'),
+      if (e.ajustParking > 0) _row('Parking supplémentaire', '+${fmt(e.ajustParking.toDouble())}'),
       if (e.ajustTravaux > 0) _row('Travaux', '−${fmt(e.ajustTravaux.toDouble())}'),
       _row('Valeur estimée', fmt(price), bold: true),
       _row('Fourchette', '${fmt(low)} — ${fmt(high)}'),

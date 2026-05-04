@@ -43,8 +43,8 @@ class _Section6ScreenState extends State<Section6Screen> {
   @override
   Widget build(BuildContext context) {
     final base = _e.prixBase;
-    final totalPct = _e.ajustVue + _e.ajustEtat + _e.ajustDpe;
-    final impact = base * totalPct / 100 - _e.ajustTravaux;
+    final totalPct = _e.ajustVue + _e.ajustEtat + _e.ajustDpe + _e.ajustExposition;
+    final impact = base * totalPct / 100 - _e.ajustTravaux + _e.ajustParking;
     final raw = base + impact;
     final rounded = (raw / 1000).round() * 1000.0;
     final low = _e.fourchetteBasse > 0 ? _e.fourchetteBasse : (rounded * 0.95 / 1000).round() * 1000.0;
@@ -158,8 +158,12 @@ class _Section6ScreenState extends State<Section6Screen> {
                 decoration: BoxDecoration(color: const Color(0xFFF7F9F6), borderRadius: BorderRadius.circular(8)),
                 child: Column(children: [
                   _PriceDetailRow('Prix m² médian DVF :', '${_e.prixMoyen.round()} €/m²'),
-                  _PriceDetailRow('Ajustement prestations :', '${_e.coefficientPrestations >= 0 ? '+' : ''}${_e.coefficientPrestations.toInt()}%'),
+                  _PriceDetailRow('Ajust. prestations :', '${_e.coefficientPrestations >= 0 ? '+' : ''}${_e.coefficientPrestations.toInt()}%'),
                   _PriceDetailRow('Prix m² retenu :', '${_e.prixM2Retenu.round()} €/m²', bold: true),
+                  if (_e.ajustExposition != 0)
+                    _PriceDetailRow('Exposition :', '${_e.ajustExposition >= 0 ? '+' : ''}${_e.ajustExposition.toStringAsFixed(1)}%'),
+                  if (_e.ajustParking != 0)
+                    _PriceDetailRow('Parking :', '${_e.ajustParking >= 0 ? '+' : '−'}${_fmt((_e.ajustParking.abs()).toDouble())}'),
                 ]),
               ),
             ])),
@@ -185,6 +189,68 @@ class _Section6ScreenState extends State<Section6Screen> {
                 onChanged: (v) => _update(_e.copyWith(ajustDpe: v)),
                 onReset: () => _update(_e.copyWith(ajustDpe: _e.recommendedAjustDpe)),
               ),
+              _AdjRow(
+                label: 'Exposition / Orientation${_e.orientations.isNotEmpty ? ' (${_e.orientations.join(', ')})' : ''}',
+                val: _e.ajustExposition,
+                min: -5,
+                max: 3,
+                note: _e.ajustExposition < -2 ? 'exposition défavorable' : _e.ajustExposition > 1 ? 'exposition favorable' : 'exposition neutre',
+                recommended: _e.recommendedAjustExposition,
+                onChanged: (v) => _update(_e.copyWith(ajustExposition: v)),
+                onReset: () => _update(_e.copyWith(ajustExposition: _e.recommendedAjustExposition)),
+              ),
+
+              // Parking stepper
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  const Text('Parking / Stationnement', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kCharcoal)),
+                  Text(
+                    _e.ajustParking == 0
+                        ? 'Inclus'
+                        : _e.ajustParking < 0
+                            ? '−${_fmt((-_e.ajustParking).toDouble())}'
+                            : '+${_fmt(_e.ajustParking.toDouble())}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: _e.ajustParking < 0 ? kRed : _e.ajustParking > 0 ? kGreen : const Color(0xFF95A5A6),
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(color: const Color(0xFFF7F9F6), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE8EDE8), width: 1.5)),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    GestureDetector(
+                      onTap: () => _update(_e.copyWith(ajustParking: _e.ajustParking - 1000)),
+                      child: Container(width: 32, height: 32, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: kLightGrey, width: 1.5), color: Colors.white),
+                          child: const Icon(Icons.remove, size: 14, color: kGrey)),
+                    ),
+                    Column(children: [
+                      Text(
+                        _e.ajustParking == 0
+                            ? 'Parking inclus'
+                            : _e.ajustParking < 0
+                                ? 'Malus : ${_fmt((-_e.ajustParking).toDouble())}'
+                                : 'Bonus : +${_fmt(_e.ajustParking.toDouble())}',
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kCharcoal),
+                      ),
+                      if (_e.ajustParking != 0)
+                        Text(_e.ajustParking < 0 ? 'Sans stationnement' : 'Parking supplémentaire',
+                            style: const TextStyle(fontSize: 9, color: kGrey)),
+                    ]),
+                    GestureDetector(
+                      onTap: () => _update(_e.copyWith(ajustParking: _e.ajustParking + 1000)),
+                      child: Container(width: 32, height: 32, decoration: const BoxDecoration(shape: BoxShape.circle, color: kGreen),
+                          child: const Icon(Icons.add, size: 14, color: Colors.white)),
+                    ),
+                  ]),
+                ),
+                const SizedBox(height: 4),
+                const Text('−8 000 € sans parking · +5 000 € avec parking supplémentaire', style: TextStyle(fontSize: 10, color: kLightGrey)),
+              ]),
+              const SizedBox(height: 14),
 
               // Travaux stepper
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -222,8 +288,11 @@ class _Section6ScreenState extends State<Section6Screen> {
                   Text('Impact total des ajustements : ${totalPct >= 0 ? '+' : ''}${totalPct.toStringAsFixed(1)}%',
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kGreen)),
                   const SizedBox(height: 2),
-                  Text('${impact >= 0 ? '+' : ''}${impact.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} €',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF95A5A6))),
+                  Text(
+                    '${impact >= 0 ? '+' : ''}${impact.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} €'
+                    '${_e.ajustParking != 0 ? ' (dont parking ${_e.ajustParking < 0 ? '−' : '+'}${_fmt((_e.ajustParking.abs()).toDouble())})' : ''}',
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF95A5A6)),
+                  ),
                 ]),
               ]),
             ])),
@@ -522,6 +591,26 @@ class _AutoVigilanceCard extends StatelessWidget {
         text: 'Construction ancienne : attention aux diagnostics (plomb, amiante) — prévoir avant mise en vente.',
         color: kAmber,
         icon: Icons.warning_amber_outlined,
+      ));
+    }
+
+    // Exposition Nord
+    if (e.orientations.contains('N') && !e.orientations.contains('S')) {
+      points.add((
+        text: 'Exposition Nord : point faible structurel — décote 3–5% vs exposition Sud sur ce marché.',
+        color: kAmber,
+        icon: Icons.explore_outlined,
+      ));
+    }
+
+    // Sans parking (appartement)
+    if (e.typeId == 'appartement' &&
+        e.annexesActives['parking'] != true &&
+        e.annexesActives['garage'] != true) {
+      points.add((
+        text: 'Pas de stationnement : frein significatif — décote estimée 5 000–8 000 € selon marché local.',
+        color: kAmber,
+        icon: Icons.local_parking_outlined,
       ));
     }
 
