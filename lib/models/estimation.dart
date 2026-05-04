@@ -72,7 +72,8 @@ class Estimation {
   double ajustVue;
   double ajustEtat;
   double ajustDpe;
-  double ajustExposition; // % orientation cardinale (N=-5% … S=+3%)
+  double ajustExposition;    // % orientation cardinale (N=-5% … S=+3%)
+  double ajustEnvironnement; // % bruit/nuisances (0 à -5%) — route, voie ferrée, industrie
   int ajustTravaux;
   int ajustParking; // € bonus/malus stationnement (négatif = malus sans parking)
   double prixFinal;
@@ -149,6 +150,7 @@ class Estimation {
     this.ajustEtat = 5,
     this.ajustDpe = 0,
     this.ajustExposition = 0,
+    this.ajustEnvironnement = 0,
     this.ajustTravaux = 0,
     this.ajustParking = 0,
     this.prixFinal = 0,
@@ -258,7 +260,7 @@ class Estimation {
   double get prixBase => prixM2Retenu * surfaceHabitable;
 
   double get prixCalcule {
-    final totalPct = ajustVue + ajustEtat + ajustDpe + ajustExposition;
+    final totalPct = ajustVue + ajustEtat + ajustDpe + ajustExposition + ajustEnvironnement;
     final impact = prixBase * totalPct / 100 - ajustTravaux + ajustParking;
     final raw = prixBase + impact;
     return (raw / 1000).round() * 1000;
@@ -320,6 +322,7 @@ class Estimation {
         'ajustEtat': ajustEtat,
         'ajustDpe': ajustDpe,
         'ajustExposition': ajustExposition,
+        'ajustEnvironnement': ajustEnvironnement,
         'ajustTravaux': ajustTravaux,
         'ajustParking': ajustParking,
         'prixFinal': prixFinal,
@@ -399,6 +402,7 @@ class Estimation {
       ajustEtat: (m['ajustEtat'] as num?)?.toDouble() ?? 5,
       ajustDpe: (m['ajustDpe'] as num?)?.toDouble() ?? 0,
       ajustExposition: (m['ajustExposition'] as num?)?.toDouble() ?? 0,
+      ajustEnvironnement: (m['ajustEnvironnement'] as num?)?.toDouble() ?? 0,
       ajustTravaux: m['ajustTravaux'] ?? 0,
       ajustParking: m['ajustParking'] as int? ?? 0,
       prixFinal: (m['prixFinal'] as num?)?.toDouble() ?? 0,
@@ -478,6 +482,7 @@ class Estimation {
     double? ajustEtat,
     double? ajustDpe,
     double? ajustExposition,
+    double? ajustEnvironnement,
     int? ajustTravaux,
     int? ajustParking,
     double? prixFinal,
@@ -548,6 +553,7 @@ class Estimation {
       ajustEtat: ajustEtat ?? this.ajustEtat,
       ajustDpe: ajustDpe ?? this.ajustDpe,
       ajustExposition: ajustExposition ?? this.ajustExposition,
+      ajustEnvironnement: ajustEnvironnement ?? this.ajustEnvironnement,
       ajustTravaux: ajustTravaux ?? this.ajustTravaux,
       ajustParking: ajustParking ?? this.ajustParking,
       prixFinal: prixFinal ?? this.prixFinal,

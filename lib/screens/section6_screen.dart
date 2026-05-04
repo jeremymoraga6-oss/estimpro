@@ -43,7 +43,7 @@ class _Section6ScreenState extends State<Section6Screen> {
   @override
   Widget build(BuildContext context) {
     final base = _e.prixBase;
-    final totalPct = _e.ajustVue + _e.ajustEtat + _e.ajustDpe + _e.ajustExposition;
+    final totalPct = _e.ajustVue + _e.ajustEtat + _e.ajustDpe + _e.ajustExposition + _e.ajustEnvironnement;
     final impact = base * totalPct / 100 - _e.ajustTravaux + _e.ajustParking;
     final raw = base + impact;
     final rounded = (raw / 1000).round() * 1000.0;
@@ -198,6 +198,14 @@ class _Section6ScreenState extends State<Section6Screen> {
                 recommended: _e.recommendedAjustExposition,
                 onChanged: (v) => _update(_e.copyWith(ajustExposition: v)),
                 onReset: () => _update(_e.copyWith(ajustExposition: _e.recommendedAjustExposition)),
+              ),
+              _AdjRow(
+                label: 'Environnement / Nuisances',
+                val: _e.ajustEnvironnement,
+                min: -5,
+                max: 0,
+                note: _e.ajustEnvironnement < -3 ? 'nuisances importantes' : _e.ajustEnvironnement < -1 ? 'nuisances modérées' : 'environnement neutre',
+                onChanged: (v) => _update(_e.copyWith(ajustEnvironnement: v)),
               ),
 
               // Parking stepper

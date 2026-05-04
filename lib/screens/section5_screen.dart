@@ -279,9 +279,38 @@ class _Section5ScreenState extends State<Section5Screen> {
                   _SynthRow('Prix médian DVF :', '${_median.round()} €/m²', green: true),
                   _SynthRow('Fourchette constatée :', '${_min.round()} — ${_max.round()} €/m²'),
                   const Divider(color: Color(0xFFB8DFB8), height: 20),
+                  if (_e.comparables.length < 3) ...[
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: kAmber.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: kAmber.withOpacity(0.35)),
+                      ),
+                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Icon(Icons.warning_amber_rounded, color: kAmber, size: 15),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Échantillon DVF limité (${_e.comparables.length} vente${_e.comparables.length > 1 ? 's' : ''}) — médiane peu représentative. '
+                            'Élargissez le rayon ou ajoutez des comparables manuels pour fiabiliser l\'estimation.',
+                            style: const TextStyle(fontSize: 11, color: kAmber, height: 1.45),
+                          ),
+                        ),
+                      ]),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                   Text(
-                    'Votre bien se positionne dans la médiane du marché local.',
-                    style: TextStyle(fontSize: 12, color: kGreen, fontStyle: FontStyle.italic, height: 1.5),
+                    _e.comparables.length < 3
+                        ? 'Prudence : valeur indicative — données DVF insuffisantes sur ce secteur.'
+                        : 'Votre bien se positionne dans la médiane du marché local.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _e.comparables.length < 3 ? kAmber : kGreen,
+                      fontStyle: FontStyle.italic,
+                      height: 1.5,
+                    ),
                   ),
                 ]),
               ),

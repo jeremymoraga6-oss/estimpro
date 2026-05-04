@@ -185,6 +185,8 @@ class PdfService {
       _row('Performance DPE (${e.dpeClasse})', '${e.ajustDpe >= 0 ? '+' : ''}${e.ajustDpe.toStringAsFixed(1)}%'),
       if (e.ajustExposition != 0)
         _row('Exposition (${e.orientations.join('/')})', '${e.ajustExposition >= 0 ? '+' : ''}${e.ajustExposition.toStringAsFixed(1)}%'),
+      if (e.ajustEnvironnement != 0)
+        _row('Environnement / Nuisances', '${e.ajustEnvironnement.toStringAsFixed(1)}%'),
       if (e.ajustParking < 0) _row('Sans stationnement', '−${fmt((-e.ajustParking).toDouble())}'),
       if (e.ajustParking > 0) _row('Parking supplémentaire', '+${fmt(e.ajustParking.toDouble())}'),
       if (e.ajustTravaux > 0) _row('Travaux', '−${fmt(e.ajustTravaux.toDouble())}'),
