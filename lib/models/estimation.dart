@@ -43,6 +43,8 @@ class Estimation {
   int jardinSurface;
   List<String> jardinEtat;
   Map<String, dynamic> annexesDetails;
+  bool ascenseur;        // présence ascenseur (appartement)
+  bool libreOccupation;  // bien libre (vs loué → décote 10-15%)
 
   // Section 4 — État & équipements
   String facade;
@@ -125,6 +127,8 @@ class Estimation {
     this.jardinSurface = 300,
     List<String>? jardinEtat,
     Map<String, dynamic>? annexesDetails,
+    this.ascenseur = false,
+    this.libreOccupation = true,
     this.facade = 'Bon',
     this.toiture = 'Bon',
     List<String>? menuiseriesType,
@@ -199,7 +203,12 @@ class Estimation {
   // Coefficient d'exposition basé sur les orientations
   // Prend la meilleure orientation si plusieurs (ex: S + N → S=+3%)
   static double orientationCoefficient(List<String> orients) {
-    const vals = {'N': -5.0, 'E': -1.0, 'O': -1.0, 'S': 3.0, 'Traversant': 1.0};
+    const vals = {
+      'N': -5.0, 'NO': -3.0, 'NE': -3.0,
+      'E': -1.0, 'O': -1.0,
+      'SE': 1.5, 'SO': 1.5,
+      'S': 3.0, 'Traversant': 1.0,
+    };
     if (orients.isEmpty) return 0.0;
     double best = -99;
     for (final o in orients) {
@@ -289,6 +298,8 @@ class Estimation {
         'jardinSurface': jardinSurface,
         'jardinEtat': jsonEncode(jardinEtat),
         'annexesDetails': jsonEncode(annexesDetails),
+        'ascenseur': ascenseur ? 1 : 0,
+        'libreOccupation': libreOccupation ? 1 : 0,
         'facade': facade,
         'toiture': toiture,
         'menuiseriesType': jsonEncode(menuiseriesType),
@@ -364,6 +375,8 @@ class Estimation {
       annexesDetails: m['annexesDetails'] != null
           ? Map<String, dynamic>.from(jsonDecode(m['annexesDetails']))
           : {},
+      ascenseur: (m['ascenseur'] as int? ?? 0) == 1,
+      libreOccupation: (m['libreOccupation'] as int? ?? 1) == 1,
       facade: m['facade'] ?? 'Bon',
       toiture: m['toiture'] ?? 'Bon',
       menuiseriesType: decodeStrList(m['menuiseriesType']),
@@ -443,6 +456,8 @@ class Estimation {
     int? jardinSurface,
     List<String>? jardinEtat,
     Map<String, dynamic>? annexesDetails,
+    bool? ascenseur,
+    bool? libreOccupation,
     String? facade,
     String? toiture,
     List<String>? menuiseriesType,
@@ -511,6 +526,8 @@ class Estimation {
       jardinSurface: jardinSurface ?? this.jardinSurface,
       jardinEtat: jardinEtat ?? List.from(this.jardinEtat),
       annexesDetails: annexesDetails ?? Map.from(this.annexesDetails),
+      ascenseur: ascenseur ?? this.ascenseur,
+      libreOccupation: libreOccupation ?? this.libreOccupation,
       facade: facade ?? this.facade,
       toiture: toiture ?? this.toiture,
       menuiseriesType: menuiseriesType ?? List.from(this.menuiseriesType),

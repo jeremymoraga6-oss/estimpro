@@ -614,6 +614,33 @@ class _AutoVigilanceCard extends StatelessWidget {
       ));
     }
 
+    // Sans ascenseur (appartement)
+    if (e.typeId == 'appartement' && !e.ascenseur) {
+      points.add((
+        text: 'Sans ascenseur : frein pour acquéreurs seniors — décote 2–3% selon étage. À mentionner impérativement.',
+        color: kAmber,
+        icon: Icons.elevator_outlined,
+      ));
+    }
+
+    // Bien loué (non libre d'occupation)
+    if (!e.libreOccupation) {
+      points.add((
+        text: 'Bien occupé (loué) : décote habituelle de 10–15% vs bien libre — obligation d\'informer l\'acquéreur.',
+        color: kRed,
+        icon: Icons.key_outlined,
+      ));
+    }
+
+    // Libre d'occupation → atout pour appartement
+    if (e.libreOccupation && e.typeId == 'appartement') {
+      points.add((
+        text: 'Libre d\'occupation : atout fort vs parc locatif — arguable pour primo-accédants et investisseurs.',
+        color: kGreen,
+        icon: Icons.key_outlined,
+      ));
+    }
+
     return points;
   }
 

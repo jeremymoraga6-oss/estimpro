@@ -47,6 +47,28 @@ class _Section3ScreenState extends State<Section3Screen> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+            // Caractéristiques du bien (ascenseur + libre)
+            SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const CardTitleRow(icon: Icons.info_outline_rounded, label: 'Caractéristiques'),
+              _ToggleRow(
+                icon: Icons.elevator_outlined,
+                label: 'Ascenseur',
+                sub: 'Immeuble équipé',
+                value: _e.ascenseur,
+                onChanged: (v) => _update(_e.copyWith(ascenseur: v)),
+              ),
+              const Divider(height: 1, indent: 44),
+              _ToggleRow(
+                icon: Icons.key_outlined,
+                label: 'Libre d\'occupation',
+                sub: 'Non loué au moment de la vente',
+                value: _e.libreOccupation,
+                onChanged: (v) => _update(_e.copyWith(libreOccupation: v)),
+              ),
+            ])),
+            const SizedBox(height: 14),
+
             const Text('Activez les dépendances présentes',
                 style: TextStyle(fontSize: 12, color: Color(0xFF95A5A6), fontStyle: FontStyle.italic)),
             const SizedBox(height: 12),
@@ -150,6 +172,36 @@ class _Section3ScreenState extends State<Section3Screen> {
           ),
           const SizedBox(height: 8),
           const Text('Autre', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kLightGrey)),
+        ]),
+      );
+}
+
+class _ToggleRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String sub;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  const _ToggleRow({required this.icon, required this.label, required this.sub, required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(children: [
+          Container(
+            width: 32, height: 32,
+            decoration: BoxDecoration(
+              color: (value ? kGreen : kGrey).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 17, color: value ? kGreen : kGrey),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kCharcoal)),
+            Text(sub, style: const TextStyle(fontSize: 11, color: kGrey)),
+          ])),
+          Switch(value: value, onChanged: onChanged, activeColor: kGreen),
         ]),
       );
 }

@@ -53,7 +53,7 @@ class _Section2ScreenState extends State<Section2Screen> {
   final _chauffages = ['Gaz naturel', 'Électrique', 'Pompe à chaleur', 'Fioul', 'Bois / Pellets', 'Géothermie'];
   final _vueOptions = ['Montagne', 'Dégagée', 'Jardin', 'Rue', 'Cour'];
   final _solOptions = ['Parquet', 'Carrelage', 'Tomettes', 'Béton ciré', 'Moquette'];
-  final _orientations = ['N', 'S', 'E', 'O', 'Traversant'];
+  final _orientations = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO', 'Traversant'];
 
   @override
   void initState() { super.initState(); _e = widget.estimation; }
@@ -106,10 +106,12 @@ class _Section2ScreenState extends State<Section2Screen> {
 
               const FieldLabel('Orientation'),
               const SizedBox(height: 6),
-              Row(children: _orientations.map((o) {
-                final sel = _e.orientations.contains(o);
-                return Expanded(
-                  child: GestureDetector(
+              Wrap(
+                spacing: 7,
+                runSpacing: 7,
+                children: _orientations.map((o) {
+                  final sel = _e.orientations.contains(o);
+                  return GestureDetector(
                     onTap: () {
                       final list = List<String>.from(_e.orientations);
                       sel ? list.remove(o) : list.add(o);
@@ -117,19 +119,17 @@ class _Section2ScreenState extends State<Section2Screen> {
                     },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
-                      margin: EdgeInsets.only(right: o != 'Traversant' ? 7 : 0),
-                      height: 36,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
                         color: sel ? kGreen : Colors.white,
                         borderRadius: BorderRadius.circular(999),
                         border: Border.all(color: sel ? kGreen : kBorderColor, width: 1.5),
                       ),
-                      alignment: Alignment.center,
                       child: Text(o, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: sel ? Colors.white : kGrey)),
                     ),
-                  ),
-                );
-              }).toList()),
+                  );
+                }).toList(),
+              ),
             ])),
 
             // Qualité des prestations
