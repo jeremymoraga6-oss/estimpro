@@ -48,6 +48,8 @@ class Section2Screen extends StatefulWidget {
 
 class _Section2ScreenState extends State<Section2Screen> {
   late Estimation _e;
+  late TextEditingController _surfCtrl;
+  late TextEditingController _terrCtrl;
 
   final _annees = ['Avant 1900', '1900-1950', '1950-1980', '1980-2000', '2000-2010', '2010-2020', 'Après 2020'];
   final _chauffages = ['Gaz naturel', 'Électrique', 'Pompe à chaleur', 'Fioul', 'Bois / Pellets', 'Géothermie'];
@@ -56,7 +58,15 @@ class _Section2ScreenState extends State<Section2Screen> {
   final _orientations = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO', 'Traversant'];
 
   @override
-  void initState() { super.initState(); _e = widget.estimation; }
+  void initState() {
+    super.initState();
+    _e = widget.estimation;
+    _surfCtrl = TextEditingController(text: _e.surfaceHabitable > 0 ? _e.surfaceHabitable.toString() : '');
+    _terrCtrl = TextEditingController(text: _e.surfaceTerrain > 0 ? _e.surfaceTerrain.toString() : '');
+  }
+
+  @override
+  void dispose() { _surfCtrl.dispose(); _terrCtrl.dispose(); super.dispose(); }
 
   void _update(Estimation e) { setState(() => _e = e); widget.onChanged(e); }
 
@@ -73,11 +83,18 @@ class _Section2ScreenState extends State<Section2Screen> {
             SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const CardTitleRow(icon: Icons.straighten_rounded, label: 'Surfaces'),
 
-              StepperField(label: 'Surface habitable', value: _e.surfaceHabitable, unit: ' m²', step: 5,
-                  onChange: (v) => _update(_e.copyWith(surfaceHabitable: v))),
+              _SurfaceField(
+                label: 'Surface habitable',
+                controller: _surfCtrl,
+                onChanged: (v) => _update(_e.copyWith(surfaceHabitable: v)),
+              ),
               const SizedBox(height: 12),
-              StepperField(label: 'Surface terrain', value: _e.surfaceTerrain, unit: ' m²', step: 25,
-                  onChange: (v) => _update(_e.copyWith(surfaceTerrain: v))),
+              _SurfaceField(
+                label: 'Surface terrain',
+                controller: _terrCtrl,
+                onChanged: (v) => _update(_e.copyWith(surfaceTerrain: v)),
+                hint: '0 si appartement',
+              ),
               const CardDivider(),
               Row(children: [
                 Expanded(child: StepperField(label: 'Pièces', value: _e.pieces, onChange: (v) => _update(_e.copyWith(pieces: v)))),
@@ -191,4 +208,37 @@ class _Section2ScreenState extends State<Section2Screen> {
       SectionBottomBar(onPrev: widget.onPrev, onNext: widget.onNext),
     ]);
   }
+}
+
+class _SurfaceField extends StatelessWidget {
+  final String label;
+  final TextEditingController controller;
+  final ValueChanged<int> onChanged;
+  final String? hint;
+  const _SurfaceField({required this.label, required this.controller, required this.onChanged, this.hint});
+
+  @override
+  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    FieldLabel(label),
+    const SizedBox(height: 6),
+    TextField(
+      controller: controller,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kCharcoal),
+      decoration: InputDecoration(
+        suffixText: 'm²',
+        suffixStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kGrey),
+        hintText: hint ?? 'ex: 75',
+        hintStyle: const TextStyle(color: kLightGrey, fontWeight: FontWeight.w400),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kGreen, width: 2)),
+      ),
+      onChanged: (v) {
+        final parsed = double.tryParse(v.replaceAll(',', '.')) ?? 0;
+        onChanged(parsed.round());
+      },
+    ),
+  ]);
 }

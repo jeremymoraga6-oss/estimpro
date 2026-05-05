@@ -204,9 +204,17 @@ class _Section6ScreenState extends State<Section6Screen> {
               _AdjRow(
                 label: 'Environnement / Nuisances',
                 val: _e.ajustEnvironnement,
-                min: -5,
+                min: -12,
                 max: 0,
-                note: _e.ajustEnvironnement < -3 ? 'nuisances importantes' : _e.ajustEnvironnement < -1 ? 'nuisances modérées' : 'environnement neutre',
+                note: _e.ajustEnvironnement <= -9
+                    ? 'nuisances sévères (route < 50m ou double source)'
+                    : _e.ajustEnvironnement <= -6
+                        ? 'nuisances importantes (route < 100m ou voie ferrée)'
+                        : _e.ajustEnvironnement <= -3
+                            ? 'nuisances modérées (55–65 dB)'
+                            : _e.ajustEnvironnement < 0
+                                ? 'nuisances légères (< 55 dB)'
+                                : 'environnement neutre',
                 onChanged: (v) => _update(_e.copyWith(ajustEnvironnement: v)),
               ),
 
@@ -660,6 +668,24 @@ class _AutoVigilanceCard extends StatelessWidget {
         text: 'Budget travaux significatif (${(e.ajustTravaux / 1000).round()}k€) — bien communiquer aux acquéreurs pour justifier le prix.',
         color: kAmber,
         icon: Icons.home_repair_service_outlined,
+      ));
+    }
+
+    // Nuisances environnement
+    if (e.ajustEnvironnement <= -9) {
+      points.add((
+        text: 'Nuisances sévères (décote ${e.ajustEnvironnement.round()}%) — route < 50m ou double source acoustique. '
+            'Marché cible réduit : acquéreurs contraints par le budget ou non-sensibles. '
+            'Valoriser impérativement les atouts compensatoires (transports, commerces, luminosité).',
+        color: kRed,
+        icon: Icons.volume_up_outlined,
+      ));
+    } else if (e.ajustEnvironnement <= -5) {
+      points.add((
+        text: 'Nuisances importantes (décote ${e.ajustEnvironnement.round()}%) — évoquer le double vitrage ou mur antibruit comme point de négociation. '
+            'Impact sur la rapidité de vente à anticiper.',
+        color: kAmber,
+        icon: Icons.volume_up_outlined,
       ));
     }
 

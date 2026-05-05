@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:open_file/open_file.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/estimation.dart';
@@ -69,14 +70,16 @@ class PdfService {
   }
 
   Future<void> sendByEmail(Estimation e) async {
+    final file = await generate(e);
     final price = e.prixFinal > 0 ? e.prixFinal : e.prixCalcule;
     final priceStr = '${price.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} €';
-    final subject = Uri.encodeComponent('Estimation ${e.reference} — $priceStr');
-    final body = Uri.encodeComponent(
-      'Bonjour,\n\nVeuillez trouver ci-joint le rapport d\'estimation pour le bien référencé ${e.reference}.\n\nValeur estimée : $priceStr\n\nCordialement,\nJérémy Moraga\nFaucigny Immobilier by Efficity',
+    final subject = 'Estimation ${e.reference} — $priceStr';
+    final body = 'Bonjour,\n\nVeuillez trouver ci-joint le rapport d\'estimation pour le bien référencé ${e.reference}.\n\nValeur estimée : $priceStr\nPrix de mandat : ${e.prixMandat.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} €\n\nCordialement,\nJérémy Moraga\nFaucigny Immobilier by Efficity';
+    await Share.shareXFiles(
+      [XFile(file.path, mimeType: 'application/pdf')],
+      subject: subject,
+      text: body,
     );
-    final uri = Uri.parse('mailto:?subject=$subject&body=$body');
-    if (await canLaunchUrl(uri)) await launchUrl(uri);
   }
 
   pw.Widget _header(Estimation e) => pw.Column(children: [
