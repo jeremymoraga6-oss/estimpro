@@ -578,11 +578,33 @@ class _AutoVigilanceCard extends StatelessWidget {
     final points = <({String text, Color color, IconData icon})>[];
 
     // DPE
-    if (e.dpeClasse == 'F' || e.dpeClasse == 'G') {
+    if (e.dpeClasse == 'G') {
       points.add((
-        text: 'DPE ${e.dpeClasse} : passoire thermique — décote à intégrer, certains acquéreurs refuseront sans travaux de rénovation.',
+        text: 'DPE G : interdit à la location depuis le 1ᵉʳ janv. 2025 — investisseurs exclus (≈40% du marché). '
+            'Décote forte + délai de vente long. Travaux obligatoires avant toute relocation. '
+            'Estimer le coût de rénovation énergétique et l\'intégrer en ajustement travaux.',
         color: kRed,
         icon: Icons.energy_savings_leaf_outlined,
+      ));
+      points.add((
+        text: 'Marché cible restreint aux acquéreurs occupants uniquement — '
+            'orienter la prospection vers primo-accédants et seniors résidents.',
+        color: kAmber,
+        icon: Icons.people_outline_rounded,
+      ));
+    } else if (e.dpeClasse == 'F') {
+      points.add((
+        text: 'DPE F : interdit à la location au 1ᵉʳ janv. 2028 — investisseurs exclus dès aujourd\'hui. '
+            'Décote structurelle −5% + risque délai de vente élevé (cas documenté : comparable DPE F invendu 329 jours). '
+            'Travaux de rénovation énergétique conseillés : +20 000 à +40 000 € pour atteindre DPE D.',
+        color: kRed,
+        icon: Icons.energy_savings_leaf_outlined,
+      ));
+      points.add((
+        text: 'Stratégie commerciale : cibler acquéreurs occupants, valoriser les atouts locaux '
+            '(services, accessibilité). Prévoir marge de négociation généreuse (3–5%).',
+        color: kAmber,
+        icon: Icons.people_outline_rounded,
       ));
     } else if (e.dpeClasse == 'E') {
       points.add((
