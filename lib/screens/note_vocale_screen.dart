@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/vendeur_note.dart';
 import '../services/voice_service.dart';
 import '../theme.dart';
@@ -32,6 +33,8 @@ class _NoteVocaleSheetState extends State<_NoteVocaleSheet>
   VendeurNote? _note;
   late AnimationController _pulseCtrl;
   late Animation<double> _pulse;
+  final _stopwatch = Stopwatch();
+  late final Stream<int> _ticker;
 
   @override
   void initState() {
@@ -43,16 +46,28 @@ class _NoteVocaleSheetState extends State<_NoteVocaleSheet>
       ..repeat(reverse: true);
     _pulse = Tween(begin: 1.0, end: 1.25).animate(
         CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
+    _ticker = Stream.periodic(const Duration(seconds: 1), (i) => i);
     _voice.init();
   }
 
   @override
   void dispose() {
     _pulseCtrl.dispose();
+    _stopwatch.stop();
     super.dispose();
   }
 
+  String get _duration {
+    final s = _stopwatch.elapsed.inSeconds;
+    final m = s ~/ 60;
+    return '${m.toString().padLeft(2, '0')}:${(s % 60).toString().padLeft(2, '0')}';
+  }
+
   Future<void> _startRecording() async {
+    if (_state == _State.recording) return;
+    HapticFeedback.mediumImpact();
+    _stopwatch.reset();
+    _stopwatch.start();
     setState(() {
       _state = _State.recording;
       _transcript = '';
@@ -65,6 +80,8 @@ class _NoteVocaleSheetState extends State<_NoteVocaleSheet>
 
   Future<void> _stopRecording() async {
     if (_state != _State.recording) return;
+    HapticFeedback.lightImpact();
+    _stopwatch.stop();
     setState(() => _state = _State.processing);
 
     final (text, audioPath) = await _voice.stop();
@@ -157,42 +174,78 @@ class _NoteVocaleSheetState extends State<_NoteVocaleSheet>
   Widget _buildRecorder() {
     final isRec = _state == _State.recording;
     return Column(children: [
-      const SizedBox(height: 16),
-      Text(
-        isRec ? 'Enregistrement en cours…' : 'Maintenez pour enregistrer',
-        style: TextStyle(
-            fontSize: 14,
-            color: isRec ? kGreen : kGrey,
-            fontWeight: FontWeight.w500),
+      const SizedBox(height: 20),
+
+      // Instruction / durée
+      AnimatedSwitcher(
+        duration: const Duration(milliseconds: 200),
+        child: isRec
+            ? StreamBuilder<int>(
+                key: const ValueKey('rec'),
+                stream: _ticker,
+                builder: (_, __) => Column(children: [
+                  Text(_duration,
+                      style: const TextStyle(
+                          fontSize: 26, fontWeight: FontWeight.w700,
+                          color: kGreen, letterSpacing: 1.5)),
+                  const SizedBox(height: 4),
+                  Row(mainAxisSize: MainAxisSize.min, children: [
+                    Container(width: 8, height: 8,
+                        decoration: const BoxDecoration(color: kGreen, shape: BoxShape.circle)),
+                    const SizedBox(width: 6),
+                    const Text('Enregistrement en cours…',
+                        style: TextStyle(fontSize: 13, color: kGreen, fontWeight: FontWeight.w500)),
+                  ]),
+                ]),
+              )
+            : Column(key: const ValueKey('idle'), children: [
+                const Icon(Icons.touch_app_rounded, color: kLightGrey, size: 28),
+                const SizedBox(height: 6),
+                const Text('Appuyez et maintenez',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: kCharcoal)),
+                const SizedBox(height: 2),
+                const Text('Relâchez pour transcrire automatiquement',
+                    style: TextStyle(fontSize: 12, color: kGrey)),
+              ]),
       ),
-      const SizedBox(height: 28),
-      // Mic button — hold to record
-      GestureDetector(
-        onTapDown: (_) => _startRecording(),
-        onTapUp: (_) => _stopRecording(),
-        onTapCancel: _stopRecording,
+      const SizedBox(height: 32),
+
+      // Mic button — Listener (raw pointer, no tap-cancel timeout)
+      Listener(
+        onPointerDown: (_) => _startRecording(),
+        onPointerUp: (_) => _stopRecording(),
         child: AnimatedBuilder(
           animation: _pulse,
           builder: (_, child) => Transform.scale(
             scale: isRec ? _pulse.value : 1.0,
             child: child,
           ),
-          child: Container(
-            width: 96, height: 96,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            width: isRec ? 110 : 96,
+            height: isRec ? 110 : 96,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: isRec ? kGreen : const Color(0xFFF0F9F0),
               border: Border.all(
                   color: isRec ? kGreen : const Color(0xFFB2DFB2), width: 2.5),
               boxShadow: isRec
-                  ? [BoxShadow(color: kGreen.withValues(alpha: 0.35), blurRadius: 24, spreadRadius: 4)]
+                  ? [BoxShadow(color: kGreen.withValues(alpha: 0.4), blurRadius: 28, spreadRadius: 6)]
                   : [],
             ),
-            child: Icon(Icons.mic_rounded,
-                size: 42, color: isRec ? Colors.white : kGreen),
+            child: Icon(isRec ? Icons.mic_rounded : Icons.mic_none_rounded,
+                size: isRec ? 48 : 42,
+                color: isRec ? Colors.white : kGreen),
           ),
         ),
       ),
+
+      const SizedBox(height: 12),
+      if (isRec)
+        const Text('Relâchez pour transcrire',
+            style: TextStyle(fontSize: 12, color: kGreen,
+                fontWeight: FontWeight.w500, fontStyle: FontStyle.italic)),
+
       const SizedBox(height: 24),
       // Live transcript
       if (_transcript.isNotEmpty)
@@ -211,18 +264,8 @@ class _NoteVocaleSheetState extends State<_NoteVocaleSheet>
       if (_error.isNotEmpty) ...[
         const SizedBox(height: 12),
         Text(_error,
-            style:
-                const TextStyle(fontSize: 12, color: Color(0xFFE53935))),
+            style: const TextStyle(fontSize: 12, color: Color(0xFFE53935))),
       ],
-      const SizedBox(height: 16),
-      if (isRec)
-        OutlinedButton.icon(
-          onPressed: _stopRecording,
-          icon: const Icon(Icons.stop_circle_outlined, size: 18),
-          label: const Text('Arrêter'),
-          style: OutlinedButton.styleFrom(
-              foregroundColor: kGreen, side: const BorderSide(color: kGreen)),
-        ),
     ]);
   }
 
