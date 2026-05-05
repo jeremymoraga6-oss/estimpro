@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme.dart';
+import '../services/voice_service.dart';
 
 class MesNotes extends StatefulWidget {
   final String sectionKey;
@@ -114,7 +116,11 @@ class _MesNotesState extends State<MesNotes> {
                   // Voice section
                   Text('NOTE VOCALE', style: kSectionLabel),
                   const SizedBox(height: 8),
-                  const _VoiceRecorder(),
+                  _VoiceRecorder(onTranscript: (t) {
+                    final cur = _textCtrl.text;
+                    _textCtrl.text = cur.isEmpty ? t : '$cur\n$t';
+                    setState(() {});
+                  }),
                   const SizedBox(height: 16),
 
                   // Save button
@@ -261,81 +267,118 @@ class _SketchPainter extends CustomPainter {
 
 // ── Voice recorder ────────────────────────────────────────────
 class _VoiceRecorder extends StatefulWidget {
-  const _VoiceRecorder();
+  final ValueChanged<String> onTranscript;
+  const _VoiceRecorder({required this.onTranscript});
 
   @override
   State<_VoiceRecorder> createState() => _VoiceRecorderState();
 }
 
 class _VoiceRecorderState extends State<_VoiceRecorder> {
+  final _voice = VoiceService.instance;
   bool _recording = false;
-  bool _hasSaved = false;
-  int _seconds = 0;
+  bool _processing = false;
+  String _partial = '';
+  final _sw = Stopwatch();
 
-  String _fmt(int s) => '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
+  @override
+  void initState() {
+    super.initState();
+    _voice.init();
+  }
 
-  final _bars = [3,6,10,8,5,12,9,7,11,8,6,9,4,11,7,5,10,8,6,9,7,11,5,8,10,7,9,6,4,8];
+  @override
+  void dispose() {
+    _sw.stop();
+    super.dispose();
+  }
+
+  String get _dur {
+    final s = _sw.elapsed.inSeconds;
+    return '${(s ~/ 60).toString().padLeft(2, '0')}:${(s % 60).toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _start() async {
+    if (_recording || _processing) return;
+    HapticFeedback.mediumImpact();
+    _sw.reset(); _sw.start();
+    setState(() { _recording = true; _partial = ''; });
+    await _voice.start(onPartial: (t) { if (mounted) setState(() => _partial = t); });
+  }
+
+  Future<void> _stop() async {
+    if (!_recording) return;
+    HapticFeedback.lightImpact();
+    _sw.stop();
+    setState(() { _recording = false; _processing = true; });
+    final (text, _) = await _voice.stop();
+    if (!mounted) return;
+    setState(() => _processing = false);
+    if (text.isNotEmpty) widget.onTranscript(text);
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (_hasSaved) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: const Color(0xFFE0E0E0)),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(children: [
-          Container(
-            width: 32, height: 32,
-            decoration: const BoxDecoration(color: kGreen, shape: BoxShape.circle),
-            child: const Icon(Icons.play_arrow, color: Colors.white, size: 16),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: _bars.map((h) => Expanded(
-                child: Container(
-                  height: h.toDouble(),
-                  margin: const EdgeInsets.symmetric(horizontal: 0.5),
-                  decoration: BoxDecoration(color: kGreen.withOpacity(0.7), borderRadius: BorderRadius.circular(1)),
-                ),
-              )).toList(),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Text(_fmt(_seconds), style: const TextStyle(fontSize: 11, color: kGrey, fontWeight: FontWeight.w600)),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: () => setState(() { _hasSaved = false; _seconds = 0; }),
-            child: const Icon(Icons.delete_outline, color: kRed, size: 18),
-          ),
+    if (_processing) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: kGreen)),
+          SizedBox(width: 10),
+          Text('Transcription en cours…', style: TextStyle(fontSize: 12, color: kGrey)),
         ]),
       );
     }
 
-    return Column(children: [
-      GestureDetector(
-        onTapDown: (_) => setState(() { _recording = true; _seconds = 0; }),
-        onTapUp: (_) => setState(() { _recording = false; _hasSaved = _seconds > 0; }),
+    return Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
+      // Mic button — Listener for reliable hold detection
+      Listener(
+        onPointerDown: (_) => _start(),
+        onPointerUp: (_) => _stop(),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: 64, height: 64,
+          duration: const Duration(milliseconds: 150),
+          width: _recording ? 72 : 60,
+          height: _recording ? 72 : 60,
           decoration: BoxDecoration(
-            color: _recording ? kRed : kGreen,
+            color: _recording ? kGreen : const Color(0xFFF0F9F0),
             shape: BoxShape.circle,
-            boxShadow: _recording ? [BoxShadow(color: kRed.withOpacity(0.4), blurRadius: 16, spreadRadius: 4)] : null,
+            border: Border.all(color: _recording ? kGreen : const Color(0xFFB2DFB2), width: 2),
+            boxShadow: _recording
+                ? [BoxShadow(color: kGreen.withValues(alpha: 0.35), blurRadius: 16, spreadRadius: 4)]
+                : null,
           ),
-          child: const Icon(Icons.mic, color: Colors.white, size: 28),
+          child: Icon(
+            _recording ? Icons.mic_rounded : Icons.mic_none_rounded,
+            color: _recording ? Colors.white : kGreen,
+            size: _recording ? 32 : 26,
+          ),
         ),
       ),
-      const SizedBox(height: 8),
-      Text(
-        _recording ? 'En cours... ${_fmt(_seconds)}' : 'Appuyer pour enregistrer',
-        style: TextStyle(fontSize: 11, color: _recording ? kRed : const Color(0xFF95A5A6), fontWeight: _recording ? FontWeight.w600 : FontWeight.w400),
+      const SizedBox(height: 6),
+      StreamBuilder<int>(
+        stream: _recording ? Stream.periodic(const Duration(seconds: 1), (i) => i) : const Stream.empty(),
+        builder: (_, __) => Text(
+          _recording ? 'Relâchez pour transcrire · $_dur' : 'Maintenez pour enregistrer',
+          style: TextStyle(
+            fontSize: 11,
+            color: _recording ? kGreen : kLightGrey,
+            fontWeight: _recording ? FontWeight.w600 : FontWeight.w400,
+          ),
+        ),
       ),
+      if (_partial.isNotEmpty) ...[
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF7FFF7),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFB2DFB2)),
+          ),
+          child: Text(_partial, style: const TextStyle(fontSize: 12, color: kCharcoal, height: 1.5, fontStyle: FontStyle.italic)),
+        ),
+      ],
     ]);
   }
 }
