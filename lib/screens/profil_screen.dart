@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:path_provider/path_provider.dart';
 import '../theme.dart';
 import '../services/crash_reporter.dart';
@@ -182,6 +183,35 @@ class ProfilScreen extends StatelessWidget {
                   'Données locales uniquement'),
             ]),
             const SizedBox(height: 12),
+            // Avis Google + Page Efficity
+            _ActionCard(
+              icon: Icons.star_rounded,
+              iconColor: const Color(0xFFFBBC05),
+              iconBg: const Color(0xFFFFF8E1),
+              title: 'Laisser un avis Google',
+              subtitle: 'Aidez-moi à développer mon activité',
+              trailing: 'Ouvrir',
+              trailingColor: const Color(0xFF4285F4),
+              onTap: () => launchUrl(
+                Uri.parse('https://share.google/fQtR1My2s6T0rH9GB'),
+                mode: LaunchMode.externalApplication,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _ActionCard(
+              icon: Icons.share_rounded,
+              iconColor: kGreen,
+              iconBg: Color(0xFFE8F5E9),
+              title: 'Partager ma page Efficity',
+              subtitle: 'www.efficity.com/jmoraga',
+              trailing: 'Partager',
+              trailingColor: kGreen,
+              onTap: () => Share.share(
+                'Découvrez mon profil de conseiller immobilier :\nhttps://www.efficity.com/jmoraga/\n\nJérémy Moraga — Faucigny Immobilier by Efficity',
+                subject: 'Mon profil Efficity',
+              ),
+            ),
+            const SizedBox(height: 12),
             // Bouton journal de débogage
             Container(
               decoration: kCardDecoration(),
@@ -282,4 +312,49 @@ class _Item {
   final String label;
   final String value;
   const _Item(this.icon, this.label, this.value);
+}
+
+class _ActionCard extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final Color iconBg;
+  final String title;
+  final String subtitle;
+  final String trailing;
+  final Color trailingColor;
+  final VoidCallback onTap;
+  const _ActionCard({required this.icon, required this.iconColor, required this.iconBg, required this.title, required this.subtitle, required this.trailing, required this.trailingColor, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    decoration: kCardDecoration(),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        child: Row(children: [
+          Container(
+            width: 36, height: 36,
+            decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, size: 20, color: iconColor),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kCharcoal)),
+            const SizedBox(height: 2),
+            Text(subtitle, style: const TextStyle(fontSize: 11, color: kGrey)),
+          ])),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: trailingColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(trailing, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: trailingColor)),
+          ),
+        ]),
+      ),
+    ),
+  );
 }
