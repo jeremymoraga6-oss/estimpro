@@ -67,8 +67,15 @@ class Estimation {
   // Section 5 — Analyse marché
   List<Map<String, dynamic>> comparables;
   double dvfRadiusKm; // 0 = commune uniquement, sinon rayon en km
+  // Synthèse pondérée
+  double prixPricehubble; // estimation PH en € (0 = non renseigné)
+  double prixAnnonces;    // estimation annonces en € (0 = non renseigné)
+  int ponderationDvf;     // poids DVF en %
+  int ponderationPh;      // poids PriceHubble en %
+  int ponderationAnnonces; // poids Annonces en %
 
   // Section 6 — Estimation
+  double margeNegociation; // % marge pour prix de mandat (défaut 10%)
   double ajustVue;
   double ajustEtat;
   double ajustDpe;
@@ -147,6 +154,12 @@ class Estimation {
     this.noteEtatPrestation = 2,
     List<Map<String, dynamic>>? comparables,
     this.dvfRadiusKm = 1,
+    this.prixPricehubble = 0,
+    this.prixAnnonces = 0,
+    this.ponderationDvf = 45,
+    this.ponderationPh = 40,
+    this.ponderationAnnonces = 15,
+    this.margeNegociation = 10,
     this.ajustVue = 3,
     this.ajustEtat = 5,
     this.ajustDpe = 0,
@@ -258,8 +271,24 @@ class Estimation {
     return prices[prices.length ~/ 2];
   }
 
-  double get prixM2Retenu => prixMoyen * (1 + coefficientPrestations / 100);
+  double get prixFondamentalM2 {
+    final dvfM2 = prixMoyen;
+    final hasPh = prixPricehubble > 0 && surfaceHabitable > 0;
+    final hasAnn = prixAnnonces > 0 && surfaceHabitable > 0;
+    if (!hasPh && !hasAnn) return dvfM2;
+    final phM2 = hasPh ? prixPricehubble / surfaceHabitable : 0.0;
+    final annM2 = hasAnn ? prixAnnonces / surfaceHabitable : 0.0;
+    double sumW = ponderationDvf.toDouble();
+    double sumV = dvfM2 * ponderationDvf;
+    if (hasPh) { sumW += ponderationPh; sumV += phM2 * ponderationPh; }
+    if (hasAnn) { sumW += ponderationAnnonces; sumV += annM2 * ponderationAnnonces; }
+    return sumW > 0 ? sumV / sumW : dvfM2;
+  }
+
+  double get prixM2Retenu => prixFondamentalM2 * (1 + coefficientPrestations / 100);
   double get prixBase => prixM2Retenu * surfaceHabitable;
+
+  double get prixMandat => (prixCalcule * (1 + margeNegociation / 100) / 1000).round() * 1000;
 
   double get prixCalcule {
     final totalPct = ajustVue + ajustEtat + ajustDpe + ajustExposition + ajustEnvironnement;
@@ -320,6 +349,12 @@ class Estimation {
         'noteEtatPrestation': noteEtatPrestation,
         'comparables': jsonEncode(comparables),
         'dvfRadiusKm': dvfRadiusKm,
+        'prixPricehubble': prixPricehubble,
+        'prixAnnonces': prixAnnonces,
+        'ponderationDvf': ponderationDvf,
+        'ponderationPh': ponderationPh,
+        'ponderationAnnonces': ponderationAnnonces,
+        'margeNegociation': margeNegociation,
         'ajustVue': ajustVue,
         'ajustEtat': ajustEtat,
         'ajustDpe': ajustDpe,
@@ -401,6 +436,12 @@ class Estimation {
           ? List<Map<String, dynamic>>.from(jsonDecode(m['comparables']))
           : [],
       dvfRadiusKm: (m['dvfRadiusKm'] as num?)?.toDouble() ?? 1,
+      prixPricehubble: (m['prixPricehubble'] as num?)?.toDouble() ?? 0,
+      prixAnnonces: (m['prixAnnonces'] as num?)?.toDouble() ?? 0,
+      ponderationDvf: m['ponderationDvf'] as int? ?? 45,
+      ponderationPh: m['ponderationPh'] as int? ?? 40,
+      ponderationAnnonces: m['ponderationAnnonces'] as int? ?? 15,
+      margeNegociation: (m['margeNegociation'] as num?)?.toDouble() ?? 10,
       ajustVue: (m['ajustVue'] as num?)?.toDouble() ?? 3,
       ajustEtat: (m['ajustEtat'] as num?)?.toDouble() ?? 5,
       ajustDpe: (m['ajustDpe'] as num?)?.toDouble() ?? 0,
@@ -482,6 +523,12 @@ class Estimation {
     int? noteEtatPrestation,
     List<Map<String, dynamic>>? comparables,
     double? dvfRadiusKm,
+    double? prixPricehubble,
+    double? prixAnnonces,
+    int? ponderationDvf,
+    int? ponderationPh,
+    int? ponderationAnnonces,
+    double? margeNegociation,
     double? ajustVue,
     double? ajustEtat,
     double? ajustDpe,
@@ -554,6 +601,12 @@ class Estimation {
       noteEtatPrestation: noteEtatPrestation ?? this.noteEtatPrestation,
       comparables: comparables ?? List.from(this.comparables),
       dvfRadiusKm: dvfRadiusKm ?? this.dvfRadiusKm,
+      prixPricehubble: prixPricehubble ?? this.prixPricehubble,
+      prixAnnonces: prixAnnonces ?? this.prixAnnonces,
+      ponderationDvf: ponderationDvf ?? this.ponderationDvf,
+      ponderationPh: ponderationPh ?? this.ponderationPh,
+      ponderationAnnonces: ponderationAnnonces ?? this.ponderationAnnonces,
+      margeNegociation: margeNegociation ?? this.margeNegociation,
       ajustVue: ajustVue ?? this.ajustVue,
       ajustEtat: ajustEtat ?? this.ajustEtat,
       ajustDpe: ajustDpe ?? this.ajustDpe,

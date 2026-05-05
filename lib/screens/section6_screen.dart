@@ -418,6 +418,9 @@ class _Section6ScreenState extends State<Section6Screen> {
               const Text('Modifiez si nécessaire', style: TextStyle(fontSize: 10, color: kLightGrey, fontStyle: FontStyle.italic)),
             ])),
 
+            // Prix de mandat
+            _PrixMandatCard(estimation: _e, onChanged: _update),
+
             // Auto vigilance
             _AutoVigilanceCard(estimation: _e, onInsert: (text) {
               final cur = _conclusionCtrl.text;
@@ -784,5 +787,94 @@ class _AutoVigilanceCard extends StatelessWidget {
         )),
       ]),
     );
+  }
+}
+
+// ── Prix de mandat ──────────────────────────────────────────────
+class _PrixMandatCard extends StatelessWidget {
+  final Estimation estimation;
+  final ValueChanged<Estimation> onChanged;
+  const _PrixMandatCard({required this.estimation, required this.onChanged});
+
+  String _fmt(double n) {
+    final s = n.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
+    return '$s €';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final e = estimation;
+    final netVendeur = e.prixCalcule;
+    final mandat = e.prixMandat;
+    final plancher = (netVendeur * 0.95 / 1000).round() * 1000.0;
+    final marge = e.margeNegociation;
+
+    return SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const CardTitleRow(icon: Icons.sell_outlined, label: 'Prix de commercialisation'),
+      const SizedBox(height: 4),
+
+      // Net vendeur
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        const Text('Prix net vendeur', style: TextStyle(fontSize: 12, color: kGrey)),
+        Text(_fmt(netVendeur), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kCharcoal)),
+      ]),
+      const SizedBox(height: 14),
+
+      // Marge slider
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        const Text('Marge de négociation', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kCharcoal)),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+          child: Text('+${marge.toInt()}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kGreen)),
+        ),
+      ]),
+      Slider(
+        value: marge,
+        min: 0,
+        max: 20,
+        divisions: 20,
+        activeColor: kGreen,
+        inactiveColor: kGreen.withOpacity(0.15),
+        onChanged: (v) => onChanged(e.copyWith(margeNegociation: v)),
+      ),
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        const Text('0%', style: TextStyle(fontSize: 10, color: kLightGrey)),
+        const Text('10%', style: TextStyle(fontSize: 10, color: kLightGrey)),
+        const Text('20%', style: TextStyle(fontSize: 10, color: kLightGrey)),
+      ]),
+      const SizedBox(height: 14),
+
+      // Prix mandat — hero
+      Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: [kGreen.withOpacity(0.08), kGreen.withOpacity(0.04)]),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: kGreen.withOpacity(0.3)),
+        ),
+        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('PRIX DE MANDAT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kGreen, letterSpacing: 0.8)),
+            const SizedBox(height: 2),
+            Text('Net vendeur +${marge.toInt()}% de marge', style: const TextStyle(fontSize: 11, color: kGrey)),
+          ]),
+          Text(_fmt(mandat), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: kGreen, letterSpacing: -0.5)),
+        ]),
+      ),
+      const SizedBox(height: 8),
+
+      // Prix plancher
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Row(children: [
+          const Icon(Icons.south_rounded, size: 13, color: kLightGrey),
+          const SizedBox(width: 4),
+          const Text('Prix plancher (−5%)', style: TextStyle(fontSize: 11, color: kGrey)),
+        ]),
+        Text(_fmt(plancher), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kGrey)),
+      ]),
+      const SizedBox(height: 4),
+      const Text('Ne pas descendre en dessous sans accord vendeur', style: TextStyle(fontSize: 10, color: kLightGrey, fontStyle: FontStyle.italic)),
+    ]));
   }
 }

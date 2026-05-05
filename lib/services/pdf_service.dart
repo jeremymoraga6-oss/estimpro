@@ -191,7 +191,8 @@ class PdfService {
       if (e.ajustParking > 0) _row('Parking supplémentaire', '+${fmt(e.ajustParking.toDouble())}'),
       if (e.ajustPiscine > 0) _row('Prime piscine', '+${fmt(e.ajustPiscine.toDouble())}'),
       if (e.ajustTravaux > 0) _row('Travaux', '−${fmt(e.ajustTravaux.toDouble())}'),
-      _row('Valeur estimée', fmt(price), bold: true),
+      _row('Valeur estimée (net vendeur)', fmt(price), bold: true),
+      _row('Prix de mandat (+${e.margeNegociation.toInt()}%)', fmt(e.prixMandat), bold: true),
       _row('Fourchette', '${fmt(low)} — ${fmt(high)}'),
       _row('Validité', _fmtDate(e.validiteJusquau)),
     ]);

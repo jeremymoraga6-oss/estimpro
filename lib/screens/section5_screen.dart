@@ -315,6 +315,13 @@ class _Section5ScreenState extends State<Section5Screen> {
                 ]),
               ),
 
+            // Synthèse pondérée DVF / PH / Annonces
+            _SynthesePondereeCard(
+              estimation: _e,
+              dvfMediane: _median,
+              onChanged: _update,
+            ),
+
             const SizedBox(height: 16),
           ]),
         ),
@@ -803,4 +810,235 @@ class _StatCell extends StatelessWidget {
           Text(sub, style: const TextStyle(fontSize: 9, color: kGrey), maxLines: 1, overflow: TextOverflow.ellipsis),
         ]),
       );
+}
+
+// ── Synthèse pondérée DVF / PH / Annonces ──────────────────────
+class _SynthesePondereeCard extends StatefulWidget {
+  final Estimation estimation;
+  final double dvfMediane;
+  final ValueChanged<Estimation> onChanged;
+  const _SynthesePondereeCard({required this.estimation, required this.dvfMediane, required this.onChanged});
+
+  @override
+  State<_SynthesePondereeCard> createState() => _SynthesePondereeCardState();
+}
+
+class _SynthesePondereeCardState extends State<_SynthesePondereeCard> {
+  late TextEditingController _phCtrl;
+  late TextEditingController _annCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.estimation;
+    _phCtrl = TextEditingController(text: e.prixPricehubble > 0 ? e.prixPricehubble.round().toString() : '');
+    _annCtrl = TextEditingController(text: e.prixAnnonces > 0 ? e.prixAnnonces.round().toString() : '');
+  }
+
+  @override
+  void dispose() { _phCtrl.dispose(); _annCtrl.dispose(); super.dispose(); }
+
+  Estimation get _e => widget.estimation;
+
+  void _update(Estimation e) => widget.onChanged(e);
+
+  void _setPond(int dvf, int ph, int ann) => _update(_e.copyWith(ponderationDvf: dvf, ponderationPh: ph, ponderationAnnonces: ann));
+
+  String _fmt(double n) {
+    final s = n.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
+    return '$s €';
+  }
+
+  Widget _pondRow(String label, int val, int total, Color color, void Function(int) onInc, void Function(int) onDec) {
+    final pct = total > 0 ? (val / total * 100).round() : 0;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(children: [
+        SizedBox(width: 90, child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kCharcoal))),
+        GestureDetector(
+          onTap: () { if (val > 0) onDec(val); },
+          child: Container(width: 28, height: 28, decoration: BoxDecoration(border: Border.all(color: kBorderColor), borderRadius: BorderRadius.circular(6)),
+              alignment: Alignment.center, child: const Icon(Icons.remove, size: 14, color: kGrey)),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(width: 38, child: Text('$val%', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color))),
+        const SizedBox(width: 8),
+        GestureDetector(
+          onTap: () => onInc(val),
+          child: Container(width: 28, height: 28, decoration: BoxDecoration(border: Border.all(color: kBorderColor), borderRadius: BorderRadius.circular(6)),
+              alignment: Alignment.center, child: const Icon(Icons.add, size: 14, color: kGrey)),
+        ),
+        const SizedBox(width: 10),
+        Expanded(child: ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: total > 0 ? val / total : 0,
+            backgroundColor: color.withOpacity(0.1),
+            valueColor: AlwaysStoppedAnimation(color),
+            minHeight: 6,
+          ),
+        )),
+        const SizedBox(width: 8),
+        SizedBox(width: 32, child: Text('$pct%', textAlign: TextAlign.right, style: TextStyle(fontSize: 10, color: kGrey))),
+      ]),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPh = _e.prixPricehubble > 0;
+    final hasAnn = _e.prixAnnonces > 0;
+    final fondamentalM2 = _e.prixFondamentalM2;
+    final surf = _e.surfaceHabitable;
+    final fondamental = (fondamentalM2 * surf / 1000).round() * 1000;
+    final totalW = _e.ponderationDvf + (hasPh ? _e.ponderationPh : 0) + (hasAnn ? _e.ponderationAnnonces : 0);
+    final totalPct = _e.ponderationDvf + _e.ponderationPh + _e.ponderationAnnonces;
+    final sumOk = totalPct == 100;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: kGreen.withOpacity(0.3), width: 1.5),
+        boxShadow: const [BoxShadow(color: Color(0x12000000), blurRadius: 10, offset: Offset(0, 2))],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.balance_rounded, color: kGreen, size: 18),
+          const SizedBox(width: 8),
+          const Text('Synthèse pondérée', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kCharcoal)),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+            child: const Text('DVF · PH · ANNONCES', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: kGreen, letterSpacing: 0.6)),
+          ),
+        ]),
+        const SizedBox(height: 12),
+
+        // DVF row (auto)
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: const Color(0xFFF7F9F6), borderRadius: BorderRadius.circular(8)),
+          child: Row(children: [
+            const Icon(Icons.bar_chart_rounded, size: 15, color: kGreen),
+            const SizedBox(width: 8),
+            const Text('DVF (médiane)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kCharcoal)),
+            const Spacer(),
+            Text(
+              widget.dvfMediane > 0 ? '${widget.dvfMediane.round()} €/m²  ·  ${_fmt(widget.dvfMediane * surf)}' : '—',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kGreen),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 8),
+
+        // PriceHubble field
+        _PriceSourceField(
+          label: 'PriceHubble',
+          icon: Icons.hub_outlined,
+          controller: _phCtrl,
+          surface: surf,
+          onChanged: (v) => _update(_e.copyWith(prixPricehubble: v)),
+        ),
+        const SizedBox(height: 8),
+
+        // Annonces field
+        _PriceSourceField(
+          label: 'Annonces portails',
+          icon: Icons.apartment_rounded,
+          controller: _annCtrl,
+          surface: surf,
+          onChanged: (v) => _update(_e.copyWith(prixAnnonces: v)),
+        ),
+        const SizedBox(height: 14),
+
+        const Text('Pondération', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
+        const SizedBox(height: 6),
+        _pondRow('DVF', _e.ponderationDvf, totalW, kGreen,
+          (v) => _setPond(v + 5, _e.ponderationPh, _e.ponderationAnnonces),
+          (v) => _setPond(v - 5, _e.ponderationPh, _e.ponderationAnnonces),
+        ),
+        _pondRow('PriceHubble', _e.ponderationPh, totalW, const Color(0xFF5C6BC0),
+          (v) => _setPond(_e.ponderationDvf, v + 5, _e.ponderationAnnonces),
+          (v) => _setPond(_e.ponderationDvf, v - 5, _e.ponderationAnnonces),
+        ),
+        _pondRow('Annonces', _e.ponderationAnnonces, totalW, kAmber,
+          (v) => _setPond(_e.ponderationDvf, _e.ponderationPh, v + 5),
+          (v) => _setPond(_e.ponderationDvf, _e.ponderationPh, v - 5),
+        ),
+
+        Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          Text('Total : $totalPct%',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: sumOk ? kGreen : kAmber)),
+          if (!sumOk) ...[
+            const SizedBox(width: 4),
+            const Icon(Icons.warning_amber_rounded, size: 13, color: kAmber),
+          ],
+        ]),
+
+        const Divider(height: 20),
+
+        // Prix fondamental
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('PRIX FONDAMENTAL', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kGrey, letterSpacing: 0.8)),
+            const SizedBox(height: 2),
+            Text('${fondamentalM2.round()} €/m²', style: const TextStyle(fontSize: 11, color: kGrey)),
+          ]),
+          Text(_fmt(fondamental.toDouble()),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: kGreen, letterSpacing: -0.5)),
+        ]),
+        if (!hasPh && !hasAnn)
+          const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: Text('Saisissez l\'estimation PH et/ou annonces pour activer la pondération.',
+              style: TextStyle(fontSize: 11, color: kLightGrey, fontStyle: FontStyle.italic)),
+          ),
+      ]),
+    );
+  }
+}
+
+class _PriceSourceField extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final TextEditingController controller;
+  final int surface;
+  final ValueChanged<double> onChanged;
+  const _PriceSourceField({required this.label, required this.icon, required this.controller, required this.surface, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final val = double.tryParse(controller.text.replaceAll(' ', '').replaceAll('€', '')) ?? 0;
+    final m2 = val > 0 && surface > 0 ? '${(val / surface).round()} €/m²' : '';
+    return Row(children: [
+      Icon(icon, size: 15, color: kGrey),
+      const SizedBox(width: 8),
+      SizedBox(width: 90, child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kCharcoal))),
+      Expanded(
+        child: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          textAlign: TextAlign.right,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal),
+          decoration: InputDecoration(
+            hintText: '0 €',
+            hintStyle: const TextStyle(fontSize: 13, color: kLightGrey),
+            suffixText: m2,
+            suffixStyle: const TextStyle(fontSize: 10, color: kGrey),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+          ),
+          onChanged: (v) {
+            final parsed = double.tryParse(v.replaceAll(' ', '')) ?? 0;
+            onChanged(parsed);
+          },
+        ),
+      ),
+    ]);
+  }
 }
