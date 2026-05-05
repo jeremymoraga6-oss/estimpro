@@ -130,7 +130,7 @@ class PdfService {
         _row('État général', ['À rénover','Travaux','Bon état','Très bon','Neuf'][e.etatGeneral.clamp(0, 4)]),
         _row('Orientation', e.orientations.join(', ')),
         _row('Vue', e.vues.join(', ')),
-        _row('DPE', 'Classe ${e.dpeClasse}'),
+        _row('DPE', e.dpeClasse == 'NC' ? 'Non communiqué ⚠️' : 'Classe ${e.dpeClasse}'),
         _row('Chauffage', e.chauffageType),
       ]);
 

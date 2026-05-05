@@ -578,7 +578,17 @@ class _AutoVigilanceCard extends StatelessWidget {
     final points = <({String text, Color color, IconData icon})>[];
 
     // DPE
-    if (e.dpeClasse == 'G') {
+    if (e.dpeClasse == 'NC') {
+      final annee = int.tryParse(e.anneeConstruction) ?? 0;
+      final risquePre75 = annee > 0 && annee < 1975;
+      points.add((
+        text: 'DPE non communiqué — à exiger impérativement avant toute estimation définitive. '
+            '${risquePre75 ? 'Bâtiment de $annee : forte probabilité DPE E ou F (isolation pré-réglementation thermique 1975). ' : ''}'
+            'Un DPE F décalerait la valeur de −5% ; un DPE G de −8%. Ne pas publier sans DPE.',
+        color: kAmber,
+        icon: Icons.quiz_outlined,
+      ));
+    } else if (e.dpeClasse == 'G') {
       points.add((
         text: 'DPE G : interdit à la location depuis le 1ᵉʳ janv. 2025 — investisseurs exclus (≈40% du marché). '
             'Décote forte + délai de vente long. Travaux obligatoires avant toute relocation. '

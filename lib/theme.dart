@@ -18,6 +18,7 @@ const kDpeColors = {
   'E': Color(0xFFFF9800),
   'F': Color(0xFFF44336),
   'G': Color(0xFFB71C1C),
+  'NC': Color(0xFF9E9E9E),
 };
 
 ThemeData buildTheme() => ThemeData(

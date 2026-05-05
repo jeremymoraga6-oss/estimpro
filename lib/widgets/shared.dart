@@ -217,8 +217,30 @@ class DpeSelector extends StatelessWidget {
   final bool showLabel;
   const DpeSelector({super.key, required this.selected, required this.onSelect, this.showLabel = true});
 
-  static const classes = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
-  static const ranges = {'A': '<50', 'B': '51–90', 'C': '91–150', 'D': '151–230', 'E': '231–330', 'F': '331–450', 'G': '>450'};
+  static const classes = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'NC'];
+  static const ranges = {'A': '<50', 'B': '51–90', 'C': '91–150', 'D': '151–230', 'E': '231–330', 'F': '331–450', 'G': '>450', 'NC': 'Non communiqué'};
+
+  static const _mainClasses = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+
+  Widget _dpeBtn(String l, bool isSel) {
+    final color = kDpeColors[l]!;
+    return GestureDetector(
+      onTap: () => onSelect(l),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        margin: const EdgeInsets.only(right: 3),
+        height: isSel ? 44 : 32,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(isSel ? 6 : 4),
+          border: isSel ? Border.all(color: kCharcoal, width: 2.5) : null,
+          boxShadow: isSel ? [BoxShadow(color: color.withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 2))] : null,
+        ),
+        alignment: Alignment.center,
+        child: Text(l, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: isSel ? 15 : 12)),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) => Column(
@@ -226,33 +248,37 @@ class DpeSelector extends StatelessWidget {
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
-            children: classes.map((l) {
-              final isSel = selected == l;
-              final color = kDpeColors[l]!;
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => onSelect(l),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    margin: const EdgeInsets.only(right: 3),
-                    height: isSel ? 44 : 32,
-                    decoration: BoxDecoration(
-                      color: color,
-                      borderRadius: BorderRadius.circular(isSel ? 6 : 4),
-                      border: isSel ? Border.all(color: kCharcoal, width: 2.5) : null,
-                      boxShadow: isSel ? [BoxShadow(color: color.withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 2))] : null,
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(l, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: isSel ? 15 : 12)),
-                  ),
+            children: _mainClasses.map((l) => Expanded(child: _dpeBtn(l, selected == l))).toList(),
+          ),
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: () => onSelect('NC'),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: selected == 'NC' ? kDpeColors['NC']! : kDpeColors['NC']!.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(6),
+                border: selected == 'NC' ? Border.all(color: kCharcoal, width: 2) : null,
+              ),
+              child: Text(
+                'NC — DPE non communiqué',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: selected == 'NC' ? Colors.white : kGrey,
                 ),
-              );
-            }).toList(),
+              ),
+            ),
           ),
           if (showLabel) ...[
             const SizedBox(height: 6),
-            Text('Classe $selected · ${ranges[selected]} kWh/m².an',
-                style: const TextStyle(fontSize: 11, color: kGrey)),
+            Text(
+              selected == 'NC'
+                  ? '⚠️ DPE inconnu — à exiger avant estimation définitive'
+                  : 'Classe $selected · ${ranges[selected]} kWh/m².an',
+              style: TextStyle(fontSize: 11, color: selected == 'NC' ? kAmber : kGrey),
+            ),
           ],
         ],
       );
