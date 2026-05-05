@@ -54,10 +54,14 @@ class _HomeScreenState extends State<HomeScreen> {
           _load();
         },
       ),
-      EstimationsListScreen(estimations: _estimations, onTap: (e) async {
-        await Navigator.push(context, MaterialPageRoute(builder: (_) => EstimationFlow(existing: e)));
-        _load();
-      }),
+      EstimationsListScreen(
+        estimations: _estimations,
+        onDeleted: _load,
+        onTap: (e) async {
+          await Navigator.push(context, MaterialPageRoute(builder: (_) => EstimationFlow(existing: e)));
+          _load();
+        },
+      ),
       const MarcheScreen(),
       const ProfilScreen(),
     ];

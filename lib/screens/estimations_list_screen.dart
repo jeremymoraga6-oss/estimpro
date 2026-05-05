@@ -6,7 +6,8 @@ import '../services/database_service.dart';
 class EstimationsListScreen extends StatelessWidget {
   final List<Estimation> estimations;
   final ValueChanged<Estimation> onTap;
-  const EstimationsListScreen({super.key, required this.estimations, required this.onTap});
+  final VoidCallback onDeleted;
+  const EstimationsListScreen({super.key, required this.estimations, required this.onTap, required this.onDeleted});
 
   String _formatDate(DateTime d) {
     const months = ['jan.','fév.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
@@ -96,7 +97,10 @@ class EstimationsListScreen extends StatelessWidget {
           TextButton(
             onPressed: () async {
               await DatabaseService().delete(e.id);
-              if (ctx.mounted) Navigator.pop(ctx);
+              if (ctx.mounted) {
+                Navigator.pop(ctx);
+                onDeleted();
+              }
             },
             child: const Text('Supprimer', style: TextStyle(color: kRed)),
           ),
