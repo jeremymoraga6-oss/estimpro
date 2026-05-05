@@ -146,7 +146,7 @@ class Estimation {
     this.noteChauffage = 2,
     this.noteEtatPrestation = 2,
     List<Map<String, dynamic>>? comparables,
-    this.dvfRadiusKm = 3,
+    this.dvfRadiusKm = 1,
     this.ajustVue = 3,
     this.ajustEtat = 5,
     this.ajustDpe = 0,
@@ -400,7 +400,7 @@ class Estimation {
       comparables: m['comparables'] != null
           ? List<Map<String, dynamic>>.from(jsonDecode(m['comparables']))
           : [],
-      dvfRadiusKm: (m['dvfRadiusKm'] as num?)?.toDouble() ?? 3,
+      dvfRadiusKm: (m['dvfRadiusKm'] as num?)?.toDouble() ?? 1,
       ajustVue: (m['ajustVue'] as num?)?.toDouble() ?? 3,
       ajustEtat: (m['ajustEtat'] as num?)?.toDouble() ?? 5,
       ajustDpe: (m['ajustDpe'] as num?)?.toDouble() ?? 0,
