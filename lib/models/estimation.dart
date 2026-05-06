@@ -83,7 +83,8 @@ class Estimation {
   double ajustEtat;
   double ajustDpe;
   double ajustExposition;    // % orientation cardinale (N=-5% … S=+3%)
-  double ajustEnvironnement; // % bruit/nuisances (0 à -5%) — route, voie ferrée, industrie
+  double ajustEnvironnement; // % bruit/nuisances (0 à -12%) — route, voie ferrée, industrie
+  double ajustConjoncture;   // % contexte marché (-8% à +2%, défaut -3% contexte 2024-25)
   int ajustTravaux;
   int ajustParking; // € bonus/malus stationnement (négatif = malus sans parking)
   int ajustPiscine; // € prime piscine (calibrée 10 000–20 000€ selon état)
@@ -169,11 +170,12 @@ class Estimation {
     this.ponderationPh = 40,
     this.ponderationAnnonces = 15,
     this.margeNegociation = 10,
-    this.ajustVue = 3,
-    this.ajustEtat = 5,
+    this.ajustVue = 0,
+    this.ajustEtat = 0,
     this.ajustDpe = 0,
     this.ajustExposition = 0,
     this.ajustEnvironnement = 0,
+    this.ajustConjoncture = -3,
     this.ajustTravaux = 0,
     this.ajustParking = 0,
     this.ajustPiscine = 0,
@@ -303,10 +305,16 @@ class Estimation {
   double get prixM2Retenu => prixFondamentalM2 * (1 + coefficientPrestations / 100);
   double get prixBase => prixM2Retenu * surfaceHabitable;
 
+  // Décote grande surface : -1% par 10 m² au-delà de 120 m², plafonnée à -8%
+  double get decoteSurface =>
+      surfaceHabitable <= 120 ? 0.0 : ((-(surfaceHabitable - 120) / 10)).clamp(-8.0, 0.0);
+
   double get prixMandat => (prixCalcule * (1 + margeNegociation / 100) / 1000).round() * 1000;
 
   double get prixCalcule {
-    final totalPct = ajustVue + ajustEtat + ajustDpe + ajustExposition + ajustEnvironnement;
+    final occupPct = libreOccupation ? 0.0 : -12.0;
+    final totalPct = ajustVue + ajustEtat + ajustDpe + ajustExposition +
+        ajustEnvironnement + ajustConjoncture + decoteSurface + occupPct;
     final impact = prixBase * totalPct / 100 - ajustTravaux + ajustParking + ajustPiscine;
     final raw = prixBase + impact;
     return (raw / 1000).round() * 1000;
@@ -378,6 +386,7 @@ class Estimation {
         'ajustDpe': ajustDpe,
         'ajustExposition': ajustExposition,
         'ajustEnvironnement': ajustEnvironnement,
+        'ajustConjoncture': ajustConjoncture,
         'ajustTravaux': ajustTravaux,
         'ajustParking': ajustParking,
         'ajustPiscine': ajustPiscine,
@@ -464,11 +473,12 @@ class Estimation {
       ponderationPh: m['ponderationPh'] as int? ?? 40,
       ponderationAnnonces: m['ponderationAnnonces'] as int? ?? 15,
       margeNegociation: (m['margeNegociation'] as num?)?.toDouble() ?? 10,
-      ajustVue: (m['ajustVue'] as num?)?.toDouble() ?? 3,
-      ajustEtat: (m['ajustEtat'] as num?)?.toDouble() ?? 5,
+      ajustVue: (m['ajustVue'] as num?)?.toDouble() ?? 0,
+      ajustEtat: (m['ajustEtat'] as num?)?.toDouble() ?? 0,
       ajustDpe: (m['ajustDpe'] as num?)?.toDouble() ?? 0,
       ajustExposition: (m['ajustExposition'] as num?)?.toDouble() ?? 0,
       ajustEnvironnement: (m['ajustEnvironnement'] as num?)?.toDouble() ?? 0,
+      ajustConjoncture: (m['ajustConjoncture'] as num?)?.toDouble() ?? -3,
       ajustTravaux: m['ajustTravaux'] ?? 0,
       ajustParking: m['ajustParking'] as int? ?? 0,
       ajustPiscine: m['ajustPiscine'] as int? ?? 0,
@@ -563,6 +573,7 @@ class Estimation {
     double? ajustDpe,
     double? ajustExposition,
     double? ajustEnvironnement,
+    double? ajustConjoncture,
     int? ajustTravaux,
     int? ajustParking,
     int? ajustPiscine,
@@ -645,6 +656,7 @@ class Estimation {
       ajustDpe: ajustDpe ?? this.ajustDpe,
       ajustExposition: ajustExposition ?? this.ajustExposition,
       ajustEnvironnement: ajustEnvironnement ?? this.ajustEnvironnement,
+      ajustConjoncture: ajustConjoncture ?? this.ajustConjoncture,
       ajustTravaux: ajustTravaux ?? this.ajustTravaux,
       ajustParking: ajustParking ?? this.ajustParking,
       ajustPiscine: ajustPiscine ?? this.ajustPiscine,

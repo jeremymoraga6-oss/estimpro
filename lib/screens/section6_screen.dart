@@ -43,7 +43,9 @@ class _Section6ScreenState extends State<Section6Screen> {
   @override
   Widget build(BuildContext context) {
     final base = _e.prixBase;
-    final totalPct = _e.ajustVue + _e.ajustEtat + _e.ajustDpe + _e.ajustExposition + _e.ajustEnvironnement;
+    final occupPct = _e.libreOccupation ? 0.0 : -12.0;
+    final totalPct = _e.ajustVue + _e.ajustEtat + _e.ajustDpe + _e.ajustExposition +
+        _e.ajustEnvironnement + _e.ajustConjoncture + _e.decoteSurface + occupPct;
     final impact = base * totalPct / 100 - _e.ajustTravaux + _e.ajustParking;
     final raw = base + impact;
     final rounded = (raw / 1000).round() * 1000.0;
@@ -236,6 +238,45 @@ class _Section6ScreenState extends State<Section6Screen> {
                                 : 'environnement neutre',
                 onChanged: (v) => _update(_e.copyWith(ajustEnvironnement: v)),
               ),
+              _AdjRow(
+                label: 'Conjoncture marché',
+                val: _e.ajustConjoncture,
+                min: -8,
+                max: 2,
+                note: _e.ajustConjoncture <= -5
+                    ? 'marché acheteur — forte pression à la baisse'
+                    : _e.ajustConjoncture <= -2
+                        ? 'marché ralenti — taux élevés, demande en retrait'
+                        : _e.ajustConjoncture == 0
+                            ? 'marché neutre'
+                            : 'marché vendeur — forte demande',
+                onChanged: (v) => _update(_e.copyWith(ajustConjoncture: v)),
+              ),
+
+              // Décotes automatiques (lecture seule)
+              if (!_e.libreOccupation || _e.decoteSurface < 0) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF9E6),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFF9A825).withOpacity(0.4)),
+                  ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('DÉCOTES AUTOMATIQUES', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF7A5800), letterSpacing: 0.8)),
+                    const SizedBox(height: 6),
+                    if (!_e.libreOccupation)
+                      _PriceDetailRow('Bien loué (occupation) :', '−12%'),
+                    if (_e.decoteSurface < 0)
+                      _PriceDetailRow(
+                        'Grande surface (${_e.surfaceHabitable} m²) :',
+                        '${_e.decoteSurface.toStringAsFixed(1)}%',
+                      ),
+                  ]),
+                ),
+                const SizedBox(height: 6),
+              ],
 
               // Parking stepper
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
