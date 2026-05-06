@@ -51,9 +51,44 @@ class EstimationsListScreen extends StatelessWidget {
                 final addr = e.proprietaireNom.isEmpty ? 'Estimation sans adresse' : e.proprietaireNom;
                 final type = e.typeId[0].toUpperCase() + e.typeId.substring(1);
                 final prix = e.prixCalcule;
-                return GestureDetector(
+                return Dismissible(
+                  key: Key(e.id),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 20),
+                    decoration: BoxDecoration(
+                      color: kRed,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Column(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.delete_outline, color: Colors.white, size: 22),
+                      SizedBox(height: 4),
+                      Text('Supprimer', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                    ]),
+                  ),
+                  confirmDismiss: (_) async {
+                    return await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Supprimer'),
+                        content: Text('Supprimer l\'estimation ${e.reference} ?'),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('Supprimer', style: TextStyle(color: kRed)),
+                          ),
+                        ],
+                      ),
+                    ) ?? false;
+                  },
+                  onDismissed: (_) async {
+                    await DatabaseService().delete(e.id);
+                    onDeleted();
+                  },
+                  child: GestureDetector(
                   onTap: () => onTap(e),
-                  onLongPress: () => _confirmDelete(context, e),
                   child: Container(
                     padding: const EdgeInsets.all(14),
                     decoration: kCardDecoration(),
@@ -79,6 +114,7 @@ class EstimationsListScreen extends StatelessWidget {
                         const Icon(Icons.chevron_right, color: kLightGrey, size: 18),
                       ]),
                     ]),
+                  ),
                   ),
                 );
               },

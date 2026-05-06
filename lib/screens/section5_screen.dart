@@ -146,35 +146,6 @@ class _Section5ScreenState extends State<Section5Screen> {
               ]),
             ])),
 
-            // Debug bandeau
-            if (_result != null)
-              Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF5F5F5),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFDDDDDD)),
-                ),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    const Icon(Icons.bug_report_outlined, size: 13, color: Color(0xFF888888)),
-                    const SizedBox(width: 5),
-                    const Text('DEBUG DVF', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF888888), letterSpacing: 0.6)),
-                  ]),
-                  const SizedBox(height: 4),
-                  Text('INSEE : ${_result!.codeInsee}', style: const TextStyle(fontSize: 10, color: Color(0xFF666666))),
-                  const SizedBox(height: 2),
-                  Text('Résultats bruts : ${_result!.nombreBrut}  →  après filtres : ${_filtered.length}', style: const TextStyle(fontSize: 10, color: Color(0xFF666666))),
-                  const SizedBox(height: 2),
-                  Text(_result!.urlUtilisee, style: const TextStyle(fontSize: 9, color: Color(0xFF999999)), overflow: TextOverflow.ellipsis, maxLines: 2),
-                  if (_result!.erreur != null) ...[
-                    const SizedBox(height: 2),
-                    Text('Erreur : ${_result!.erreur}', style: const TextStyle(fontSize: 10, color: Colors.red)),
-                  ],
-                ]),
-              ),
-
             // Results
             if (_loading)
               const Padding(
@@ -953,6 +924,15 @@ class _SynthesePondereeCardState extends State<_SynthesePondereeCard> {
           surface: surf,
           onChanged: (v) => _update(_e.copyWith(prixAnnonces: v)),
         ),
+
+        // Bandeau écart PH vs DVF
+        if (hasPh && widget.dvfMediane > 0) ...[
+          const SizedBox(height: 10),
+          _EcartBandeau(
+            dvfTotal: widget.dvfMediane * surf,
+            phTotal: _e.prixPricehubble,
+          ),
+        ],
         const SizedBox(height: 14),
 
         const Text('Pondération', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
@@ -997,6 +977,46 @@ class _SynthesePondereeCardState extends State<_SynthesePondereeCard> {
             child: Text('Saisissez l\'estimation PH et/ou annonces pour activer la pondération.',
               style: TextStyle(fontSize: 11, color: kLightGrey, fontStyle: FontStyle.italic)),
           ),
+      ]),
+    );
+  }
+}
+
+class _EcartBandeau extends StatelessWidget {
+  final double dvfTotal;
+  final double phTotal;
+  const _EcartBandeau({required this.dvfTotal, required this.phTotal});
+
+  @override
+  Widget build(BuildContext context) {
+    final ecartPct = ((phTotal - dvfTotal) / dvfTotal) * 100;
+    final absEcart = ecartPct.abs();
+    final Color bg;
+    final Color border;
+    final Color textColor;
+    final IconData icon;
+    if (absEcart < 5) {
+      bg = const Color(0xFFE8F5E9); border = const Color(0xFF81C784); textColor = const Color(0xFF2E7D32); icon = Icons.check_circle_outline;
+    } else if (absEcart < 10) {
+      bg = const Color(0xFFFFF9E6); border = const Color(0xFFF9A825); textColor = const Color(0xFF7A5800); icon = Icons.warning_amber_outlined;
+    } else {
+      bg = const Color(0xFFFFEBEE); border = const Color(0xFFEF9A9A); textColor = const Color(0xFFC62828); icon = Icons.error_outline;
+    }
+    final sign = ecartPct >= 0 ? '+' : '';
+    final label = ecartPct >= 0
+        ? 'PH $sign${ecartPct.toStringAsFixed(1)}% au-dessus DVF — vérifier les comparables'
+        : 'PH $sign${ecartPct.toStringAsFixed(1)}% en-dessous DVF — vérifier les comparables';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: border),
+      ),
+      child: Row(children: [
+        Icon(icon, size: 14, color: textColor),
+        const SizedBox(width: 8),
+        Expanded(child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textColor))),
       ]),
     );
   }
