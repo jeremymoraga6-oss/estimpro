@@ -26,6 +26,9 @@ class Estimation {
   // Section 2 — Description
   int surfaceHabitable;
   int surfaceTerrain;
+  int surfaceBalcon;
+  int surfaceCave;
+  int surfaceTerrasse;
   int pieces;
   int chambres;
   String anneeConstruction;
@@ -99,6 +102,9 @@ class Estimation {
   // Notes vocales vendeur
   VendeurNote? notesVendeur;
 
+  // Historique des modifications de prix (négociation)
+  List<Map<String, dynamic>> historique;
+
   // Notes par section
   Map<String, Map<String, dynamic>> notes;
 
@@ -121,6 +127,9 @@ class Estimation {
     this.proprietaireEmail = '',
     this.surfaceHabitable = 100,
     this.surfaceTerrain = 300,
+    this.surfaceBalcon = 0,
+    this.surfaceCave = 0,
+    this.surfaceTerrasse = 0,
     this.pieces = 4,
     this.chambres = 3,
     this.anneeConstruction = '1990-2000',
@@ -176,8 +185,10 @@ class Estimation {
     List<String>? photosPaths,
     this.risques,
     this.notesVendeur,
+    List<Map<String, dynamic>>? historique,
     Map<String, Map<String, dynamic>>? notes,
-  })  : orientations = orientations ?? ['S'],
+  })  : historique = historique ?? [],
+        orientations = orientations ?? ['S'],
         vues = vues ?? [],
         revetementsol = revetementsol ?? ['Parquet'],
         annexesActives = annexesActives ??
@@ -200,6 +211,10 @@ class Estimation {
             validiteJusquau ?? DateTime.now().add(const Duration(days: 365)),
         photosPaths = photosPaths ?? [],
         notes = notes ?? {};
+
+  // Surface pondérée : balcon×50%, cave×20%, terrasse×30%
+  double get surfacePonderee =>
+      surfaceHabitable + surfaceBalcon * 0.5 + surfaceCave * 0.2 + surfaceTerrasse * 0.3;
 
   // Coefficients DPE calibrés depuis exemples terrain (Bonneville DPE F, Saint-Pierre DPE E)
   static double dpeCoefficient(String classe) {
@@ -316,6 +331,9 @@ class Estimation {
         'proprietaireEmail': proprietaireEmail,
         'surfaceHabitable': surfaceHabitable,
         'surfaceTerrain': surfaceTerrain,
+        'surfaceBalcon': surfaceBalcon,
+        'surfaceCave': surfaceCave,
+        'surfaceTerrasse': surfaceTerrasse,
         'pieces': pieces,
         'chambres': chambres,
         'anneeConstruction': anneeConstruction,
@@ -371,6 +389,7 @@ class Estimation {
         'photosPaths': jsonEncode(photosPaths),
         'risques': risques != null ? jsonEncode(risques!.toMap()) : null,
         'notesVendeur': notesVendeur != null ? jsonEncode(notesVendeur!.toMap()) : null,
+        'historique': jsonEncode(historique),
         'notes': jsonEncode(notes),
       };
 
@@ -399,6 +418,9 @@ class Estimation {
       proprietaireEmail: m['proprietaireEmail'] ?? '',
       surfaceHabitable: m['surfaceHabitable'] ?? 100,
       surfaceTerrain: m['surfaceTerrain'] ?? 300,
+      surfaceBalcon: m['surfaceBalcon'] as int? ?? 0,
+      surfaceCave: m['surfaceCave'] as int? ?? 0,
+      surfaceTerrasse: m['surfaceTerrasse'] as int? ?? 0,
       pieces: m['pieces'] ?? 4,
       chambres: m['chambres'] ?? 3,
       anneeConstruction: m['anneeConstruction'] ?? '1990-2000',
@@ -465,6 +487,10 @@ class Estimation {
           ? VendeurNote.fromMap(
               Map<String, dynamic>.from(jsonDecode(m['notesVendeur'] as String)))
           : null,
+      historique: m['historique'] != null
+          ? List<Map<String, dynamic>>.from(
+              (jsonDecode(m['historique']) as List).map((e) => Map<String, dynamic>.from(e)))
+          : [],
       notes: m['notes'] != null
           ? Map<String, Map<String, dynamic>>.from(
               (jsonDecode(m['notes']) as Map).map(
@@ -490,6 +516,9 @@ class Estimation {
     String? proprietaireEmail,
     int? surfaceHabitable,
     int? surfaceTerrain,
+    int? surfaceBalcon,
+    int? surfaceCave,
+    int? surfaceTerrasse,
     int? pieces,
     int? chambres,
     String? anneeConstruction,
@@ -547,6 +576,7 @@ class Estimation {
     bool clearRisques = false,
     VendeurNote? notesVendeur,
     bool clearNotesVendeur = false,
+    List<Map<String, dynamic>>? historique,
     Map<String, Map<String, dynamic>>? notes,
   }) {
     final copy = Estimation(
@@ -568,6 +598,9 @@ class Estimation {
       proprietaireEmail: proprietaireEmail ?? this.proprietaireEmail,
       surfaceHabitable: surfaceHabitable ?? this.surfaceHabitable,
       surfaceTerrain: surfaceTerrain ?? this.surfaceTerrain,
+      surfaceBalcon: surfaceBalcon ?? this.surfaceBalcon,
+      surfaceCave: surfaceCave ?? this.surfaceCave,
+      surfaceTerrasse: surfaceTerrasse ?? this.surfaceTerrasse,
       pieces: pieces ?? this.pieces,
       chambres: chambres ?? this.chambres,
       anneeConstruction: anneeConstruction ?? this.anneeConstruction,
@@ -623,6 +656,7 @@ class Estimation {
       photosPaths: photosPaths ?? List.from(this.photosPaths),
       risques: clearRisques ? null : (risques ?? this.risques),
       notesVendeur: clearNotesVendeur ? null : (notesVendeur ?? this.notesVendeur),
+      historique: historique ?? List.from(this.historique),
       notes: notes ?? Map.from(this.notes),
     );
     return copy;

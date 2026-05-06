@@ -11,6 +11,54 @@ import '../models/vendeur_note.dart';
 import 'georisques_service.dart';
 
 class PdfService {
+  Future<File> generateFile(Estimation e) async {
+    final doc = pw.Document();
+    final price = e.prixFinal > 0 ? e.prixFinal : e.prixCalcule;
+
+    doc.addPage(pw.MultiPage(
+      pageFormat: PdfPageFormat.a4,
+      margin: const pw.EdgeInsets.all(32),
+      header: (ctx) => _header(e),
+      footer: (ctx) => _footer(ctx),
+      build: (ctx) => [
+        _titleSection(e, price),
+        pw.SizedBox(height: 20),
+        _infoSection(e),
+        pw.SizedBox(height: 20),
+        _descSection(e),
+        pw.SizedBox(height: 20),
+        _etatSection(e),
+        pw.SizedBox(height: 20),
+        _marcheSection(e),
+        pw.SizedBox(height: 20),
+        _prestationsSection(e),
+        pw.SizedBox(height: 20),
+        _estimationSection(e, price),
+        if (e.risques != null && e.risques!.hasData) ...[
+          pw.SizedBox(height: 20),
+          _risquesSection(e.risques!),
+        ],
+        if (e.conclusion.isNotEmpty) ...[
+          pw.SizedBox(height: 20),
+          _conclusionSection(e),
+        ],
+        if (e.photosPaths.isNotEmpty) ...[
+          pw.SizedBox(height: 20),
+          _photosSection(e),
+        ],
+        if (e.notesVendeur != null) ...[
+          pw.SizedBox(height: 20),
+          _notesVendeurSection(e.notesVendeur!),
+        ],
+      ],
+    ));
+
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/${e.reference}.pdf');
+    await file.writeAsBytes(await doc.save());
+    return file;
+  }
+
   Future<File> generate(Estimation e) async {
     final doc = pw.Document();
     final price = e.prixFinal > 0 ? e.prixFinal : e.prixCalcule;

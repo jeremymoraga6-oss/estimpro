@@ -50,6 +50,9 @@ class _Section2ScreenState extends State<Section2Screen> {
   late Estimation _e;
   late TextEditingController _surfCtrl;
   late TextEditingController _terrCtrl;
+  late TextEditingController _balconCtrl;
+  late TextEditingController _caveCtrl;
+  late TextEditingController _terrasseCtrl;
 
   final _annees = ['Avant 1900', '1900-1950', '1950-1980', '1980-2000', '2000-2010', '2010-2020', 'Après 2020'];
   final _chauffages = ['Gaz naturel', 'Électrique', 'Pompe à chaleur', 'Fioul', 'Bois / Pellets', 'Géothermie'];
@@ -63,10 +66,13 @@ class _Section2ScreenState extends State<Section2Screen> {
     _e = widget.estimation;
     _surfCtrl = TextEditingController(text: _e.surfaceHabitable > 0 ? _e.surfaceHabitable.toString() : '');
     _terrCtrl = TextEditingController(text: _e.surfaceTerrain > 0 ? _e.surfaceTerrain.toString() : '');
+    _balconCtrl = TextEditingController(text: _e.surfaceBalcon > 0 ? _e.surfaceBalcon.toString() : '');
+    _caveCtrl = TextEditingController(text: _e.surfaceCave > 0 ? _e.surfaceCave.toString() : '');
+    _terrasseCtrl = TextEditingController(text: _e.surfaceTerrasse > 0 ? _e.surfaceTerrasse.toString() : '');
   }
 
   @override
-  void dispose() { _surfCtrl.dispose(); _terrCtrl.dispose(); super.dispose(); }
+  void dispose() { _surfCtrl.dispose(); _terrCtrl.dispose(); _balconCtrl.dispose(); _caveCtrl.dispose(); _terrasseCtrl.dispose(); super.dispose(); }
 
   void _update(Estimation e) { setState(() => _e = e); widget.onChanged(e); }
 
@@ -95,6 +101,44 @@ class _Section2ScreenState extends State<Section2Screen> {
                 onChanged: (v) => _update(_e.copyWith(surfaceTerrain: v)),
                 hint: '0 si appartement',
               ),
+              const CardDivider(),
+
+              // Surfaces annexes pondérées
+              const FieldLabel('Surfaces annexes'),
+              const SizedBox(height: 4),
+              const Text('Balcon ×50%  ·  Cave ×20%  ·  Terrasse ×30%',
+                  style: TextStyle(fontSize: 10, color: kLightGrey, fontStyle: FontStyle.italic)),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(child: _AnnexeField(label: 'Balcon', controller: _balconCtrl,
+                    onChanged: (v) => _update(_e.copyWith(surfaceBalcon: v)))),
+                const SizedBox(width: 8),
+                Expanded(child: _AnnexeField(label: 'Cave', controller: _caveCtrl,
+                    onChanged: (v) => _update(_e.copyWith(surfaceCave: v)))),
+                const SizedBox(width: 8),
+                Expanded(child: _AnnexeField(label: 'Terrasse', controller: _terrasseCtrl,
+                    onChanged: (v) => _update(_e.copyWith(surfaceTerrasse: v)))),
+              ]),
+              if (_e.surfacePonderee > _e.surfaceHabitable) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: kGreen.withOpacity(0.07),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: kGreen.withOpacity(0.2)),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.calculate_outlined, size: 14, color: kGreen),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(
+                      'Surface pondérée : ${_e.surfacePonderee.toStringAsFixed(1)} m²'
+                      '  ·  +${(_e.surfacePonderee - _e.surfaceHabitable).toStringAsFixed(1)} m² équivalent',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kGreen),
+                    )),
+                  ]),
+                ),
+              ],
               const CardDivider(),
               Row(children: [
                 Expanded(child: StepperField(label: 'Pièces', value: _e.pieces, onChange: (v) => _update(_e.copyWith(pieces: v)))),
@@ -208,6 +252,36 @@ class _Section2ScreenState extends State<Section2Screen> {
       SectionBottomBar(onPrev: widget.onPrev, onNext: widget.onNext),
     ]);
   }
+}
+
+class _AnnexeField extends StatelessWidget {
+  final String label;
+  final TextEditingController controller;
+  final ValueChanged<int> onChanged;
+  const _AnnexeField({required this.label, required this.controller, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: kGrey)),
+    const SizedBox(height: 4),
+    TextField(
+      controller: controller,
+      keyboardType: TextInputType.number,
+      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kCharcoal),
+      textAlign: TextAlign.center,
+      decoration: InputDecoration(
+        suffixText: 'm²',
+        suffixStyle: const TextStyle(fontSize: 11, color: kGrey),
+        hintText: '0',
+        hintStyle: const TextStyle(color: kLightGrey),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kGreen, width: 2)),
+      ),
+      onChanged: (v) => onChanged(int.tryParse(v) ?? 0),
+    ),
+  ]);
 }
 
 class _SurfaceField extends StatelessWidget {

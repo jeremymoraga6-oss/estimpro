@@ -19,6 +19,7 @@ dependencies:
   open_file: ^3.5.7
   record: ^6.2.0
   speech_to_text: ^7.3.0
+  archive: ^3.6.1
 
 dev_dependencies:
   flutter_test:

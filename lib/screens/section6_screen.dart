@@ -116,7 +116,14 @@ class _Section6ScreenState extends State<Section6Screen> {
                 Text('${_e.prixMoyen.round()} €/m²', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kGreen)),
               ]),
               const SizedBox(height: 8),
-              Text('Surface du bien : ${_e.surfaceHabitable} m²', style: const TextStyle(fontSize: 11, color: Color(0xFF95A5A6))),
+              Row(children: [
+                Text('Surface habitable : ${_e.surfaceHabitable} m²', style: const TextStyle(fontSize: 11, color: Color(0xFF95A5A6))),
+                if (_e.surfacePonderee > _e.surfaceHabitable) ...[
+                  const Text('  ·  ', style: TextStyle(fontSize: 11, color: Color(0xFF95A5A6))),
+                  Text('Pondérée : ${_e.surfacePonderee.toStringAsFixed(1)} m²',
+                      style: const TextStyle(fontSize: 11, color: kGreen, fontWeight: FontWeight.w600)),
+                ],
+              ]),
               const CardDivider(),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Expanded(
@@ -130,6 +137,18 @@ class _Section6ScreenState extends State<Section6Screen> {
                   child: const Text('POINT DE DÉPART', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF95A5A6), letterSpacing: 0.5)),
                 ),
               ]),
+              if (_e.surfacePonderee > _e.surfaceHabitable && rounded > 0) ...[
+                const SizedBox(height: 6),
+                Row(children: [
+                  const Icon(Icons.calculate_outlined, size: 12, color: kGrey),
+                  const SizedBox(width: 6),
+                  Text(
+                    '€/m² pondéré réel : ${(rounded / _e.surfacePonderee).round()} €/m² '
+                    '(annexes : ${(_e.surfacePonderee - _e.surfaceHabitable).toStringAsFixed(1)} m² eq.)',
+                    style: const TextStyle(fontSize: 11, color: kGrey, fontStyle: FontStyle.italic),
+                  ),
+                ]),
+              ],
             ])),
 
             // Prestations
@@ -428,6 +447,9 @@ class _Section6ScreenState extends State<Section6Screen> {
 
             // Prix de mandat
             _PrixMandatCard(estimation: _e, onChanged: _update),
+
+            // Historique négociation
+            _HistoriqueCard(estimation: _e, onChanged: _update),
 
             // Auto vigilance
             _AutoVigilanceCard(estimation: _e, onInsert: (text) {
@@ -902,5 +924,145 @@ class _PrixMandatCard extends StatelessWidget {
       const SizedBox(height: 4),
       const Text('Ne pas descendre en dessous sans accord vendeur', style: TextStyle(fontSize: 10, color: kLightGrey, fontStyle: FontStyle.italic)),
     ]));
+  }
+}
+
+class _HistoriqueCard extends StatefulWidget {
+  final Estimation estimation;
+  final ValueChanged<Estimation> onChanged;
+  const _HistoriqueCard({required this.estimation, required this.onChanged});
+
+  @override
+  State<_HistoriqueCard> createState() => _HistoriqueCardState();
+}
+
+class _HistoriqueCardState extends State<_HistoriqueCard> {
+  bool _open = false;
+
+  String _fmt(double n) {
+    final s = n.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
+    return '$s €';
+  }
+
+  String _fmtDate(String iso) {
+    final d = DateTime.tryParse(iso);
+    if (d == null) return '';
+    const months = ['jan.','fév.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+    return '${d.day} ${months[d.month - 1]} ${d.year} · ${d.hour.toString().padLeft(2,'0')}h${d.minute.toString().padLeft(2,'0')}';
+  }
+
+  void _snapshot() {
+    final e = widget.estimation;
+    final entry = {
+      'date': DateTime.now().toIso8601String(),
+      'prixNet': e.prixCalcule,
+      'prixMandat': e.prixMandat,
+      'marge': e.margeNegociation,
+    };
+    final newHistorique = [...e.historique, entry];
+    widget.onChanged(e.copyWith(historique: newHistorique));
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final e = widget.estimation;
+    final entries = e.historique.reversed.toList();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE0E0E0)),
+        boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 2))],
+      ),
+      child: Column(children: [
+        GestureDetector(
+          onTap: () => setState(() => _open = !_open),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: Row(children: [
+              const Icon(Icons.history_rounded, size: 17, color: kGrey),
+              const SizedBox(width: 8),
+              const Text('Historique des prix', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal)),
+              const SizedBox(width: 8),
+              if (entries.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(color: const Color(0xFFF0F0F0), borderRadius: BorderRadius.circular(10)),
+                  child: Text('${entries.length}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kGrey)),
+                ),
+              const Spacer(),
+              GestureDetector(
+                onTap: _snapshot,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                  child: const Text('Snapshot', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kGreen)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(_open ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: kLightGrey, size: 18),
+            ]),
+          ),
+        ),
+        if (_open) ...[
+          const Divider(height: 1),
+          if (entries.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('Appuyez sur "Snapshot" pour enregistrer l\'estimation actuelle.',
+                  style: TextStyle(fontSize: 12, color: kLightGrey, fontStyle: FontStyle.italic), textAlign: TextAlign.center),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: entries.length,
+              separatorBuilder: (_, __) => const Divider(height: 1, indent: 44),
+              itemBuilder: (_, i) {
+                final entry = entries[i];
+                final prixNet = (entry['prixNet'] as num?)?.toDouble() ?? 0;
+                final prixMandat = (entry['prixMandat'] as num?)?.toDouble() ?? 0;
+                final marge = (entry['marge'] as num?)?.toDouble() ?? 0;
+                final isFirst = i == 0;
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                  child: Row(children: [
+                    Column(children: [
+                      Container(
+                        width: 10, height: 10,
+                        decoration: BoxDecoration(
+                          color: isFirst ? kGreen : const Color(0xFFBDBDBD),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      if (i < entries.length - 1)
+                        Container(width: 1.5, height: 32, color: const Color(0xFFE0E0E0)),
+                    ]),
+                    const SizedBox(width: 12),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(_fmtDate(entry['date'] as String? ?? ''),
+                          style: const TextStyle(fontSize: 10, color: kLightGrey)),
+                      const SizedBox(height: 2),
+                      Row(children: [
+                        Text('Net vendeur : ${_fmt(prixNet)}',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
+                                color: isFirst ? kGreen : kCharcoal)),
+                        const SizedBox(width: 8),
+                        Text('Mandat : ${_fmt(prixMandat)}',
+                            style: const TextStyle(fontSize: 11, color: kGrey)),
+                      ]),
+                      Text('Marge négociation : ${marge.toInt()}%',
+                          style: const TextStyle(fontSize: 10, color: kLightGrey)),
+                    ])),
+                  ]),
+                );
+              },
+            ),
+        ],
+      ]),
+    );
   }
 }

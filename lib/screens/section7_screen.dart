@@ -7,6 +7,7 @@ import '../models/estimation.dart';
 import '../widgets/shared.dart';
 import '../widgets/app_header.dart';
 import '../services/pdf_service.dart';
+import '../services/zip_service.dart';
 
 const _maxPhotos = 10;
 
@@ -25,6 +26,7 @@ class _Section7ScreenState extends State<Section7Screen> {
   late Estimation _e;
   bool _generating = false;
   bool _generated = false;
+  bool _exportingZip = false;
   final _picker = ImagePicker();
 
   @override
@@ -40,6 +42,17 @@ class _Section7ScreenState extends State<Section7Screen> {
     } catch (e) {
       setState(() => _generating = false);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur PDF : $e')));
+    }
+  }
+
+  Future<void> _exportZip() async {
+    setState(() => _exportingZip = true);
+    try {
+      await ZipService().exportDossier(_e);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur export : $e')));
+    } finally {
+      if (mounted) setState(() => _exportingZip = false);
     }
   }
 
@@ -248,19 +261,38 @@ class _Section7ScreenState extends State<Section7Screen> {
             ),
           ),
           const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity, height: 48,
-            child: OutlinedButton.icon(
-              onPressed: _sendEmail,
-              icon: const Icon(Icons.email_outlined, size: 18),
-              label: const Text('Envoyer par email', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: kCharcoal,
-                side: const BorderSide(color: kBorderColor, width: 1.5),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          Row(children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _sendEmail,
+                icon: const Icon(Icons.email_outlined, size: 18),
+                label: const Text('Email', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: kCharcoal,
+                  side: const BorderSide(color: kBorderColor, width: 1.5),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
               ),
             ),
-          ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _exportingZip ? null : _exportZip,
+                icon: _exportingZip
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.folder_zip_outlined, size: 18),
+                label: Text(_exportingZip ? '…' : 'Dossier ZIP',
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF5C6BC0),
+                  side: const BorderSide(color: Color(0xFF9FA8DA), width: 1.5),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
+          ]),
         ]),
       ),
     ]);
