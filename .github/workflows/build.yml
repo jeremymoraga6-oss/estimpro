@@ -1,4 +1,4 @@
-name: Build APK
+name: Build (Android + iOS)
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  android:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,28 +28,103 @@ jobs:
           flutter-version: '3.41.7'
           channel: 'stable'
 
-      - name: Get dependencies
-        run: flutter pub get
+      - run: flutter pub get
 
       - name: Build APK
         run: flutter build apk --release
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: EstimPro-APK
           path: build/app/outputs/flutter-apk/app-release.apk
+
+  ios:
+    runs-on: macos-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.7'
+          channel: 'stable'
+
+      - run: flutter pub get
+
+      - name: Generate iOS project
+        run: flutter create --platforms=ios --org com.faucigny .
+
+      - name: Configure permissions & iPad support
+        run: |
+          PLIST="ios/Runner/Info.plist"
+          add_or_set() {
+            /usr/libexec/PlistBuddy -c "Add :$1 string '$2'" "$PLIST" 2>/dev/null \
+              || /usr/libexec/PlistBuddy -c "Set :$1 '$2'" "$PLIST"
+          }
+          add_or_set NSMicrophoneUsageDescription "Note vocale pour estimation immobilière"
+          add_or_set NSSpeechRecognitionUsageDescription "Transcription de vos notes vocales"
+          add_or_set NSPhotoLibraryUsageDescription "Ajouter des photos du bien à estimer"
+          add_or_set NSPhotoLibraryAddUsageDescription "Sauvegarder des photos de l'estimation"
+          add_or_set NSCameraUsageDescription "Prendre des photos du bien immobilier"
+
+          # iPad: support portrait + paysage
+          /usr/libexec/PlistBuddy -c "Delete :UISupportedInterfaceOrientations~ipad" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations~ipad array" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations~ipad:0 string UIInterfaceOrientationPortrait" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations~ipad:1 string UIInterfaceOrientationPortraitUpsideDown" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations~ipad:2 string UIInterfaceOrientationLandscapeLeft" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations~ipad:3 string UIInterfaceOrientationLandscapeRight" "$PLIST"
+
+          # Minimum iOS 13 (requis par les packages)
+          /usr/libexec/PlistBuddy -c "Set :MinimumOSVersion 13.0" "$PLIST" 2>/dev/null || true
+
+      - name: Set iOS deployment target
+        run: |
+          sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*/IPHONEOS_DEPLOYMENT_TARGET = 13.0/g" \
+            ios/Runner.xcodeproj/project.pbxproj
+
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          pod install --repo-update
+
+      - name: Build IPA (non signé)
+        run: flutter build ipa --release --no-codesign
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EstimPro-IPA
+          path: build/ios/ipa/*.ipa
+
+  release:
+    needs: [android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: EstimPro-APK
+          path: artifacts/
+
+      - name: Download IPA (si disponible)
+        uses: actions/download-artifact@v4
+        with:
+          name: EstimPro-IPA
+          path: artifacts/
+        continue-on-error: true
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
           name: EstimPro v1.0.${{ github.run_number }}
-          files: build/app/outputs/flutter-apk/app-release.apk
+          files: artifacts/*
           body: |
             ## EstimPro — App estimation immobilière
             **Faucigny Immobilier by Efficity — Jérémy Moraga**
 
-            📱 Télécharge et installe `app-release.apk` sur ton Samsung Galaxy S
+            📱 **Android** : télécharge `app-release.apk` et installe directement sur ton Samsung
+            🍎 **iOS / iPad** : télécharge `*.ipa` — installation via **AltStore** ou **Sideloadly** (gratuit, valable 7 jours) ou TestFlight avec compte Apple Developer
+
+            > L'IPA est non signé. Pour une installation permanente sans re-signer, un compte Apple Developer (99€/an) est nécessaire.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
