@@ -5,6 +5,7 @@ import '../widgets/shared.dart';
 import '../widgets/app_header.dart';
 import '../widgets/mes_notes.dart';
 import '../widgets/star_rating.dart';
+import '../services/base_locale_service.dart';
 
 class Section6Screen extends StatefulWidget {
   final Estimation estimation;
@@ -499,6 +500,9 @@ class _Section6ScreenState extends State<Section6Screen> {
 
             // Prix de mandat
             _PrixMandatCard(estimation: _e, onChanged: _update),
+
+            // Calibration locale
+            _CalibrationLocaleCard(estimation: _e, onChanged: _update),
 
             // Historique négociation
             _HistoriqueCard(estimation: _e, onChanged: _update),
@@ -1461,4 +1465,178 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
       ]),
     );
   }
+}
+
+// ── Calibration locale (Ma base) ────────────────────────────────
+class _CalibrationLocaleCard extends StatefulWidget {
+  final Estimation estimation;
+  final ValueChanged<Estimation> onChanged;
+  const _CalibrationLocaleCard({required this.estimation, required this.onChanged});
+
+  @override
+  State<_CalibrationLocaleCard> createState() => _CalibrationLocaleCardState();
+}
+
+class _CalibrationLocaleCardState extends State<_CalibrationLocaleCard> {
+  Map<String, dynamic>? _calib;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(_CalibrationLocaleCard old) {
+    super.didUpdateWidget(old);
+    if (old.estimation.codeInsee != widget.estimation.codeInsee) _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final c = await BaseLocaleService().getCalibration(widget.estimation.codeInsee);
+    if (mounted) setState(() { _calib = c; _loading = false; });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const SizedBox.shrink();
+    final count = _calib?['count'] as int? ?? 0;
+    if (count == 0) return const SizedBox.shrink();
+
+    final countWithEstime = _calib?['countWithEstime'] as int? ?? 0;
+    final ecartMoyen = (_calib?['ecartMoyen'] as num?)?.toDouble() ?? 0.0;
+    final prixM2Moyen = (_calib?['prixM2Moyen'] as num?)?.toDouble() ?? 0.0;
+    final hasCalib = countWithEstime > 0 && ecartMoyen.abs() > 0.5;
+
+    final calibColor = ecartMoyen > 3
+        ? kRed
+        : ecartMoyen < -3
+            ? kGreen
+            : kAmber;
+
+    // Suggestion d'ajustement conjoncture basée sur l'écart moyen
+    final suggestedDelta = -ecartMoyen.clamp(-4.0, 4.0);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border(left: BorderSide(color: const Color(0xFF7B1FA2), width: 4)),
+        boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 2))],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.bookmark_rounded, size: 16, color: Color(0xFF7B1FA2)),
+          const SizedBox(width: 8),
+          const Text('Calibration — Ma base locale', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal)),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            decoration: BoxDecoration(color: const Color(0xFF7B1FA2).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+            child: Text('$count vente${count > 1 ? 's' : ''}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF7B1FA2))),
+          ),
+        ]),
+        const SizedBox(height: 12),
+
+        // Stats
+        Row(children: [
+          if (prixM2Moyen > 0) ...[
+            Expanded(child: _CalibStat(label: 'Prix m² moyen\n(mes ventes)', value: '${prixM2Moyen.round()} €/m²', color: const Color(0xFF7B1FA2))),
+            const SizedBox(width: 8),
+          ],
+          if (hasCalib)
+            Expanded(child: _CalibStat(
+              label: 'Écart estimé/vendu\n($countWithEstime vente${countWithEstime > 1 ? 's' : ''})',
+              value: '${ecartMoyen >= 0 ? '+' : ''}${ecartMoyen.toStringAsFixed(1)}%',
+              color: calibColor,
+            )),
+        ]),
+
+        if (hasCalib) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: calibColor.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: calibColor.withValues(alpha: 0.25)),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Icon(
+                  ecartMoyen > 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                  size: 14, color: calibColor,
+                ),
+                const SizedBox(width: 6),
+                Expanded(child: Text(
+                  ecartMoyen > 3
+                      ? 'Tendance : vos estimations sont en dessous du marché réel sur ce secteur.'
+                      : ecartMoyen < -3
+                          ? 'Tendance : vos estimations sont au-dessus du marché réel sur ce secteur.'
+                          : 'Estimations calibrées — écart moyen faible sur ce secteur.',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: calibColor),
+                )),
+              ]),
+              if (ecartMoyen.abs() > 2) ...[
+                const SizedBox(height: 8),
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  Expanded(child: Text(
+                    'Ajustement suggéré sur la conjoncture : '
+                    '${suggestedDelta >= 0 ? '+' : ''}${suggestedDelta.toStringAsFixed(1)}%',
+                    style: TextStyle(fontSize: 11, color: calibColor),
+                  )),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () {
+                      final newConj = (widget.estimation.ajustConjoncture + suggestedDelta).clamp(-8.0, 2.0);
+                      widget.onChanged(widget.estimation.copyWith(ajustConjoncture: newConj));
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: calibColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text('Appliquer', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+                    ),
+                  ),
+                ]),
+              ],
+            ]),
+          ),
+        ],
+        const SizedBox(height: 4),
+        Text(
+          'Basé sur vos ${count} vente${count > 1 ? 's' : ''} enregistrées · ${widget.estimation.commune.isNotEmpty ? widget.estimation.commune : 'ce secteur'}',
+          style: const TextStyle(fontSize: 10, color: kLightGrey, fontStyle: FontStyle.italic),
+        ),
+      ]),
+    );
+  }
+}
+
+class _CalibStat extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+  const _CalibStat({required this.label, required this.value, required this.color});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: const TextStyle(fontSize: 10, color: kGrey, height: 1.4)),
+          const SizedBox(height: 4),
+          Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color)),
+        ]),
+      );
 }

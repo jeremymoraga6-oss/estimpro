@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../models/estimation.dart';
+import '../models/reference_locale.dart';
 import '../widgets/shared.dart';
 import '../widgets/app_header.dart';
 import '../services/dvf_service.dart';
 import '../services/georisques_service.dart';
+import '../services/base_locale_service.dart';
 
 class Section5Screen extends StatefulWidget {
   final Estimation estimation;
@@ -22,6 +24,7 @@ class _Section5ScreenState extends State<Section5Screen> {
   DvfFetchResult? _result;
   bool _loading = false;
   bool _loadingRisques = false;
+  List<ReferenceLocale> _localRefs = [];
   // null = tous, 'Maison', 'Appartement'
   String? _filterType;
 
@@ -30,7 +33,13 @@ class _Section5ScreenState extends State<Section5Screen> {
     super.initState();
     _e = widget.estimation;
     _loadDvf();
+    _loadLocalRefs();
     if (_e.risques == null) _loadRisques();
+  }
+
+  Future<void> _loadLocalRefs() async {
+    final refs = await BaseLocaleService().loadByCommune(_e.codeInsee);
+    if (mounted) setState(() => _localRefs = refs);
   }
 
   void _update(Estimation e) { setState(() => _e = e); widget.onChanged(e); }
@@ -79,6 +88,20 @@ class _Section5ScreenState extends State<Section5Screen> {
   double get _max => _e.comparables.isEmpty ? 0 : _e.comparables.map<double>((c) => (c['prixM2'] as num?)?.toDouble() ?? 0).reduce((a, b) => a > b ? a : b);
 
   bool _isSelected(DvfTransaction tx) => _e.comparables.any((c) => c['addr'] == tx.toComparable()['addr'] && c['date'] == tx.toComparable()['date']);
+
+  bool _isLocalSelected(ReferenceLocale r) =>
+      _e.comparables.any((c) => c['refId'] == r.id);
+
+  void _toggleLocal(ReferenceLocale r) {
+    final list = List<Map<String, dynamic>>.from(_e.comparables);
+    final idx = list.indexWhere((c) => c['refId'] == r.id);
+    if (idx >= 0) {
+      list.removeAt(idx);
+    } else {
+      list.add(r.toComparable());
+    }
+    _update(_e.copyWith(comparables: list));
+  }
 
   void _toggle(DvfTransaction tx) {
     final comp = tx.toComparable();
@@ -222,6 +245,45 @@ class _Section5ScreenState extends State<Section5Screen> {
                 ]),
               ),
             ),
+
+            // Mes ventes locales
+            if (_localRefs.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border(left: BorderSide(color: const Color(0xFF7B1FA2), width: 4)),
+                  boxShadow: const [BoxShadow(color: Color(0x0D000000), blurRadius: 8, offset: Offset(0, 2))],
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    Row(children: [
+                      const Icon(Icons.bookmark_rounded, color: Color(0xFF7B1FA2), size: 16),
+                      const SizedBox(width: 8),
+                      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Text('Mes ventes validées', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kCharcoal)),
+                        Text('${_localRefs.length} référence${_localRefs.length > 1 ? 's' : ''} · ${_e.commune.isNotEmpty ? _e.commune : 'Cette commune'}',
+                            style: const TextStyle(fontSize: 11, color: kGrey)),
+                      ]),
+                    ]),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(color: const Color(0xFF7B1FA2).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+                      child: const Text('MA BASE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF7B1FA2), letterSpacing: 0.8)),
+                    ),
+                  ]),
+                  const SizedBox(height: 10),
+                  ..._localRefs.map((r) => _LocalRefCard(
+                    ref: r,
+                    selected: _isLocalSelected(r),
+                    onTap: () => _toggleLocal(r),
+                  )),
+                ]),
+              ),
+              const SizedBox(height: 4),
+            ],
 
             // Risques naturels & technologiques (IAL)
             _RisquesCard(
@@ -1060,5 +1122,73 @@ class _PriceSourceField extends StatelessWidget {
         ),
       ),
     ]);
+  }
+}
+
+
+// ── Carte référence locale (Ma base) ────────────────────────────
+class _LocalRefCard extends StatelessWidget {
+  final ReferenceLocale ref;
+  final bool selected;
+  final VoidCallback onTap;
+  const _LocalRefCard({required this.ref, required this.selected, required this.onTap});
+
+  String _fmt(double n) {
+    final s = n.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
+    return '$s €';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const purple = Color(0xFF7B1FA2);
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: BoxDecoration(
+          color: selected ? purple.withValues(alpha: 0.06) : const Color(0xFFFAFAFA),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: selected ? purple.withValues(alpha: 0.4) : kBorderColor, width: 1.5),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(
+              ref.adresse.isNotEmpty ? ref.adresse : 'Adresse non renseignée',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '${ref.typeId[0].toUpperCase()}${ref.typeId.substring(1)} · ${ref.surface} m² · DPE ${ref.dpeClasse}',
+              style: const TextStyle(fontSize: 11, color: kGrey),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Vendu ${ReferenceLocale.fmtDate(ref.dateVente)}',
+              style: const TextStyle(fontSize: 11, color: kLightGrey, fontStyle: FontStyle.italic),
+            ),
+            const SizedBox(height: 6),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text(_fmt(ref.prixVente.toDouble()),
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal)),
+              Row(children: [
+                Text('${ref.prixM2.round()} €/m²',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: purple)),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(color: purple.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(4)),
+                  child: const Text('MA BASE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: purple, letterSpacing: 0.6)),
+                ),
+              ]),
+            ]),
+          ])),
+          const SizedBox(width: 8),
+          if (selected) const Icon(Icons.check_circle_rounded, color: Color(0xFF7B1FA2), size: 22)
+          else const Icon(Icons.radio_button_unchecked, color: kLightGrey, size: 22),
+        ]),
+      ),
+    );
   }
 }

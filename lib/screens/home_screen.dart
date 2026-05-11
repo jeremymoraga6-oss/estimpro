@@ -7,6 +7,7 @@ import 'estimation_flow.dart';
 import 'estimations_list_screen.dart';
 import 'marche_screen.dart';
 import 'profil_screen.dart';
+import 'base_locale_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -63,6 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
         },
       ),
       const MarcheScreen(),
+      const BaseLocaleScreen(),
       const ProfilScreen(),
     ];
 
@@ -89,6 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
               BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Accueil'),
               BottomNavigationBarItem(icon: Icon(Icons.list_alt_rounded), label: 'Estimations'),
               BottomNavigationBarItem(icon: Icon(Icons.trending_up_rounded), label: 'Marché'),
+              BottomNavigationBarItem(icon: Icon(Icons.bookmark_outline_rounded), activeIcon: Icon(Icons.bookmark_rounded), label: 'Ma base'),
               BottomNavigationBarItem(icon: Icon(Icons.person_outline_rounded), label: 'Profil'),
             ],
           ),
