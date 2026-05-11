@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme.dart';
 import '../models/reference_locale.dart';
 import '../models/estimation.dart';
 import '../services/base_locale_service.dart';
 import '../services/database_service.dart';
+import '../services/claude_estimation_parser.dart';
 import '../widgets/shared.dart';
 
 class BaseLocaleScreen extends StatefulWidget {
@@ -474,6 +476,118 @@ class _RefFormState extends State<_RefForm> {
     });
   }
 
+  void _applyClaudeResult(ClaudeEstimationResult r) {
+    setState(() {
+      if (r.adresse.isNotEmpty) _adresseCtrl.text = r.adresse;
+      if (r.commune.isNotEmpty) _communeCtrl.text = r.commune;
+      if (r.codeInsee.isNotEmpty) _codeInseeCtrl.text = r.codeInsee;
+      if (r.surface > 0) _surfaceCtrl.text = r.surface.toString();
+      if (r.prixEstime > 0) _prixEstimeCtrl.text = r.prixEstime.toString();
+      if (r.notes.isNotEmpty) _notesCtrl.text = r.notes;
+      _typeId = r.typeId;
+      _dpeClasse = r.dpeClasse;
+      if (r.dateVente != null) _dateVente = r.dateVente!;
+    });
+  }
+
+  Future<void> _showPasteDialog(BuildContext context) async {
+    // Pre-fill with clipboard if available
+    String initial = '';
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      if (data?.text != null && data!.text!.isNotEmpty) initial = data.text!;
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    final ctrl = TextEditingController(text: initial);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(children: const [
+          Icon(Icons.smart_toy_outlined, color: Color(0xFF7C4DFF), size: 20),
+          SizedBox(width: 8),
+          Text('Coller depuis Claude', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kCharcoal)),
+        ]),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text(
+            'Collez la réponse de Claude contenant l\'estimation. Les champs reconnus seront pré-remplis automatiquement.',
+            style: TextStyle(fontSize: 12, color: kGrey, height: 1.4),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5F0FF),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF7C4DFF).withOpacity(0.2)),
+            ),
+            padding: const EdgeInsets.all(8),
+            child: const Text(
+              'Conseil : demandez à Claude :\n"Résume en format ESTIMATION CLAUDE avec : Adresse, Type, Surface, DPE, Prix estimé, Fourchette, Commune, Code INSEE, Date, Notes."',
+              style: TextStyle(fontSize: 10, color: Color(0xFF7C4DFF), fontStyle: FontStyle.italic, height: 1.4),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: ctrl,
+            maxLines: 7,
+            style: const TextStyle(fontSize: 12, color: kCharcoal),
+            decoration: InputDecoration(
+              hintText: 'ESTIMATION CLAUDE\nAdresse: 12 rue des Alpes, Bonneville\n...',
+              hintStyle: const TextStyle(color: kLightGrey, fontSize: 11),
+              contentPadding: const EdgeInsets.all(12),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kBorderColor)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kBorderColor)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF7C4DFF), width: 2)),
+            ),
+          ),
+        ]),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler', style: TextStyle(color: kGrey)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF7C4DFF),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              elevation: 0,
+            ),
+            child: const Text('Importer', style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+
+    if (ok != true) return;
+
+    final result = ClaudeEstimationParser.parse(ctrl.text);
+    if (!mounted) return;
+
+    if (result == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Aucune valeur reconnue. Assurez-vous que le texte contient un prix estimé.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    _applyClaudeResult(result);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Données Claude importées — vérifiez et complétez si besoin'),
+        backgroundColor: Color(0xFF7C4DFF),
+        duration: Duration(seconds: 3),
+      ),
+    );
+  }
+
   void _save() {
     final prixVente = int.tryParse(_prixVenteCtrl.text.replaceAll(' ', '')) ?? 0;
     if (prixVente <= 0) {
@@ -540,6 +654,29 @@ class _RefFormState extends State<_RefForm> {
               ),
             ),
           ],
+
+          // Coller depuis Claude
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: () => _showPasteDialog(context),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF7C4DFF).withOpacity(0.06),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF7C4DFF).withOpacity(0.3)),
+              ),
+              child: const Row(children: [
+                Icon(Icons.smart_toy_outlined, size: 16, color: Color(0xFF7C4DFF)),
+                SizedBox(width: 8),
+                Expanded(child: Text(
+                  'Coller une estimation générée par Claude',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF7C4DFF), fontWeight: FontWeight.w600),
+                )),
+                Icon(Icons.content_paste_rounded, size: 16, color: Color(0xFF7C4DFF)),
+              ]),
+            ),
+          ),
 
           const SizedBox(height: 14),
 
