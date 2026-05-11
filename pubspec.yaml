@@ -20,6 +20,8 @@ dependencies:
   record: ^6.2.0
   speech_to_text: ^7.3.0
   archive: ^3.6.1
+  file_picker: ^8.0.7
+  pdfrx: ^1.0.0
 
 dev_dependencies:
   flutter_test:

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import '../theme.dart';
 import '../models/estimation.dart';
 import '../models/reference_locale.dart';
@@ -7,6 +8,7 @@ import '../widgets/app_header.dart';
 import '../services/dvf_service.dart';
 import '../services/georisques_service.dart';
 import '../services/base_locale_service.dart';
+import '../services/pricehubble_parser.dart';
 
 class Section5Screen extends StatefulWidget {
   final Estimation estimation;
@@ -877,6 +879,124 @@ class _SynthesePondereeCardState extends State<_SynthesePondereeCard> {
 
   void _setPond(int dvf, int ph, int ann) => _update(_e.copyWith(ponderationDvf: dvf, ponderationPh: ph, ponderationAnnonces: ann));
 
+  Future<void> _importPdf() async {
+    final res = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: false,
+      withReadStream: false,
+    );
+    if (res == null || res.files.isEmpty) return;
+    final path = res.files.single.path;
+    if (path == null) return;
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(children: [
+          CircularProgressIndicator(),
+          SizedBox(width: 16),
+          Text('Lecture du PDF…'),
+        ]),
+      ),
+    );
+
+    final result = await PricehubbleParser.parseFile(path);
+
+    if (!mounted) return;
+    Navigator.of(context).pop(); // close loading dialog
+
+    if (result == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Impossible de lire le rapport PriceHubble. Vérifiez le fichier.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Show confirmation bottom sheet
+    _showConfirmSheet(result);
+  }
+
+  void _showConfirmSheet(PricehubbleResult result) {
+    String fmtP(double v) {
+      if (v <= 0) return '—';
+      final s = v.round().toString().replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
+      return '$s €';
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Container(
+              width: 32, height: 32,
+              decoration: const BoxDecoration(color: Color(0xFF5C6BC0), shape: BoxShape.circle),
+              child: const Icon(Icons.hub_outlined, size: 16, color: Colors.white),
+            ),
+            const SizedBox(width: 10),
+            const Text('Rapport PriceHubble détecté', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: kCharcoal)),
+          ]),
+          const SizedBox(height: 16),
+          _ConfirmRow(label: 'Valeur estimée', value: fmtP(result.prixEstime), highlight: true),
+          if (result.hasRange) ...[
+            _ConfirmRow(label: 'Fourchette basse', value: fmtP(result.fourchetteBasse)),
+            _ConfirmRow(label: 'Fourchette haute', value: fmtP(result.fourchetteHaute)),
+          ],
+          if (result.prixM2 > 0)
+            _ConfirmRow(label: 'Prix / m²', value: '${result.prixM2.round()} €/m²'),
+          if (result.surface > 0)
+            _ConfirmRow(label: 'Surface', value: '${result.surface} m²'),
+          if (result.adresse.isNotEmpty)
+            _ConfirmRow(label: 'Adresse', value: result.adresse),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _phCtrl.text = result.prixEstime.round().toString();
+                _update(_e.copyWith(
+                  prixPricehubble: result.prixEstime,
+                  fourchetteBasse: result.hasRange ? result.fourchetteBasse : _e.fourchetteBasse,
+                  fourchetteHaute: result.hasRange ? result.fourchetteHaute : _e.fourchetteHaute,
+                ));
+              },
+              icon: const Icon(Icons.check_rounded, size: 18),
+              label: const Text('Importer ces valeurs', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF5C6BC0),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            height: 40,
+            child: TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Annuler', style: TextStyle(color: kGrey)),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
   String _fmt(double n) {
     final s = n.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
     return '$s €';
@@ -968,7 +1088,26 @@ class _SynthesePondereeCardState extends State<_SynthesePondereeCard> {
         ),
         const SizedBox(height: 8),
 
-        // PriceHubble field
+        // PriceHubble: import button + manual entry field
+        Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          GestureDetector(
+            onTap: _importPdf,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFF5C6BC0).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF5C6BC0).withOpacity(0.3)),
+              ),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.picture_as_pdf_rounded, size: 13, color: Color(0xFF5C6BC0)),
+                SizedBox(width: 5),
+                Text('Importer PDF PriceHubble', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF5C6BC0))),
+              ]),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 6),
         _PriceSourceField(
           label: 'PriceHubble',
           icon: Icons.hub_outlined,
@@ -1191,4 +1330,30 @@ class _LocalRefCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ConfirmRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool highlight;
+  const _ConfirmRow({required this.label, required this.value, this.highlight = false});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: Row(children: [
+          SizedBox(
+            width: 120,
+            child: Text(label, style: const TextStyle(fontSize: 12, color: kGrey)),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: highlight ? 15 : 13,
+              fontWeight: highlight ? FontWeight.w700 : FontWeight.w600,
+              color: highlight ? const Color(0xFF5C6BC0) : kCharcoal,
+            ),
+          ),
+        ]),
+      );
 }
