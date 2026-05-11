@@ -48,6 +48,9 @@ class Estimation {
   Map<String, dynamic> annexesDetails;
   bool ascenseur;        // présence ascenseur (appartement)
   bool libreOccupation;  // bien libre (vs loué → décote 10-15%)
+  int etage;             // n° d'étage (0 = RDC), appartement uniquement
+  bool dernierEtage;     // dernier étage de l'immeuble
+  int chargesCopro;      // charges copropriété €/an (décote auto si >2 000€)
 
   // Section 4 — État & équipements
   String facade;
@@ -79,6 +82,7 @@ class Estimation {
 
   // Section 6 — Estimation
   double margeNegociation; // % marge pour prix de mandat (défaut 10%)
+  double tauxAgence;       // % honoraires agence (défaut 5%) pour calcul net vendeur
   double ajustVue;
   double ajustEtat;
   double ajustDpe;
@@ -148,6 +152,9 @@ class Estimation {
     Map<String, dynamic>? annexesDetails,
     this.ascenseur = false,
     this.libreOccupation = true,
+    this.etage = 0,
+    this.dernierEtage = false,
+    this.chargesCopro = 0,
     this.facade = 'Bon',
     this.toiture = 'Bon',
     List<String>? menuiseriesType,
@@ -170,6 +177,7 @@ class Estimation {
     this.ponderationPh = 40,
     this.ponderationAnnonces = 15,
     this.margeNegociation = 10,
+    this.tauxAgence = 5.0,
     this.ajustVue = 0,
     this.ajustEtat = 0,
     this.ajustDpe = 0,
@@ -309,12 +317,32 @@ class Estimation {
   double get decoteSurface =>
       surfaceHabitable <= 120 ? 0.0 : ((-(surfaceHabitable - 120) / 10)).clamp(-8.0, 0.0);
 
+  // Ajustement étage appartement : RDC=-5%, intermédiaire=0%, dernier+ascenseur=+3%, dernier sans=+1%
+  double get ajustEtageAuto {
+    if (typeId != 'appartement') return 0.0;
+    if (etage == 0) return -5.0;
+    if (dernierEtage) return ascenseur ? 3.0 : 1.0;
+    return 0.0;
+  }
+
+  // Décote charges copropriété : -1% par 500€ au-delà de 2 000€/an, plafonnée à -6%
+  double get decoteCharges {
+    if (typeId != 'appartement' || chargesCopro <= 2000) return 0.0;
+    return (-(chargesCopro - 2000) / 500).clamp(-6.0, 0.0);
+  }
+
   double get prixMandat => (prixCalcule * (1 + margeNegociation / 100) / 1000).round() * 1000;
+
+  // Calcul net vendeur réel et coût acquéreur
+  double get fraisAgenceEstimes => prixMandat * tauxAgence / 100;
+  double get fraisNotaireAcquereur => prixMandat * 0.08;
+  double get budgetTotalAcquereur => prixMandat + fraisNotaireAcquereur;
 
   double get prixCalcule {
     final occupPct = libreOccupation ? 0.0 : -12.0;
     final totalPct = ajustVue + ajustEtat + ajustDpe + ajustExposition +
-        ajustEnvironnement + ajustConjoncture + decoteSurface + occupPct;
+        ajustEnvironnement + ajustConjoncture + decoteSurface + occupPct +
+        ajustEtageAuto + decoteCharges;
     final impact = prixBase * totalPct / 100 - ajustTravaux + ajustParking + ajustPiscine;
     final raw = prixBase + impact;
     return (raw / 1000).round() * 1000;
@@ -359,6 +387,9 @@ class Estimation {
         'annexesDetails': jsonEncode(annexesDetails),
         'ascenseur': ascenseur ? 1 : 0,
         'libreOccupation': libreOccupation ? 1 : 0,
+        'etage': etage,
+        'dernierEtage': dernierEtage ? 1 : 0,
+        'chargesCopro': chargesCopro,
         'facade': facade,
         'toiture': toiture,
         'menuiseriesType': jsonEncode(menuiseriesType),
@@ -381,6 +412,7 @@ class Estimation {
         'ponderationPh': ponderationPh,
         'ponderationAnnonces': ponderationAnnonces,
         'margeNegociation': margeNegociation,
+        'tauxAgence': tauxAgence,
         'ajustVue': ajustVue,
         'ajustEtat': ajustEtat,
         'ajustDpe': ajustDpe,
@@ -449,6 +481,9 @@ class Estimation {
           : {},
       ascenseur: (m['ascenseur'] as int? ?? 0) == 1,
       libreOccupation: (m['libreOccupation'] as int? ?? 1) == 1,
+      etage: m['etage'] as int? ?? 0,
+      dernierEtage: (m['dernierEtage'] as int? ?? 0) == 1,
+      chargesCopro: m['chargesCopro'] as int? ?? 0,
       facade: m['facade'] ?? 'Bon',
       toiture: m['toiture'] ?? 'Bon',
       menuiseriesType: decodeStrList(m['menuiseriesType']),
@@ -473,6 +508,7 @@ class Estimation {
       ponderationPh: m['ponderationPh'] as int? ?? 40,
       ponderationAnnonces: m['ponderationAnnonces'] as int? ?? 15,
       margeNegociation: (m['margeNegociation'] as num?)?.toDouble() ?? 10,
+      tauxAgence: (m['tauxAgence'] as num?)?.toDouble() ?? 5.0,
       ajustVue: (m['ajustVue'] as num?)?.toDouble() ?? 0,
       ajustEtat: (m['ajustEtat'] as num?)?.toDouble() ?? 0,
       ajustDpe: (m['ajustDpe'] as num?)?.toDouble() ?? 0,
@@ -546,6 +582,9 @@ class Estimation {
     Map<String, dynamic>? annexesDetails,
     bool? ascenseur,
     bool? libreOccupation,
+    int? etage,
+    bool? dernierEtage,
+    int? chargesCopro,
     String? facade,
     String? toiture,
     List<String>? menuiseriesType,
@@ -568,6 +607,7 @@ class Estimation {
     int? ponderationPh,
     int? ponderationAnnonces,
     double? margeNegociation,
+    double? tauxAgence,
     double? ajustVue,
     double? ajustEtat,
     double? ajustDpe,
@@ -629,6 +669,9 @@ class Estimation {
       annexesDetails: annexesDetails ?? Map.from(this.annexesDetails),
       ascenseur: ascenseur ?? this.ascenseur,
       libreOccupation: libreOccupation ?? this.libreOccupation,
+      etage: etage ?? this.etage,
+      dernierEtage: dernierEtage ?? this.dernierEtage,
+      chargesCopro: chargesCopro ?? this.chargesCopro,
       facade: facade ?? this.facade,
       toiture: toiture ?? this.toiture,
       menuiseriesType: menuiseriesType ?? List.from(this.menuiseriesType),
@@ -651,6 +694,7 @@ class Estimation {
       ponderationPh: ponderationPh ?? this.ponderationPh,
       ponderationAnnonces: ponderationAnnonces ?? this.ponderationAnnonces,
       margeNegociation: margeNegociation ?? this.margeNegociation,
+      tauxAgence: tauxAgence ?? this.tauxAgence,
       ajustVue: ajustVue ?? this.ajustVue,
       ajustEtat: ajustEtat ?? this.ajustEtat,
       ajustDpe: ajustDpe ?? this.ajustDpe,

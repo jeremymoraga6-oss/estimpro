@@ -27,9 +27,17 @@ const _annexeDefs = [
 
 class _Section3ScreenState extends State<Section3Screen> {
   late Estimation _e;
+  late TextEditingController _chargesCtrl;
 
   @override
-  void initState() { super.initState(); _e = widget.estimation; }
+  void initState() {
+    super.initState();
+    _e = widget.estimation;
+    _chargesCtrl = TextEditingController(text: _e.chargesCopro > 0 ? _e.chargesCopro.toString() : '');
+  }
+
+  @override
+  void dispose() { _chargesCtrl.dispose(); super.dispose(); }
 
   void _update(Estimation e) { setState(() => _e = e); widget.onChanged(e); }
 
@@ -66,6 +74,108 @@ class _Section3ScreenState extends State<Section3Screen> {
                 value: _e.libreOccupation,
                 onChanged: (v) => _update(_e.copyWith(libreOccupation: v)),
               ),
+              if (_e.typeId == 'appartement') ...[
+                const Divider(height: 1, indent: 44),
+                // Étage
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Row(children: [
+                    Container(
+                      width: 32, height: 32,
+                      decoration: BoxDecoration(
+                        color: kGreen.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.layers_outlined, size: 17, color: kGreen),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('Étage', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kCharcoal)),
+                      Text(
+                        _e.etage == 0 ? 'Rez-de-chaussée (−5%)' : 'Étage ${_e.etage}',
+                        style: TextStyle(fontSize: 11, color: _e.etage == 0 ? kRed : kGrey),
+                      ),
+                    ])),
+                    Row(mainAxisSize: MainAxisSize.min, children: [
+                      GestureDetector(
+                        onTap: () => _update(_e.copyWith(etage: _e.etage > 0 ? _e.etage - 1 : 0)),
+                        child: Container(
+                          width: 32, height: 32,
+                          decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: kLightGrey, width: 1.5), color: Colors.white),
+                          child: const Icon(Icons.remove, size: 14, color: kGrey),
+                        ),
+                      ),
+                      Container(
+                        width: 36,
+                        alignment: Alignment.center,
+                        child: Text(_e.etage.toString(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kCharcoal)),
+                      ),
+                      GestureDetector(
+                        onTap: () => _update(_e.copyWith(etage: _e.etage + 1)),
+                        child: Container(
+                          width: 32, height: 32,
+                          decoration: const BoxDecoration(shape: BoxShape.circle, color: kGreen),
+                          child: const Icon(Icons.add, size: 14, color: Colors.white),
+                        ),
+                      ),
+                    ]),
+                  ]),
+                ),
+                const Divider(height: 1, indent: 44),
+                _ToggleRow(
+                  icon: Icons.vertical_align_top_rounded,
+                  label: 'Dernier étage',
+                  sub: _e.ascenseur ? '+3% avec ascenseur' : '+1% sans ascenseur',
+                  value: _e.dernierEtage,
+                  onChanged: (v) => _update(_e.copyWith(dernierEtage: v)),
+                ),
+                const Divider(height: 1, indent: 44),
+                // Charges copropriété
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Row(children: [
+                    Container(
+                      width: 32, height: 32,
+                      decoration: BoxDecoration(
+                        color: (_e.chargesCopro > 2000 ? kRed : kGrey).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(Icons.receipt_long_outlined, size: 17,
+                          color: _e.chargesCopro > 2000 ? kRed : kGrey),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('Charges copropriété', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kCharcoal)),
+                      Text(
+                        _e.chargesCopro > 2000
+                          ? 'Élevées — décote ${_e.decoteCharges.toStringAsFixed(1)}%'
+                          : 'Normal si ≤ 2 000 €/an',
+                        style: TextStyle(fontSize: 11, color: _e.chargesCopro > 2000 ? kRed : kGrey),
+                      ),
+                    ])),
+                    SizedBox(
+                      width: 90,
+                      child: TextField(
+                        controller: _chargesCtrl,
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kCharcoal),
+                        decoration: InputDecoration(
+                          suffixText: '€/an',
+                          suffixStyle: const TextStyle(fontSize: 10, color: kGrey),
+                          hintText: '0',
+                          hintStyle: const TextStyle(color: kLightGrey),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kGreen, width: 2)),
+                        ),
+                        onChanged: (v) => _update(_e.copyWith(chargesCopro: int.tryParse(v) ?? 0)),
+                      ),
+                    ),
+                  ]),
+                ),
+              ],
             ])),
             const SizedBox(height: 14),
 

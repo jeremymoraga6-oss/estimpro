@@ -45,7 +45,8 @@ class _Section6ScreenState extends State<Section6Screen> {
     final base = _e.prixBase;
     final occupPct = _e.libreOccupation ? 0.0 : -12.0;
     final totalPct = _e.ajustVue + _e.ajustEtat + _e.ajustDpe + _e.ajustExposition +
-        _e.ajustEnvironnement + _e.ajustConjoncture + _e.decoteSurface + occupPct;
+        _e.ajustEnvironnement + _e.ajustConjoncture + _e.decoteSurface + occupPct +
+        _e.ajustEtageAuto + _e.decoteCharges;
     final impact = base * totalPct / 100 - _e.ajustTravaux + _e.ajustParking;
     final raw = base + impact;
     final rounded = (raw / 1000).round() * 1000.0;
@@ -254,7 +255,7 @@ class _Section6ScreenState extends State<Section6Screen> {
               ),
 
               // Décotes automatiques (lecture seule)
-              if (!_e.libreOccupation || _e.decoteSurface < 0) ...[
+              if (!_e.libreOccupation || _e.decoteSurface < 0 || _e.ajustEtageAuto != 0 || _e.decoteCharges < 0) ...[
                 const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -264,7 +265,7 @@ class _Section6ScreenState extends State<Section6Screen> {
                     border: Border.all(color: const Color(0xFFF9A825).withOpacity(0.4)),
                   ),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('DÉCOTES AUTOMATIQUES', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF7A5800), letterSpacing: 0.8)),
+                    const Text('DÉCOTES / BONUS AUTOMATIQUES', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF7A5800), letterSpacing: 0.8)),
                     const SizedBox(height: 6),
                     if (!_e.libreOccupation)
                       _PriceDetailRow('Bien loué (occupation) :', '−12%'),
@@ -272,6 +273,16 @@ class _Section6ScreenState extends State<Section6Screen> {
                       _PriceDetailRow(
                         'Grande surface (${_e.surfaceHabitable} m²) :',
                         '${_e.decoteSurface.toStringAsFixed(1)}%',
+                      ),
+                    if (_e.ajustEtageAuto != 0)
+                      _PriceDetailRow(
+                        _e.etage == 0 ? 'Rez-de-chaussée :' : _e.dernierEtage ? 'Dernier étage :' : 'Étage ${_e.etage} :',
+                        '${_e.ajustEtageAuto >= 0 ? '+' : ''}${_e.ajustEtageAuto.toStringAsFixed(0)}%',
+                      ),
+                    if (_e.decoteCharges < 0)
+                      _PriceDetailRow(
+                        'Charges copro (${_e.chargesCopro} €/an) :',
+                        '${_e.decoteCharges.toStringAsFixed(1)}%',
                       ),
                   ]),
                 ),
@@ -491,6 +502,9 @@ class _Section6ScreenState extends State<Section6Screen> {
 
             // Historique négociation
             _HistoriqueCard(estimation: _e, onChanged: _update),
+
+            // Simulation crédit acheteur
+            _SimulationCreditCard(prixMandat: _e.prixMandat),
 
             // Auto vigilance
             _AutoVigilanceCard(estimation: _e, onInsert: (text) {
@@ -808,6 +822,27 @@ class _AutoVigilanceCard extends StatelessWidget {
       ));
     }
 
+    // Étage RDC appartement
+    if (e.typeId == 'appartement' && e.etage == 0) {
+      points.add((
+        text: 'Rez-de-chaussée : décote automatique −5% appliquée — sécurité, luminosité et intimité réduite perçue. '
+            'Compensez par un jardin privatif ou terrasse si présente.',
+        color: kAmber,
+        icon: Icons.layers_outlined,
+      ));
+    }
+
+    // Charges copropriété élevées
+    if (e.typeId == 'appartement' && e.chargesCopro > 2000) {
+      points.add((
+        text: 'Charges copropriété élevées (${e.chargesCopro} €/an soit ~${(e.chargesCopro / 12).round()} €/mois) — '
+            'décote ${e.decoteCharges.toStringAsFixed(1)}% appliquée. '
+            'Exiger le détail du budget copro et signaler travaux votés avant vente.',
+        color: kRed,
+        icon: Icons.receipt_long_outlined,
+      ));
+    }
+
     // Bien loué (non libre d'occupation)
     if (!e.libreOccupation) {
       points.add((
@@ -897,6 +932,9 @@ class _PrixMandatCard extends StatelessWidget {
     final mandat = e.prixMandat;
     final plancher = (netVendeur * 0.95 / 1000).round() * 1000.0;
     final marge = e.margeNegociation;
+    final fraisAgence = e.fraisAgenceEstimes;
+    final fraisNotaire = e.fraisNotaireAcquereur;
+    final budgetAcquereur = e.budgetTotalAcquereur;
 
     return SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const CardTitleRow(icon: Icons.sell_outlined, label: 'Prix de commercialisation'),
@@ -904,7 +942,7 @@ class _PrixMandatCard extends StatelessWidget {
 
       // Net vendeur
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        const Text('Prix net vendeur', style: TextStyle(fontSize: 12, color: kGrey)),
+        const Text('Prix net vendeur estimé', style: TextStyle(fontSize: 12, color: kGrey)),
         Text(_fmt(netVendeur), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kCharcoal)),
       ]),
       const SizedBox(height: 14),
@@ -944,7 +982,7 @@ class _PrixMandatCard extends StatelessWidget {
         ),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('PRIX DE MANDAT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kGreen, letterSpacing: 0.8)),
+            const Text('PRIX DE MANDAT (FAI)', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kGreen, letterSpacing: 0.8)),
             const SizedBox(height: 2),
             Text('Net vendeur +${marge.toInt()}% de marge', style: const TextStyle(fontSize: 11, color: kGrey)),
           ]),
@@ -964,6 +1002,87 @@ class _PrixMandatCard extends StatelessWidget {
       ]),
       const SizedBox(height: 4),
       const Text('Ne pas descendre en dessous sans accord vendeur', style: TextStyle(fontSize: 10, color: kLightGrey, fontStyle: FontStyle.italic)),
+
+      const CardDivider(),
+
+      // Section vendeur
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF0F8FF),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFF2196F3).withOpacity(0.2)),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Row(children: [
+            Icon(Icons.person_outline_rounded, size: 14, color: Color(0xFF1565C0)),
+            SizedBox(width: 6),
+            Text('CÔTÉ VENDEUR', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF1565C0), letterSpacing: 0.8)),
+          ]),
+          const SizedBox(height: 8),
+          // Taux agence slider
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            const Text('Honoraires agence', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kCharcoal)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(color: const Color(0xFF1565C0).withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+              child: Text('${e.tauxAgence.toStringAsFixed(1)}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF1565C0))),
+            ),
+          ]),
+          SliderTheme(
+            data: SliderThemeData(
+              activeTrackColor: const Color(0xFF1565C0),
+              inactiveTrackColor: const Color(0xFF1565C0).withOpacity(0.15),
+              thumbColor: Colors.white,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 9),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+              trackHeight: 4,
+            ),
+            child: Slider(
+              value: e.tauxAgence,
+              min: 2,
+              max: 8,
+              divisions: 12,
+              onChanged: (v) => onChanged(e.copyWith(tauxAgence: v)),
+            ),
+          ),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            const Text('2%', style: TextStyle(fontSize: 10, color: kLightGrey)),
+            const Text('5%', style: TextStyle(fontSize: 10, color: kLightGrey)),
+            const Text('8%', style: TextStyle(fontSize: 10, color: kLightGrey)),
+          ]),
+          const SizedBox(height: 10),
+          _PriceDetailRow('Prix mandat (FAI) :', _fmt(mandat)),
+          _PriceDetailRow('Honoraires agence (~${e.tauxAgence.toStringAsFixed(1)}%) :', '−${_fmt(fraisAgence)}'),
+          const Divider(height: 12),
+          _PriceDetailRow('Net vendeur après frais :', _fmt(mandat - fraisAgence), bold: true),
+        ]),
+      ),
+      const SizedBox(height: 10),
+
+      // Section acquéreur
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF3E0),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: kAmber.withOpacity(0.3)),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Row(children: [
+            Icon(Icons.group_outlined, size: 14, color: kAmber),
+            SizedBox(width: 6),
+            Text('CÔTÉ ACQUÉREUR', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: kAmber, letterSpacing: 0.8)),
+          ]),
+          const SizedBox(height: 8),
+          _PriceDetailRow('Prix de vente (FAI) :', _fmt(mandat)),
+          _PriceDetailRow('Frais de notaire (~8%) :', '+${_fmt(fraisNotaire)}'),
+          const Divider(height: 12),
+          _PriceDetailRow('Budget total acquéreur :', _fmt(budgetAcquereur), bold: true),
+          const SizedBox(height: 4),
+          const Text('Frais notaire sur bien ancien · Hors frais bancaires', style: TextStyle(fontSize: 10, color: kLightGrey, fontStyle: FontStyle.italic)),
+        ]),
+      ),
     ]));
   }
 }
@@ -1102,6 +1221,242 @@ class _HistoriqueCardState extends State<_HistoriqueCard> {
                 );
               },
             ),
+        ],
+      ]),
+    );
+  }
+}
+
+// ── Simulation crédit acheteur ──────────────────────────────────
+class _SimulationCreditCard extends StatefulWidget {
+  final double prixMandat;
+  const _SimulationCreditCard({required this.prixMandat});
+
+  @override
+  State<_SimulationCreditCard> createState() => _SimulationCreditCardState();
+}
+
+class _SimulationCreditCardState extends State<_SimulationCreditCard> {
+  bool _open = false;
+  double _revenus = 3500;
+  double _apport = 30000;
+  int _duree = 20;
+  double _taux = 3.7;
+
+  static const _durees = [10, 15, 20, 25];
+
+  double get _mensualiteMax => _revenus * 0.35;
+
+  double get _capaciteEmprunt {
+    final r = _taux / 100 / 12;
+    final n = _duree * 12;
+    if (r == 0) return _mensualiteMax * n;
+    return _mensualiteMax * (1 - pow(1 + r, -n.toDouble())) / r;
+  }
+
+  double get _budgetTotal => _capaciteEmprunt + _apport;
+  double get _gap => widget.prixMandat - _budgetTotal;
+
+  String _fmt(double n) {
+    final s = n.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
+    return '$s €';
+  }
+
+  double pow(double base, double exp) {
+    if (exp == 0) return 1;
+    double result = 1;
+    for (int i = 0; i < exp.abs().round(); i++) {
+      result *= base;
+    }
+    return exp < 0 ? 1 / result : result;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accessible = _gap <= 0;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE0E0E0)),
+        boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 2))],
+      ),
+      child: Column(children: [
+        GestureDetector(
+          onTap: () => setState(() => _open = !_open),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: Row(children: [
+              const Icon(Icons.calculate_outlined, size: 17, color: kGrey),
+              const SizedBox(width: 8),
+              const Text('Simulation crédit acquéreur', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal)),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: (accessible ? kGreen : kRed).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  accessible ? 'Accessible' : 'Hors budget',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: accessible ? kGreen : kRed),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(_open ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: kLightGrey, size: 18),
+            ]),
+          ),
+        ),
+        if (_open) ...[
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Profil acquéreur type · Taux d\'effort max 35%',
+                  style: TextStyle(fontSize: 11, color: kGrey, fontStyle: FontStyle.italic)),
+              const SizedBox(height: 14),
+
+              // Revenus slider
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                const Text('Revenus ménage', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kCharcoal)),
+                Text('${_revenus.round()} €/mois', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
+              ]),
+              Slider(
+                value: _revenus,
+                min: 1500,
+                max: 12000,
+                divisions: 85,
+                activeColor: kGreen,
+                inactiveColor: kGreen.withOpacity(0.15),
+                onChanged: (v) => setState(() => _revenus = (v / 100).round() * 100),
+              ),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                const Text('1 500 €', style: TextStyle(fontSize: 10, color: kLightGrey)),
+                Text('Mensualité max : ${_mensualiteMax.round()} €', style: const TextStyle(fontSize: 10, color: kGrey)),
+                const Text('12 000 €', style: TextStyle(fontSize: 10, color: kLightGrey)),
+              ]),
+              const SizedBox(height: 12),
+
+              // Apport slider
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                const Text('Apport personnel', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kCharcoal)),
+                Text(_fmt(_apport), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
+              ]),
+              Slider(
+                value: _apport,
+                min: 0,
+                max: 200000,
+                divisions: 40,
+                activeColor: kGreen,
+                inactiveColor: kGreen.withOpacity(0.15),
+                onChanged: (v) => setState(() => _apport = (v / 5000).round() * 5000),
+              ),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                const Text('0 €', style: TextStyle(fontSize: 10, color: kLightGrey)),
+                const Text('200 000 €', style: TextStyle(fontSize: 10, color: kLightGrey)),
+              ]),
+              const SizedBox(height: 12),
+
+              // Durée chips
+              Row(children: [
+                const Text('Durée : ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kCharcoal)),
+                const SizedBox(width: 8),
+                ..._durees.map((d) {
+                  final sel = _duree == d;
+                  return GestureDetector(
+                    onTap: () => setState(() => _duree = d),
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: sel ? kGreen : Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: sel ? kGreen : kBorderColor, width: 1.5),
+                      ),
+                      child: Text('${d} ans', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: sel ? Colors.white : kGrey)),
+                    ),
+                  );
+                }),
+              ]),
+              const SizedBox(height: 10),
+
+              // Taux slider
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                const Text('Taux estimé', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kCharcoal)),
+                Text('${_taux.toStringAsFixed(1)}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
+              ]),
+              Slider(
+                value: _taux,
+                min: 2.0,
+                max: 6.0,
+                divisions: 16,
+                activeColor: kGrey,
+                inactiveColor: kGrey.withOpacity(0.15),
+                onChanged: (v) => setState(() => _taux = (v * 4).round() / 4),
+              ),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                const Text('2%', style: TextStyle(fontSize: 10, color: kLightGrey)),
+                const Text('Taux marché 2025 : ~3.5–4%', style: TextStyle(fontSize: 10, color: kGrey)),
+                const Text('6%', style: TextStyle(fontSize: 10, color: kLightGrey)),
+              ]),
+              const SizedBox(height: 14),
+
+              // Résultat
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: accessible ? kGreen.withOpacity(0.06) : kRed.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: (accessible ? kGreen : kRed).withOpacity(0.25)),
+                ),
+                child: Column(children: [
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    const Text('Capacité d\'emprunt :', style: TextStyle(fontSize: 12, color: kGrey)),
+                    Text(_fmt(_capaciteEmprunt), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
+                  ]),
+                  const SizedBox(height: 4),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    const Text('Apport :', style: TextStyle(fontSize: 12, color: kGrey)),
+                    Text(_fmt(_apport), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
+                  ]),
+                  const Divider(height: 14),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    const Text('Budget total acquéreur :', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal)),
+                    Text(_fmt(_budgetTotal), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: accessible ? kGreen : kRed)),
+                  ]),
+                  const SizedBox(height: 8),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    const Text('Prix de mandat :', style: TextStyle(fontSize: 12, color: kGrey)),
+                    Text(_fmt(widget.prixMandat), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
+                  ]),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: (accessible ? kGreen : kRed).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(accessible ? Icons.check_circle_outline : Icons.warning_amber_rounded,
+                          size: 14, color: accessible ? kGreen : kRed),
+                      const SizedBox(width: 6),
+                      Text(
+                        accessible
+                            ? 'Accessible · budget excédentaire ${_fmt(-_gap)}'
+                            : 'Hors budget · déficit ${_fmt(_gap)}',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: accessible ? kGreen : kRed),
+                      ),
+                    ]),
+                  ),
+                ]),
+              ),
+              const SizedBox(height: 4),
+              const Text('Simulation indicative · hors assurance et frais bancaires', style: TextStyle(fontSize: 10, color: kLightGrey, fontStyle: FontStyle.italic)),
+            ]),
+          ),
         ],
       ]),
     );
