@@ -41,6 +41,8 @@ class _EstimationFlowState extends State<EstimationFlow> {
         dateVisite: now,
         validiteJusquau: now.add(const Duration(days: 365)),
       );
+      // Sauvegarde immédiate pour ne pas perdre l'estimation si l'user quitte
+      _db.saveEstimation(_e);
     }
   }
 

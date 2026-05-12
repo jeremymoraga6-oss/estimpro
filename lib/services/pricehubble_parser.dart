@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:pdfrx/pdfrx.dart';
 
 class PricehubbleResult {
@@ -23,17 +24,45 @@ class PricehubbleResult {
 class PricehubbleParser {
   /// Opens a PDF file, extracts all text, and parses PriceHubble fields.
   static Future<PricehubbleResult?> parseFile(String path) async {
+    String rawText = '';
     try {
       final doc = await PdfDocument.openFile(path);
       final buf = StringBuffer();
       for (final page in doc.pages) {
-        final text = await page.loadText();
-        buf.write(text.fullText);
-        buf.write('\n');
+        try {
+          final text = await page.loadText();
+          buf.write(text.fullText);
+          buf.write('\n');
+        } catch (_) {
+          // Skip pages that fail to extract text (scanned pages, etc.)
+        }
       }
-      return parseText(buf.toString());
+      rawText = buf.toString();
     } catch (_) {
-      return null;
+      // pdfrx failed to open — fall back to raw byte parsing
+      rawText = _extractRawText(path);
+    }
+    if (rawText.isEmpty) return null;
+    return parseText(rawText);
+  }
+
+  /// Fallback: extract printable ASCII text directly from PDF bytes.
+  /// Works on uncompressed text streams only, but catches simple cases.
+  static String _extractRawText(String path) {
+    try {
+      final bytes = File(path).readAsBytesSync();
+      final buf = StringBuffer();
+      // Extract content between parentheses (PDF text string objects)
+      bool inStr = false;
+      for (int i = 0; i < bytes.length; i++) {
+        final b = bytes[i];
+        if (!inStr && b == 40) { inStr = true; continue; } // '('
+        if (inStr && b == 41) { inStr = false; buf.write(' '); continue; } // ')'
+        if (inStr && b >= 32 && b < 127) buf.writeCharCode(b);
+      }
+      return buf.toString();
+    } catch (_) {
+      return '';
     }
   }
 

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:file_picker/file_picker.dart';
 import '../theme.dart';
 import '../models/reference_locale.dart';
 import '../models/estimation.dart';
 import '../services/base_locale_service.dart';
 import '../services/database_service.dart';
 import '../services/claude_estimation_parser.dart';
+import '../services/pricehubble_parser.dart';
 import '../widgets/shared.dart';
 
 class BaseLocaleScreen extends StatefulWidget {
@@ -588,11 +590,68 @@ class _RefFormState extends State<_RefForm> {
     );
   }
 
+  Future<void> _importPdfPricehubble() async {
+    final res = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: false,
+    );
+    if (res == null || res.files.isEmpty) return;
+    final path = res.files.single.path;
+    if (path == null) return;
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(children: [
+          CircularProgressIndicator(),
+          SizedBox(width: 16),
+          Text('Lecture du PDF PriceHubble…'),
+        ]),
+      ),
+    );
+
+    final result = await PricehubbleParser.parseFile(path);
+
+    if (!mounted) return;
+    Navigator.of(context).pop();
+
+    if (result == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Impossible de lire ce PDF. Vérifiez qu\'il s\'agit bien d\'un rapport PriceHubble.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      if (result.adresse.isNotEmpty) _adresseCtrl.text = result.adresse;
+      if (result.surface > 0) _surfaceCtrl.text = result.surface.toString();
+      if (result.prixEstime > 0) _prixEstimeCtrl.text = result.prixEstime.round().toString();
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'PDF importé — valeur PriceHubble : ${result.prixEstime.round()} €${result.hasRange ? ' (fourchette : ${result.fourchetteBasse.round()} – ${result.fourchetteHaute.round()} €)' : ''}. Ajoutez le prix de vente réel.',
+        ),
+        backgroundColor: const Color(0xFF5C6BC0),
+        duration: const Duration(seconds: 5),
+      ),
+    );
+  }
+
   void _save() {
     final prixVente = int.tryParse(_prixVenteCtrl.text.replaceAll(' ', '')) ?? 0;
-    if (prixVente <= 0) {
+    final prixEstime = int.tryParse(_prixEstimeCtrl.text.replaceAll(' ', '')) ?? 0;
+    // Autoriser la sauvegarde avec estimation seule (prix vente = 0 provisoire)
+    if (prixVente <= 0 && prixEstime <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Prix de vente requis')));
+        const SnackBar(content: Text('Renseignez au moins le prix estimé ou le prix de vente')));
       return;
     }
     final ref = ReferenceLocale(
@@ -654,6 +713,29 @@ class _RefFormState extends State<_RefForm> {
               ),
             ),
           ],
+
+          // Importer PDF PriceHubble
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: _importPdfPricehubble,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF5C6BC0).withOpacity(0.06),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF5C6BC0).withOpacity(0.3)),
+              ),
+              child: const Row(children: [
+                Icon(Icons.picture_as_pdf_rounded, size: 16, color: Color(0xFF5C6BC0)),
+                SizedBox(width: 8),
+                Expanded(child: Text(
+                  'Importer un rapport PDF PriceHubble',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF5C6BC0), fontWeight: FontWeight.w600),
+                )),
+                Icon(Icons.upload_file_rounded, size: 16, color: Color(0xFF5C6BC0)),
+              ]),
+            ),
+          ),
 
           // Coller depuis Claude
           const SizedBox(height: 8),
@@ -729,7 +811,7 @@ class _RefFormState extends State<_RefForm> {
           const SizedBox(height: 10),
 
           // Prix
-          const FieldLabel('Prix de vente réel (€)'),
+          const FieldLabel('Prix de vente réel (€) — optionnel si non encore vendu'),
           const SizedBox(height: 6),
           TextField(
             controller: _prixVenteCtrl,
