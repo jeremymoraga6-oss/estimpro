@@ -311,11 +311,12 @@ class Estimation {
   }
 
   double get prixM2Retenu => prixFondamentalM2 * (1 + coefficientPrestations / 100);
-  double get prixBase => prixM2Retenu * surfaceHabitable;
+  double get prixBase => prixM2Retenu * surfacePonderee;
 
   // Décote grande surface : -1% par 10 m² au-delà de 120 m², plafonnée à -8%
+  // Basée sur la surface pondérée (annexes incluses)
   double get decoteSurface =>
-      surfaceHabitable <= 120 ? 0.0 : ((-(surfaceHabitable - 120) / 10)).clamp(-8.0, 0.0);
+      surfacePonderee <= 120 ? 0.0 : ((-(surfacePonderee - 120) / 10)).clamp(-8.0, 0.0);
 
   // Ajustement étage appartement : RDC=-5%, intermédiaire=0%, dernier+ascenseur=+3%, dernier sans=+1%
   double get ajustEtageAuto {
