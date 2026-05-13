@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme.dart';
 import '../models/estimation.dart';
 import '../widgets/shared.dart';
@@ -19,6 +20,7 @@ class Section1Screen extends StatefulWidget {
 class _Section1ScreenState extends State<Section1Screen> {
   late Estimation _e;
   late TextEditingController _nomCtrl, _telCtrl, _emailCtrl;
+  late TextEditingController _prixAchatCtrl, _anneeAchatCtrl;
 
   final _types = ['maison', 'appartement', 'chalet', 'terrain'];
   final _typeLabels = ['Maison', 'Appartement', 'Chalet', 'Terrain'];
@@ -31,11 +33,14 @@ class _Section1ScreenState extends State<Section1Screen> {
     _nomCtrl = TextEditingController(text: _e.proprietaireNom);
     _telCtrl = TextEditingController(text: _e.proprietaireTel);
     _emailCtrl = TextEditingController(text: _e.proprietaireEmail);
+    _prixAchatCtrl = TextEditingController(text: _e.prixAchat > 0 ? _e.prixAchat.toString() : '');
+    _anneeAchatCtrl = TextEditingController(text: _e.anneeAchat > 0 ? _e.anneeAchat.toString() : '');
   }
 
   @override
   void dispose() {
     _nomCtrl.dispose(); _telCtrl.dispose(); _emailCtrl.dispose();
+    _prixAchatCtrl.dispose(); _anneeAchatCtrl.dispose();
     super.dispose();
   }
 
@@ -199,6 +204,72 @@ class _Section1ScreenState extends State<Section1Screen> {
                     prefix: const Icon(Icons.email_outlined, size: 16, color: kGreen)),
               ])),
 
+              // Situation fiscale
+              SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const CardTitleRow(icon: Icons.account_balance_outlined, label: 'Situation fiscale'),
+                const FieldLabel('Type de résidence'),
+                const SizedBox(height: 8),
+                Row(children: [
+                  _ResidenceChip(
+                    label: 'Résidence principale',
+                    sub: 'Exonération plus-value',
+                    selected: _e.residencePrincipale,
+                    onTap: () { setState(() { _e = _e.copyWith(residencePrincipale: true); _save(); }); },
+                  ),
+                  const SizedBox(width: 8),
+                  _ResidenceChip(
+                    label: 'Résidence secondaire',
+                    sub: 'Plus-value imposable',
+                    selected: !_e.residencePrincipale,
+                    onTap: () { setState(() { _e = _e.copyWith(residencePrincipale: false); _save(); }); },
+                  ),
+                ]),
+                const SizedBox(height: 14),
+                const FieldLabel('Prix d\'acquisition'),
+                const SizedBox(height: 6),
+                Row(children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _prixAchatCtrl,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      onChanged: (v) { _e = _e.copyWith(prixAchat: int.tryParse(v) ?? 0); _save(); },
+                      decoration: InputDecoration(
+                        suffixText: '€',
+                        hintText: '0',
+                        hintStyle: const TextStyle(color: kLightGrey),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        filled: true, fillColor: Colors.white,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kGreen, width: 2)),
+                      ),
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kCharcoal),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    width: 90,
+                    child: TextField(
+                      controller: _anneeAchatCtrl,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      onChanged: (v) { _e = _e.copyWith(anneeAchat: int.tryParse(v) ?? 0); _save(); },
+                      decoration: InputDecoration(
+                        hintText: 'Année',
+                        hintStyle: const TextStyle(color: kLightGrey, fontSize: 13),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        filled: true, fillColor: Colors.white,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kGreen, width: 2)),
+                      ),
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kCharcoal),
+                    ),
+                  ),
+                ]),
+              ])),
+
               // Conseiller
               SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 const CardTitleRow(icon: Icons.badge_outlined, label: 'Conseiller'),
@@ -252,4 +323,37 @@ class _Section1ScreenState extends State<Section1Screen> {
     const months = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
     return '${d.day} ${months[d.month - 1]} ${d.year}';
   }
+}
+
+class _ResidenceChip extends StatelessWidget {
+  final String label;
+  final String sub;
+  final bool selected;
+  final VoidCallback onTap;
+  const _ResidenceChip({required this.label, required this.sub, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+        child: GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              color: selected ? kGreen.withValues(alpha: 0.08) : Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: selected ? kGreen : kBorderColor, width: selected ? 2 : 1.5),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Icon(selected ? Icons.radio_button_checked : Icons.radio_button_off, size: 14, color: selected ? kGreen : kLightGrey),
+                const SizedBox(width: 6),
+                Expanded(child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: selected ? kGreen : kCharcoal))),
+              ]),
+              const SizedBox(height: 3),
+              Text(sub, style: TextStyle(fontSize: 10, color: selected ? kGreen : kLightGrey)),
+            ]),
+          ),
+        ),
+      );
 }

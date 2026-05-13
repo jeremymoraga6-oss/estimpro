@@ -518,6 +518,9 @@ class _Section6ScreenState extends State<Section6Screen> {
               _update(_e.copyWith(conclusion: updated));
             }),
 
+            // Plus-value
+            _PlusValueCard(estimation: _e),
+
             // Documents à réunir
             _DocumentsCard(
               estimation: _e,
@@ -1693,6 +1696,136 @@ class _CalibStat extends StatelessWidget {
           Text(label, style: const TextStyle(fontSize: 10, color: kGrey, height: 1.4)),
           const SizedBox(height: 4),
           Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color)),
+        ]),
+      );
+}
+
+// ── Plus-value ────────────────────────────────────────────────────────────────
+
+class _PlusValueCard extends StatelessWidget {
+  final Estimation estimation;
+  const _PlusValueCard({required this.estimation});
+
+  // Abattement IR : 6%/an de 6 à 21 ans, 4% à 22 ans
+  double _abattIR(int ans) {
+    if (ans <= 5) return 0;
+    if (ans <= 21) return (ans - 5) * 6.0;
+    if (ans == 22) return 96 + 4.0;
+    return 100;
+  }
+
+  // Abattement PS : 1.65%/an de 6 à 21 ans, 1.60% à 22 ans, 9%/an de 23 à 30 ans
+  double _abattPS(int ans) {
+    if (ans <= 5) return 0;
+    if (ans <= 21) return (ans - 5) * 1.65;
+    if (ans == 22) return 96 * 1.65 / 6 + 1.60;
+    if (ans <= 30) return (21 - 5) * 1.65 + 1.60 + (ans - 22) * 9.0;
+    return 100;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final e = estimation;
+    // Ne pas afficher si résidence principale (exonéré) ou données manquantes
+    if (e.residencePrincipale) {
+      return SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const CardTitleRow(icon: Icons.account_balance_outlined, label: 'Plus-value'),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: kGreen.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
+          child: Row(children: [
+            const Icon(Icons.check_circle_outline, color: kGreen, size: 18),
+            const SizedBox(width: 10),
+            const Expanded(child: Text('Résidence principale — exonération totale de plus-value.',
+                style: TextStyle(fontSize: 13, color: kGreen, fontWeight: FontWeight.w600))),
+          ]),
+        ),
+      ]));
+    }
+
+    if (e.prixAchat == 0 || e.anneeAchat == 0 || e.prixFinal == 0) {
+      return SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const CardTitleRow(icon: Icons.account_balance_outlined, label: 'Plus-value'),
+        const Text('Renseignez le prix d\'achat et l\'année d\'acquisition (Section 1) pour calculer la plus-value.',
+            style: TextStyle(fontSize: 12, color: kGrey, fontStyle: FontStyle.italic)),
+      ]));
+    }
+
+    final annee = DateTime.now().year;
+    final ans = (annee - e.anneeAchat).clamp(0, 50);
+    final fraisAcq = (e.prixAchat * 0.075).round(); // forfait 7.5%
+    final prixRevientNet = e.prixAchat + fraisAcq;
+    final pvBrute = (e.prixFinal - prixRevientNet).toDouble();
+
+    if (pvBrute <= 0) {
+      return SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const CardTitleRow(icon: Icons.account_balance_outlined, label: 'Plus-value'),
+        const Text('Moins-value — aucune imposition.',
+            style: TextStyle(fontSize: 13, color: kGrey)),
+      ]));
+    }
+
+    final abIR = _abattIR(ans).clamp(0.0, 100.0);
+    final abPS = _abattPS(ans).clamp(0.0, 100.0);
+    final pvImposIR = pvBrute * (1 - abIR / 100);
+    final pvImposPS = pvBrute * (1 - abPS / 100);
+    final impotIR = pvImposIR * 0.19;
+    final impotPS = pvImposPS * 0.172;
+    final totalImpot = impotIR + impotPS;
+
+    fmt(double v) => '${v.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} €';
+
+    final exonereIR = abIR >= 100;
+    final exonerePS = abPS >= 100;
+    final exonereTotale = exonereIR && exonerePS;
+
+    return SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const CardTitleRow(icon: Icons.account_balance_outlined, label: 'Plus-value estimée'),
+      const SizedBox(height: 4),
+      Text('Résidence secondaire · $ans ans de détention', style: const TextStyle(fontSize: 11, color: kGrey, fontStyle: FontStyle.italic)),
+      const SizedBox(height: 12),
+      _pvRow('Prix d\'acquisition', fmt(e.prixAchat.toDouble())),
+      _pvRow('Frais d\'acquisition forfaitaires (7.5%)', '+${fmt(fraisAcq.toDouble())}'),
+      _pvRow('Prix de revient net', fmt(prixRevientNet.toDouble()), bold: true),
+      _pvRow('Prix de vente estimé', fmt(e.prixFinal)),
+      const Divider(height: 16),
+      _pvRow('Plus-value brute', fmt(pvBrute), bold: true, color: const Color(0xFFE67E22)),
+      if (!exonereIR) _pvRow('Abattement IR (${abIR.toStringAsFixed(0)}%)', '−${fmt(pvBrute * abIR / 100)}'),
+      if (!exonerePS) _pvRow('Abattement PS (${abPS.toStringAsFixed(0)}%)', '−${fmt(pvBrute * abPS / 100)}'),
+      const SizedBox(height: 8),
+      if (exonereTotale)
+        _alertBox(kGreen, Icons.check_circle_outline, 'Exonération totale — ${ans} ans de détention.')
+      else ...[
+        if (!exonereIR) _pvRow('Impôt sur le revenu (19%)', fmt(impotIR), color: kRed),
+        if (!exonerePS) _pvRow('Prélèvements sociaux (17.2%)', fmt(impotPS), color: kRed),
+        _pvRow('Imposition totale estimée', fmt(totalImpot), bold: true, color: kRed),
+        const SizedBox(height: 8),
+        _alertBox(
+          exonereIR ? kGreen : const Color(0xFFE67E22),
+          Icons.info_outline,
+          exonereIR
+              ? 'Exonéré d\'IR. Prélèvements sociaux jusqu\'à ${30 - ans} ans de détention supplémentaires.'
+              : 'Exonération IR à ${22 - ans} ans, totale à ${30 - ans} ans. Conseiller un notaire.',
+        ),
+      ],
+    ]));
+  }
+
+  Widget _pvRow(String label, String value, {bool bold = false, Color? color}) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text(label, style: TextStyle(fontSize: 12, color: kGrey, fontWeight: bold ? FontWeight.w700 : FontWeight.w400)),
+          Text(value, style: TextStyle(fontSize: 12, fontWeight: bold ? FontWeight.w800 : FontWeight.w600, color: color ?? kCharcoal)),
+        ]),
+      );
+
+  Widget _alertBox(Color color, IconData icon, String text) => Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10), border: Border.all(color: color.withValues(alpha: 0.3))),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600))),
         ]),
       );
 }

@@ -44,6 +44,8 @@ class PdfService {
           _risquesSection(e.risques!),
         ],
         pw.SizedBox(height: 20),
+        _plusValueSection(e),
+        pw.SizedBox(height: 20),
         _documentsSection(e),
         if (e.conclusion.isNotEmpty) ...[
           pw.SizedBox(height: 20),
@@ -97,6 +99,8 @@ class PdfService {
           pw.SizedBox(height: 20),
           _risquesSection(e.risques!),
         ],
+        pw.SizedBox(height: 20),
+        _plusValueSection(e),
         pw.SizedBox(height: 20),
         _documentsSection(e),
         if (e.conclusion.isNotEmpty) ...[
@@ -198,15 +202,24 @@ class PdfService {
         _row('Chauffage', e.chauffageType),
       ]);
 
-  pw.Widget _etatSection(Estimation e) => _card('ÉTAT & ÉQUIPEMENTS', [
-        _row('Façade', e.facade),
-        _row('Toiture', e.toiture),
-        _row('Menuiseries', e.menuiseriesType.join(', ')),
-        _row('Vitrage', e.vitrage.join(', ')),
-        _row('Chauffage', '${e.chauffageType} · ${e.chauffageEtat} · ${e.anneeChaudiere}'),
-        _row('Électricité', e.electricite),
-        _row('Isolation', e.isolation),
-      ]);
+  pw.Widget _etatSection(Estimation e) {
+    final rows = <pw.Widget>[
+      _row('Facade', e.facade),
+      _row('Toiture', e.toiture),
+      _row('Menuiseries', e.menuiseriesType.join(', ')),
+      _row('Vitrage', e.vitrage.join(', ')),
+      _row('Chauffage', '${e.chauffageType} . ${e.chauffageEtat} . ${e.anneeChaudiere}'),
+      _row('Electricite', e.electricite),
+      _row('Isolation', e.isolation),
+      _row('Occupation', e.libreOccupation ? 'Libre' : 'Loue'),
+    ];
+    if (!e.libreOccupation) {
+      if (e.loyerMensuel > 0) rows.add(_row('Loyer mensuel', '${e.loyerMensuel} EUR/mois (bail ${e.typeBail})'));
+      if (e.dateFinBail.isNotEmpty) rows.add(_row('Fin du bail', e.dateFinBail));
+      if (e.congeLocataire) rows.add(_row('Conge locataire', 'Oui - bien libre a echeance'));
+    }
+    return _card('ETAT & EQUIPEMENTS', rows);
+  }
 
   pw.Widget _chargesSection(Estimation e) {
     fmtTax(int v) => v > 0
@@ -482,6 +495,36 @@ class PdfService {
       if (i + 2 < images.length) rows.add(pw.SizedBox(height: 4));
     }
     return _card('PHOTOS DU BIEN', rows);
+  }
+
+  pw.Widget _plusValueSection(Estimation e) {
+    fmt(double v) => '${v.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} EUR';
+    if (e.residencePrincipale) {
+      return _card('PLUS-VALUE', [_row('Residence', 'Principale - Exoneration totale', bold: true)]);
+    }
+    if (e.prixAchat == 0 || e.anneeAchat == 0 || e.prixFinal == 0) {
+      return _card('PLUS-VALUE', [_row('Situation', 'Residence secondaire - donnees manquantes')]);
+    }
+    final ans = (DateTime.now().year - e.anneeAchat).clamp(0, 50);
+    final fraisAcq = (e.prixAchat * 0.075).round();
+    final prixRevient = e.prixAchat + fraisAcq;
+    final pvBrute = e.prixFinal - prixRevient;
+    if (pvBrute <= 0) {
+      return _card('PLUS-VALUE', [_row('Situation', 'Moins-value - aucune imposition')]);
+    }
+    double abIR(int a) { if (a <= 5) return 0; if (a <= 21) return (a - 5) * 6.0; if (a == 22) return 100; return 100; }
+    double abPS(int a) { if (a <= 5) return 0; if (a <= 21) return (a - 5) * 1.65; if (a == 22) return (16 * 1.65) + 1.60; if (a <= 30) return (16 * 1.65 + 1.60) + (a - 22) * 9.0; return 100; }
+    final ai = abIR(ans).clamp(0.0, 100.0);
+    final ap = abPS(ans).clamp(0.0, 100.0);
+    final impot = pvBrute * (1 - ai / 100) * 0.19 + pvBrute * (1 - ap / 100) * 0.172;
+    return _card('PLUS-VALUE (residence secondaire)', [
+      _row('Annees de detention', '$ans ans'),
+      _row('Prix de revient (achat + frais 7.5%)', fmt(prixRevient.toDouble())),
+      _row('Plus-value brute', fmt(pvBrute.toDouble()), bold: true),
+      _row('Abattement IR / PS', '${ai.toStringAsFixed(0)}% / ${ap.toStringAsFixed(0)}%'),
+      _row('Imposition estimee (IR 19% + PS 17.2%)', fmt(impot), bold: true),
+      if (ai >= 100 && ap >= 100) _row('Statut', 'Exoneration totale'),
+    ]);
   }
 
   pw.Widget _documentsSection(Estimation e) {

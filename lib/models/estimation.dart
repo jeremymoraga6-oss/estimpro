@@ -48,11 +48,20 @@ class Estimation {
   Map<String, dynamic> annexesDetails;
   bool ascenseur;        // présence ascenseur (appartement)
   bool libreOccupation;  // bien libre (vs loué → décote 10-15%)
+  int loyerMensuel;      // loyer mensuel CC si loué (€)
+  String typeBail;       // 'Vide', 'Meublé', 'Commercial'
+  String dateFinBail;    // MM/YYYY
+  bool congeLocataire;   // congé déjà donné au locataire
   int etage;             // n° d'étage (0 = RDC), appartement uniquement
   bool dernierEtage;     // dernier étage de l'immeuble
   int chargesCopro;      // charges copropriété €/an (décote auto si >2 000€)
   int taxeFonciere;      // taxe foncière €/an
   int taxeHabitation;    // taxe d'habitation €/an (résidence secondaire / pro)
+
+  // Résidence & plus-value
+  bool residencePrincipale; // résidence principale → exonération plus-value
+  int prixAchat;            // prix d'achat €
+  int anneeAchat;           // année d'acquisition
 
   // Diagnostics obligatoires (statut: 'valide'|'a_refaire'|'absent'|'nc', date: 'YYYY')
   Map<String, Map<String, String>> diagnostics;
@@ -160,11 +169,18 @@ class Estimation {
     Map<String, dynamic>? annexesDetails,
     this.ascenseur = false,
     this.libreOccupation = true,
+    this.loyerMensuel = 0,
+    this.typeBail = 'Vide',
+    this.dateFinBail = '',
+    this.congeLocataire = false,
     this.etage = 0,
     this.dernierEtage = false,
     this.chargesCopro = 0,
     this.taxeFonciere = 0,
     this.taxeHabitation = 0,
+    this.residencePrincipale = true,
+    this.prixAchat = 0,
+    this.anneeAchat = 0,
     Map<String, Map<String, String>>? diagnostics,
     this.facade = 'Bon',
     this.toiture = 'Bon',
@@ -402,11 +418,18 @@ class Estimation {
         'annexesDetails': jsonEncode(annexesDetails),
         'ascenseur': ascenseur ? 1 : 0,
         'libreOccupation': libreOccupation ? 1 : 0,
+        'loyerMensuel': loyerMensuel,
+        'typeBail': typeBail,
+        'dateFinBail': dateFinBail,
+        'congeLocataire': congeLocataire ? 1 : 0,
         'etage': etage,
         'dernierEtage': dernierEtage ? 1 : 0,
         'chargesCopro': chargesCopro,
         'taxeFonciere': taxeFonciere,
         'taxeHabitation': taxeHabitation,
+        'residencePrincipale': residencePrincipale ? 1 : 0,
+        'prixAchat': prixAchat,
+        'anneeAchat': anneeAchat,
         'diagnostics': jsonEncode(diagnostics),
         'documentsChecked': jsonEncode(documentsChecked),
         'facade': facade,
@@ -500,11 +523,18 @@ class Estimation {
           : {},
       ascenseur: (m['ascenseur'] as int? ?? 0) == 1,
       libreOccupation: (m['libreOccupation'] as int? ?? 1) == 1,
+      loyerMensuel: m['loyerMensuel'] as int? ?? 0,
+      typeBail: m['typeBail'] as String? ?? 'Vide',
+      dateFinBail: m['dateFinBail'] as String? ?? '',
+      congeLocataire: (m['congeLocataire'] as int? ?? 0) == 1,
       etage: m['etage'] as int? ?? 0,
       dernierEtage: (m['dernierEtage'] as int? ?? 0) == 1,
       chargesCopro: m['chargesCopro'] as int? ?? 0,
       taxeFonciere: m['taxeFonciere'] as int? ?? 0,
       taxeHabitation: m['taxeHabitation'] as int? ?? 0,
+      residencePrincipale: (m['residencePrincipale'] as int? ?? 1) == 1,
+      prixAchat: m['prixAchat'] as int? ?? 0,
+      anneeAchat: m['anneeAchat'] as int? ?? 0,
       diagnostics: m['diagnostics'] != null
           ? Map<String, Map<String, String>>.from(
               (jsonDecode(m['diagnostics']) as Map).map(
@@ -612,11 +642,18 @@ class Estimation {
     Map<String, dynamic>? annexesDetails,
     bool? ascenseur,
     bool? libreOccupation,
+    int? loyerMensuel,
+    String? typeBail,
+    String? dateFinBail,
+    bool? congeLocataire,
     int? etage,
     bool? dernierEtage,
     int? chargesCopro,
     int? taxeFonciere,
     int? taxeHabitation,
+    bool? residencePrincipale,
+    int? prixAchat,
+    int? anneeAchat,
     Map<String, Map<String, String>>? diagnostics,
     Map<String, bool>? documentsChecked,
     String? facade,
@@ -703,11 +740,18 @@ class Estimation {
       annexesDetails: annexesDetails ?? Map.from(this.annexesDetails),
       ascenseur: ascenseur ?? this.ascenseur,
       libreOccupation: libreOccupation ?? this.libreOccupation,
+      loyerMensuel: loyerMensuel ?? this.loyerMensuel,
+      typeBail: typeBail ?? this.typeBail,
+      dateFinBail: dateFinBail ?? this.dateFinBail,
+      congeLocataire: congeLocataire ?? this.congeLocataire,
       etage: etage ?? this.etage,
       dernierEtage: dernierEtage ?? this.dernierEtage,
       chargesCopro: chargesCopro ?? this.chargesCopro,
       taxeFonciere: taxeFonciere ?? this.taxeFonciere,
       taxeHabitation: taxeHabitation ?? this.taxeHabitation,
+      residencePrincipale: residencePrincipale ?? this.residencePrincipale,
+      prixAchat: prixAchat ?? this.prixAchat,
+      anneeAchat: anneeAchat ?? this.anneeAchat,
       diagnostics: diagnostics ?? Map.from(this.diagnostics),
       documentsChecked: documentsChecked ?? Map.from(this.documentsChecked),
       facade: facade ?? this.facade,

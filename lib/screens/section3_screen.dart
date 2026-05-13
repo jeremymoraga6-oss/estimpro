@@ -30,18 +30,25 @@ class _Section3ScreenState extends State<Section3Screen> {
   late Estimation _e;
   late TextEditingController _chargesCtrl;
   late TextEditingController _taxeFonciereCtrl;
+  late TextEditingController _loyerCtrl;
+  late TextEditingController _dateFinBailCtrl;
+
   @override
   void initState() {
     super.initState();
     _e = widget.estimation;
     _chargesCtrl = TextEditingController(text: _e.chargesCopro > 0 ? _e.chargesCopro.toString() : '');
     _taxeFonciereCtrl = TextEditingController(text: _e.taxeFonciere > 0 ? _e.taxeFonciere.toString() : '');
+    _loyerCtrl = TextEditingController(text: _e.loyerMensuel > 0 ? _e.loyerMensuel.toString() : '');
+    _dateFinBailCtrl = TextEditingController(text: _e.dateFinBail);
   }
 
   @override
   void dispose() {
     _chargesCtrl.dispose();
     _taxeFonciereCtrl.dispose();
+    _loyerCtrl.dispose();
+    _dateFinBailCtrl.dispose();
     super.dispose();
   }
 
@@ -76,7 +83,7 @@ class _Section3ScreenState extends State<Section3Screen> {
               _ToggleRow(
                 icon: Icons.key_outlined,
                 label: 'Libre d\'occupation',
-                sub: 'Non loué au moment de la vente',
+                sub: _e.libreOccupation ? 'Non loué au moment de la vente' : 'Loué — décote −12% appliquée',
                 value: _e.libreOccupation,
                 onChanged: (v) => _update(_e.copyWith(libreOccupation: v)),
               ),
@@ -183,6 +190,81 @@ class _Section3ScreenState extends State<Section3Screen> {
                 ),
               ],
             ])),
+
+            // Détails location (visible si loué)
+            if (!_e.libreOccupation) ...[
+              const SizedBox(height: 14),
+              SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  const CardTitleRow(icon: Icons.home_outlined, label: 'Détails de la location'),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(color: const Color(0xFFFFF3E0), borderRadius: BorderRadius.circular(12)),
+                    child: const Text('−12% décote', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFFE67E22))),
+                  ),
+                ]),
+                const SizedBox(height: 4),
+                // Loyer
+                _TaxRow(
+                  icon: Icons.euro_outlined,
+                  label: 'Loyer mensuel CC',
+                  controller: _loyerCtrl,
+                  onChanged: (v) => _update(_e.copyWith(loyerMensuel: int.tryParse(v) ?? 0)),
+                  unit: '€/mois',
+                ),
+                if (_e.loyerMensuel > 0 && _e.prixFinal > 0) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(left: 44, bottom: 6),
+                    child: Text(
+                      'Rendement brut ~${((_e.loyerMensuel * 12) / _e.prixFinal * 100).toStringAsFixed(1)}%/an',
+                      style: const TextStyle(fontSize: 11, color: kGreen, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+                const Divider(height: 1, indent: 44),
+                // Type de bail
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Row(children: [
+                    Container(
+                      width: 32, height: 32,
+                      decoration: BoxDecoration(color: kGreen.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                      child: const Icon(Icons.description_outlined, size: 17, color: kGreen),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('Type de bail', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kCharcoal)),
+                      const SizedBox(height: 6),
+                      ChipGroup(
+                        options: const ['Vide', 'Meublé', 'Commercial'],
+                        selected: [_e.typeBail],
+                        onToggle: (v) => _update(_e.copyWith(typeBail: v)),
+                      ),
+                    ])),
+                  ]),
+                ),
+                const Divider(height: 1, indent: 44),
+                // Date fin bail
+                _TaxRow(
+                  icon: Icons.calendar_today_outlined,
+                  label: 'Fin du bail',
+                  controller: _dateFinBailCtrl,
+                  onChanged: (v) => _update(_e.copyWith(dateFinBail: v)),
+                  unit: 'MM/AAAA',
+                  keyboardType: TextInputType.text,
+                ),
+                const Divider(height: 1, indent: 44),
+                // Congé locataire
+                _ToggleRow(
+                  icon: Icons.exit_to_app_outlined,
+                  label: 'Congé donné au locataire',
+                  sub: 'Bien libre à l\'échéance du bail',
+                  value: _e.congeLocataire,
+                  onChanged: (v) => _update(_e.copyWith(congeLocataire: v)),
+                ),
+              ])),
+            ],
             const SizedBox(height: 14),
 
             // Charges & impôts
@@ -366,7 +448,13 @@ class _TaxRow extends StatelessWidget {
   final String label;
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
-  const _TaxRow({required this.icon, required this.label, required this.controller, required this.onChanged});
+  final String unit;
+  final TextInputType keyboardType;
+  const _TaxRow({
+    required this.icon, required this.label,
+    required this.controller, required this.onChanged,
+    this.unit = '€/an', this.keyboardType = TextInputType.number,
+  });
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -374,23 +462,23 @@ class _TaxRow extends StatelessWidget {
         child: Row(children: [
           Container(
             width: 32, height: 32,
-            decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: kGreen.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
             child: Icon(icon, size: 17, color: kGreen),
           ),
           const SizedBox(width: 12),
           Expanded(child: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kCharcoal))),
           SizedBox(
-            width: 100,
+            width: 110,
             child: TextField(
               controller: controller,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              keyboardType: keyboardType,
+              inputFormatters: keyboardType == TextInputType.number ? [FilteringTextInputFormatter.digitsOnly] : null,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kCharcoal),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal),
               decoration: InputDecoration(
-                suffixText: '€/an',
+                suffixText: unit,
                 suffixStyle: const TextStyle(fontSize: 10, color: kGrey),
-                hintText: '0',
+                hintText: '—',
                 hintStyle: const TextStyle(color: kLightGrey),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
