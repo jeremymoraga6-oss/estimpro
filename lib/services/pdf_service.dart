@@ -181,7 +181,7 @@ class PdfService {
         _row('État général', ['À rénover','Travaux','Bon état','Très bon','Neuf'][e.etatGeneral.clamp(0, 4)]),
         _row('Orientation', e.orientations.join(', ')),
         _row('Vue', e.vues.join(', ')),
-        _row('DPE', e.dpeClasse == 'NC' ? 'Non communiqué ⚠️' : 'Classe ${e.dpeClasse}'),
+        _row('DPE', e.dpeClasse == 'NC' ? 'Non communique (!)' : 'Classe ${e.dpeClasse}'),
         _row('Chauffage', e.chauffageType),
       ]);
 
@@ -290,18 +290,18 @@ class PdfService {
   }
 
   pw.Widget _prestationsSection(Estimation e) {
-    String stars(int n) => '${'★' * n}${'☆' * (4 - n)}';
+    String score(int n) => '${n}/4';
     fmt(double v) => '${v.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} €';
     final coeff = e.coefficientPrestations;
     final impact = e.prixM2Retenu * e.surfaceHabitable - e.prixMoyen * e.surfaceHabitable;
 
     return _card('QUALITÉ DES PRESTATIONS', [
-      _row('Cuisine',              '${stars(e.noteCuisine)} (${e.noteCuisine}/4)'),
-      _row('Sol',                  '${stars(e.noteSol)} (${e.noteSol}/4)'),
-      _row('Salle de bain / Eau',  '${stars(e.noteSdb)} (${e.noteSdb}/4)'),
-      _row('Fenêtres / Menuiseries','${stars(e.noteFenetres)} (${e.noteFenetres}/4)'),
-      _row('Chauffage',            '${stars(e.noteChauffage)} (${e.noteChauffage}/4)'),
-      _row('État général',         '${stars(e.noteEtatPrestation)} (${e.noteEtatPrestation}/4)'),
+      _row('Cuisine',                score(e.noteCuisine)),
+      _row('Sol',                    score(e.noteSol)),
+      _row('Salle de bain / Eau',    score(e.noteSdb)),
+      _row('Fenêtres / Menuiseries', score(e.noteFenetres)),
+      _row('Chauffage',              score(e.noteChauffage)),
+      _row('État général',           score(e.noteEtatPrestation)),
       pw.Padding(
         padding: const pw.EdgeInsets.symmetric(vertical: 6),
         child: pw.Container(height: 0.5, color: PdfColors.grey300),
