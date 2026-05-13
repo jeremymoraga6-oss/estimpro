@@ -195,11 +195,99 @@ class PdfService {
         _row('Isolation', e.isolation),
       ]);
 
-  pw.Widget _marcheSection(Estimation e) => _card('ANALYSE DU MARCHÉ DVF', [
-        _row('Prix médian', '${e.prixMoyen.round()} €/m²'),
-        _row('Comparables', '${e.comparables.length} ventes'),
-        ...e.comparables.map((c) => _row('  • ${c['addr'] ?? ''}', '${(c['prixM2'] as num?)?.round()} €/m²')),
-      ]);
+  pw.Widget _marcheSection(Estimation e) {
+    final fmt = (double v) => '${v.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} €';
+    final fmtM2 = (double v) => '${v.round()} €/m²';
+
+    final rows = <pw.Widget>[];
+
+    // ── Tableau des comparables ─────────────────────────────────────
+    if (e.comparables.isNotEmpty) {
+      // En-tête du tableau
+      rows.add(pw.Container(
+        color: const PdfColor.fromInt(0xFFF5F5F5),
+        padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+        child: pw.Row(children: [
+          pw.Expanded(flex: 3, child: pw.Text('Adresse', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700))),
+          pw.Expanded(flex: 2, child: pw.Text('Type / Surface', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700))),
+          pw.SizedBox(width: 60, child: pw.Text('Date vente', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700))),
+          pw.SizedBox(width: 70, child: pw.Text('Prix total', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700), textAlign: pw.TextAlign.right)),
+          pw.SizedBox(width: 55, child: pw.Text('Prix/m²', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700), textAlign: pw.TextAlign.right)),
+        ]),
+      ));
+
+      for (int i = 0; i < e.comparables.length; i++) {
+        final c = e.comparables[i];
+        final isLocal = (c['source'] as String?) == 'local';
+        final bgColor = i.isOdd ? const PdfColor.fromInt(0xFFFAFAFA) : PdfColors.white;
+
+        rows.add(pw.Container(
+          color: bgColor,
+          padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+          child: pw.Row(children: [
+            pw.Expanded(flex: 3, child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+              pw.Text(
+                (c['addr'] as String?)?.isNotEmpty == true ? c['addr'] as String : '—',
+                style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey900),
+                overflow: pw.TextOverflow.clip,
+                maxLines: 2,
+              ),
+              if (isLocal)
+                pw.Text('Ma base locale', style: const pw.TextStyle(fontSize: 7, color: PdfColor.fromInt(0xFF7B1FA2))),
+            ])),
+            pw.Expanded(flex: 2, child: pw.Text(
+              (c['desc'] as String?) ?? '—',
+              style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
+            )),
+            pw.SizedBox(width: 60, child: pw.Text(
+              (c['date'] as String?) ?? '—',
+              style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
+            )),
+            pw.SizedBox(width: 70, child: pw.Text(
+              c['prix'] != null ? fmt((c['prix'] as num).toDouble()) : '—',
+              style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey900),
+              textAlign: pw.TextAlign.right,
+            )),
+            pw.SizedBox(width: 55, child: pw.Text(
+              c['prixM2'] != null ? fmtM2((c['prixM2'] as num).toDouble()) : '—',
+              style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF7CB342)),
+              textAlign: pw.TextAlign.right,
+            )),
+          ]),
+        ));
+      }
+
+      rows.add(pw.SizedBox(height: 10));
+    }
+
+    // ── Synthèse des sources ────────────────────────────────────────
+    rows.add(_row('Médiane DVF (${e.comparables.length} ventes)', fmtM2(e.prixMoyen), bold: true));
+    if (e.prixPricehubble > 0) {
+      rows.add(_row(
+        'PriceHubble (pondération ${e.ponderationPh}%)',
+        fmt(e.prixPricehubble),
+      ));
+    }
+    if (e.prixAnnonces > 0) {
+      rows.add(_row(
+        'Annonces portails (pondération ${e.ponderationAnnonces}%)',
+        fmt(e.prixAnnonces),
+      ));
+    }
+
+    rows.add(pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 6),
+      child: pw.Container(height: 0.5, color: PdfColors.grey300),
+    ));
+
+    rows.add(_row(
+      'Prix fondamental retenu (pondéré)',
+      fmtM2(e.prixFondamentalM2),
+      bold: true,
+    ));
+
+    return _card('ANALYSE DU MARCHÉ — RÉFÉRENCES DVF', rows);
+  }
 
   pw.Widget _prestationsSection(Estimation e) {
     String stars(int n) => '${'★' * n}${'☆' * (4 - n)}';
