@@ -165,7 +165,7 @@ class ProfilScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _Section(title: 'Coordonnées', items: [
-              _Item(Icons.phone_outlined, 'Téléphone', '06 12 34 56 78'),
+              _Item(Icons.phone_outlined, 'Téléphone', '06 68 03 64 03'),
               _Item(Icons.email_outlined, 'Email', 'jeremy.moraga@efficity.com'),
               _Item(Icons.location_on_outlined, 'Zone', 'Faucigny, Haute-Savoie'),
             ]),
