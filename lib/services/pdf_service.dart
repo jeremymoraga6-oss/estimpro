@@ -29,6 +29,10 @@ class PdfService {
         pw.SizedBox(height: 20),
         _etatSection(e),
         pw.SizedBox(height: 20),
+        _chargesSection(e),
+        pw.SizedBox(height: 20),
+        _diagnosticsSection(e),
+        pw.SizedBox(height: 20),
         _marcheSection(e),
         pw.SizedBox(height: 20),
         _prestationsSection(e),
@@ -76,6 +80,10 @@ class PdfService {
         _descSection(e),
         pw.SizedBox(height: 20),
         _etatSection(e),
+        pw.SizedBox(height: 20),
+        _chargesSection(e),
+        pw.SizedBox(height: 20),
+        _diagnosticsSection(e),
         pw.SizedBox(height: 20),
         _marcheSection(e),
         pw.SizedBox(height: 20),
@@ -194,6 +202,53 @@ class PdfService {
         _row('Électricité', e.electricite),
         _row('Isolation', e.isolation),
       ]);
+
+  pw.Widget _chargesSection(Estimation e) {
+    fmtTax(int v) => v > 0
+        ? '${v.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} EUR/an'
+        : 'Non renseigne';
+    final rows = <pw.Widget>[
+      _row('Taxe fonciere', fmtTax(e.taxeFonciere)),
+      _row('Taxe habitation', fmtTax(e.taxeHabitation)),
+    ];
+    if (e.typeId == 'appartement') {
+      rows.add(_row('Charges copropriete', fmtTax(e.chargesCopro)));
+      if (e.chargesCopro > 0) {
+        rows.add(_row('  dont mensuel', '~${(e.chargesCopro / 12).round()} EUR/mois'));
+      }
+    }
+    final total = e.taxeFonciere + e.taxeHabitation + (e.typeId == 'appartement' ? e.chargesCopro : 0);
+    if (total > 0) rows.add(_row('Total annuel', fmtTax(total), bold: true));
+    return _card('CHARGES & IMPOTS ANNUELS', rows);
+  }
+
+  pw.Widget _diagnosticsSection(Estimation e) {
+    const labels = {
+      'dpe':            'DPE',
+      'carrez':         'Loi Carrez',
+      'amiante':        'Amiante',
+      'electricite':    'Electricite',
+      'gaz':            'Gaz',
+      'plomb':          'Plomb',
+      'termites':       'Termites',
+      'erp':            'ERP',
+      'assainissement': 'Assainissement',
+      'radon':          'Radon',
+      'bruit':          'Bruit aerodrome',
+      'dgt':            'DGT (copro)',
+    };
+    final filled = e.diagnostics.entries.where((en) => (en.value['statut'] ?? '').isNotEmpty).toList();
+    if (filled.isEmpty) return _card('DIAGNOSTICS', [_row('Statut', 'Non renseignes')]);
+    final rows = filled.map((en) {
+      final label = labels[en.key] ?? en.key;
+      final statut = en.value['statut'] ?? '';
+      final date = en.value['date'] ?? '';
+      final statutLabel = statut == 'valide' ? 'Valide' : statut == 'a_refaire' ? 'A refaire' : 'N/A';
+      final value = date.isNotEmpty ? '$statutLabel ($date)' : statutLabel;
+      return _row(label, value, bold: statut == 'a_refaire');
+    }).toList();
+    return _card('DIAGNOSTICS', rows);
+  }
 
   pw.Widget _marcheSection(Estimation e) {
     final fmt = (double v) => '${v.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} €';

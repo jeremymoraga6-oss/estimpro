@@ -51,6 +51,11 @@ class Estimation {
   int etage;             // n° d'étage (0 = RDC), appartement uniquement
   bool dernierEtage;     // dernier étage de l'immeuble
   int chargesCopro;      // charges copropriété €/an (décote auto si >2 000€)
+  int taxeFonciere;      // taxe foncière €/an
+  int taxeHabitation;    // taxe d'habitation €/an (résidence secondaire / pro)
+
+  // Diagnostics obligatoires (statut: 'valide'|'a_refaire'|'absent'|'nc', date: 'YYYY')
+  Map<String, Map<String, String>> diagnostics;
 
   // Section 4 — État & équipements
   String facade;
@@ -155,6 +160,9 @@ class Estimation {
     this.etage = 0,
     this.dernierEtage = false,
     this.chargesCopro = 0,
+    this.taxeFonciere = 0,
+    this.taxeHabitation = 0,
+    Map<String, Map<String, String>>? diagnostics,
     this.facade = 'Bon',
     this.toiture = 'Bon',
     List<String>? menuiseriesType,
@@ -220,7 +228,8 @@ class Estimation {
         validiteJusquau =
             validiteJusquau ?? DateTime.now().add(const Duration(days: 365)),
         photosPaths = photosPaths ?? [],
-        notes = notes ?? {};
+        notes = notes ?? {},
+        diagnostics = diagnostics ?? {};
 
   // Surface pondérée : balcon×50%, cave×20%, terrasse×30%
   double get surfacePonderee =>
@@ -391,6 +400,9 @@ class Estimation {
         'etage': etage,
         'dernierEtage': dernierEtage ? 1 : 0,
         'chargesCopro': chargesCopro,
+        'taxeFonciere': taxeFonciere,
+        'taxeHabitation': taxeHabitation,
+        'diagnostics': jsonEncode(diagnostics),
         'facade': facade,
         'toiture': toiture,
         'menuiseriesType': jsonEncode(menuiseriesType),
@@ -485,6 +497,14 @@ class Estimation {
       etage: m['etage'] as int? ?? 0,
       dernierEtage: (m['dernierEtage'] as int? ?? 0) == 1,
       chargesCopro: m['chargesCopro'] as int? ?? 0,
+      taxeFonciere: m['taxeFonciere'] as int? ?? 0,
+      taxeHabitation: m['taxeHabitation'] as int? ?? 0,
+      diagnostics: m['diagnostics'] != null
+          ? Map<String, Map<String, String>>.from(
+              (jsonDecode(m['diagnostics']) as Map).map(
+                (k, v) => MapEntry(k, Map<String, String>.from(v)),
+              ))
+          : {},
       facade: m['facade'] ?? 'Bon',
       toiture: m['toiture'] ?? 'Bon',
       menuiseriesType: decodeStrList(m['menuiseriesType']),
@@ -586,6 +606,9 @@ class Estimation {
     int? etage,
     bool? dernierEtage,
     int? chargesCopro,
+    int? taxeFonciere,
+    int? taxeHabitation,
+    Map<String, Map<String, String>>? diagnostics,
     String? facade,
     String? toiture,
     List<String>? menuiseriesType,
@@ -673,6 +696,9 @@ class Estimation {
       etage: etage ?? this.etage,
       dernierEtage: dernierEtage ?? this.dernierEtage,
       chargesCopro: chargesCopro ?? this.chargesCopro,
+      taxeFonciere: taxeFonciere ?? this.taxeFonciere,
+      taxeHabitation: taxeHabitation ?? this.taxeHabitation,
+      diagnostics: diagnostics ?? Map.from(this.diagnostics),
       facade: facade ?? this.facade,
       toiture: toiture ?? this.toiture,
       menuiseriesType: menuiseriesType ?? List.from(this.menuiseriesType),

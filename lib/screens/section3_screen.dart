@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme.dart';
 import '../models/estimation.dart';
 import '../widgets/shared.dart';
@@ -28,16 +29,25 @@ const _annexeDefs = [
 class _Section3ScreenState extends State<Section3Screen> {
   late Estimation _e;
   late TextEditingController _chargesCtrl;
+  late TextEditingController _taxeFonciereCtrl;
+  late TextEditingController _taxeHabitationCtrl;
 
   @override
   void initState() {
     super.initState();
     _e = widget.estimation;
     _chargesCtrl = TextEditingController(text: _e.chargesCopro > 0 ? _e.chargesCopro.toString() : '');
+    _taxeFonciereCtrl = TextEditingController(text: _e.taxeFonciere > 0 ? _e.taxeFonciere.toString() : '');
+    _taxeHabitationCtrl = TextEditingController(text: _e.taxeHabitation > 0 ? _e.taxeHabitation.toString() : '');
   }
 
   @override
-  void dispose() { _chargesCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _chargesCtrl.dispose();
+    _taxeFonciereCtrl.dispose();
+    _taxeHabitationCtrl.dispose();
+    super.dispose();
+  }
 
   void _update(Estimation e) { setState(() => _e = e); widget.onChanged(e); }
 
@@ -176,6 +186,25 @@ class _Section3ScreenState extends State<Section3Screen> {
                   ]),
                 ),
               ],
+            ])),
+            const SizedBox(height: 14),
+
+            // Charges & impôts
+            SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const CardTitleRow(icon: Icons.receipt_long_outlined, label: 'Charges & impôts annuels'),
+              _TaxRow(
+                icon: Icons.home_work_outlined,
+                label: 'Taxe foncière',
+                controller: _taxeFonciereCtrl,
+                onChanged: (v) => _update(_e.copyWith(taxeFonciere: int.tryParse(v) ?? 0)),
+              ),
+              const Divider(height: 1, indent: 44),
+              _TaxRow(
+                icon: Icons.apartment_outlined,
+                label: 'Taxe d\'habitation',
+                controller: _taxeHabitationCtrl,
+                onChanged: (v) => _update(_e.copyWith(taxeHabitation: int.tryParse(v) ?? 0)),
+              ),
             ])),
             const SizedBox(height: 14),
 
@@ -339,6 +368,49 @@ class _ExpandedCard extends StatelessWidget {
             ]),
           ),
           Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 0), child: child),
+        ]),
+      );
+}
+
+class _TaxRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  const _TaxRow({required this.icon, required this.label, required this.controller, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(children: [
+          Container(
+            width: 32, height: 32,
+            decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+            child: Icon(icon, size: 17, color: kGreen),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kCharcoal))),
+          SizedBox(
+            width: 100,
+            child: TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kCharcoal),
+              decoration: InputDecoration(
+                suffixText: '€/an',
+                suffixStyle: const TextStyle(fontSize: 10, color: kGrey),
+                hintText: '0',
+                hintStyle: const TextStyle(color: kLightGrey),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kGreen, width: 2)),
+              ),
+              onChanged: onChanged,
+            ),
+          ),
         ]),
       );
 }
