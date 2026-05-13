@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
@@ -15,7 +16,22 @@ const _kLightGreen = PdfColor.fromInt(0xFFE8F5E9);
 const _kCharcoal   = PdfColor.fromInt(0xFF2C3E50);
 
 class PdfService {
+  pw.MemoryImage? _logoImage;
+  pw.MemoryImage? _agenceImage;
+
+  Future<void> _loadAssets() async {
+    try {
+      final data = await rootBundle.load('assets/images/logo.png');
+      _logoImage = pw.MemoryImage(data.buffer.asUint8List());
+    } catch (_) {}
+    try {
+      final data = await rootBundle.load('assets/images/agence.jpg');
+      _agenceImage = pw.MemoryImage(data.buffer.asUint8List());
+    } catch (_) {}
+  }
+
   Future<File> generateFile(Estimation e) async {
+    await _loadAssets();
     final doc = pw.Document();
     final price = e.prixFinal > 0 ? e.prixFinal : e.prixCalcule;
 
@@ -73,6 +89,7 @@ class PdfService {
   }
 
   Future<File> generate(Estimation e) async {
+    await _loadAssets();
     final doc = pw.Document();
     final price = e.prixFinal > 0 ? e.prixFinal : e.prixCalcule;
 
@@ -169,22 +186,33 @@ class PdfService {
           // ── Bandeau vert supérieur ──────────────────────────────────
           pw.Container(
             color: _kGreen,
-            padding: const pw.EdgeInsets.fromLTRB(44, 52, 44, 36),
+            padding: const pw.EdgeInsets.fromLTRB(44, 36, 44, 30),
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                pw.Text('FAUCIGNY IMMOBILIER',
-                    style: pw.TextStyle(
-                        fontSize: 22,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.white,
-                        letterSpacing: 1.5)),
-                pw.SizedBox(height: 3),
-                pw.Text('by Efficity',
-                    style: const pw.TextStyle(fontSize: 12, color: PdfColors.white)),
-                pw.SizedBox(height: 28),
+                if (_logoImage != null)
+                  pw.Container(
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.white,
+                      borderRadius: pw.BorderRadius.circular(8),
+                    ),
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    child: pw.Image(_logoImage!, height: 55, fit: pw.BoxFit.contain),
+                  )
+                else ...[
+                  pw.Text('FAUCIGNY IMMOBILIER',
+                      style: pw.TextStyle(
+                          fontSize: 22,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                          letterSpacing: 1.5)),
+                  pw.SizedBox(height: 3),
+                  pw.Text('by Efficity',
+                      style: const pw.TextStyle(fontSize: 12, color: PdfColors.white)),
+                ],
+                pw.SizedBox(height: 22),
                 pw.Container(height: 1, color: PdfColors.white),
-                pw.SizedBox(height: 18),
+                pw.SizedBox(height: 14),
                 pw.Text('RAPPORT D\'ESTIMATION',
                     style: pw.TextStyle(
                         fontSize: 14,
@@ -314,31 +342,47 @@ class PdfService {
             ),
           ),
 
-          // ── Bandeau footer sombre ────────────────────────────────────
-          pw.Container(
-            color: _kCharcoal,
-            padding: const pw.EdgeInsets.symmetric(horizontal: 44, vertical: 14),
-            child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text('Jeremy Moraga',
-                        style: pw.TextStyle(
-                            fontSize: 11,
-                            fontWeight: pw.FontWeight.bold,
-                            color: PdfColors.white)),
-                    pw.SizedBox(height: 2),
-                    pw.Text('Faucigny Immobilier — 06 68 03 64 03',
-                        style: const pw.TextStyle(
-                            fontSize: 8, color: PdfColors.grey)),
-                  ],
-                ),
-                pw.Text('Document confidentiel',
-                    style: const pw.TextStyle(
-                        fontSize: 8, color: PdfColors.grey)),
-              ],
+          // ── Bandeau footer sombre avec photo agence ─────────────────
+          pw.SizedBox(
+            height: 90,
+            child: pw.Container(
+              color: _kCharcoal,
+              child: pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  pw.Expanded(
+                    child: pw.Padding(
+                      padding: const pw.EdgeInsets.symmetric(
+                          horizontal: 44, vertical: 18),
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        mainAxisAlignment: pw.MainAxisAlignment.center,
+                        children: [
+                          pw.Text('Jeremy Moraga',
+                              style: pw.TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: pw.FontWeight.bold,
+                                  color: PdfColors.white)),
+                          pw.SizedBox(height: 3),
+                          pw.Text(
+                              'Faucigny Immobilier — 06 68 03 64 03',
+                              style: const pw.TextStyle(
+                                  fontSize: 8, color: PdfColors.grey)),
+                          pw.SizedBox(height: 6),
+                          pw.Text('Document confidentiel',
+                              style: const pw.TextStyle(
+                                  fontSize: 7, color: PdfColors.grey)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (_agenceImage != null)
+                    pw.SizedBox(
+                      width: 200,
+                      child: pw.Image(_agenceImage!, fit: pw.BoxFit.cover),
+                    ),
+                ],
+              ),
             ),
           ),
         ],
@@ -387,19 +431,26 @@ class PdfService {
   pw.Widget _header(Estimation e) => pw.Column(children: [
         pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
             children: [
-              pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text('FAUCIGNY IMMOBILIER',
-                        style: pw.TextStyle(
-                            fontSize: 11,
-                            fontWeight: pw.FontWeight.bold,
-                            color: _kGreen)),
-                    pw.Text('by Efficity',
-                        style: const pw.TextStyle(
-                            fontSize: 8, color: PdfColors.grey)),
-                  ]),
+              if (_logoImage != null)
+                pw.SizedBox(
+                  height: 26,
+                  child: pw.Image(_logoImage!, fit: pw.BoxFit.contain),
+                )
+              else
+                pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('FAUCIGNY IMMOBILIER',
+                          style: pw.TextStyle(
+                              fontSize: 11,
+                              fontWeight: pw.FontWeight.bold,
+                              color: _kGreen)),
+                      pw.Text('by Efficity',
+                          style: const pw.TextStyle(
+                              fontSize: 8, color: PdfColors.grey)),
+                    ]),
               pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.end,
                   children: [
