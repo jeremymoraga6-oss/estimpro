@@ -350,12 +350,12 @@ class _DiagnosticsCardState extends State<_DiagnosticsCard> {
                   ),
                 ),
               ],
-                ]),
-              ),
-            ]);
-          }),
-        ]),
-      );
+            ]),
+          ),
+        ]);
+      }),
+    ]);
+  }
 
   Color _iconBg(String s) {
     switch (s) {
