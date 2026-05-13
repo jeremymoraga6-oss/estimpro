@@ -118,6 +118,9 @@ class Estimation {
   // Notes par section
   Map<String, Map<String, dynamic>> notes;
 
+  // Documents cochés pour la mise en vente
+  Map<String, bool> documentsChecked;
+
   Estimation({
     required this.id,
     required this.reference,
@@ -205,6 +208,7 @@ class Estimation {
     this.notesVendeur,
     List<Map<String, dynamic>>? historique,
     Map<String, Map<String, dynamic>>? notes,
+    Map<String, bool>? documentsChecked,
   })  : historique = historique ?? [],
         orientations = orientations ?? ['S'],
         vues = vues ?? [],
@@ -229,7 +233,8 @@ class Estimation {
             validiteJusquau ?? DateTime.now().add(const Duration(days: 365)),
         photosPaths = photosPaths ?? [],
         notes = notes ?? {},
-        diagnostics = diagnostics ?? {};
+        diagnostics = diagnostics ?? {},
+        documentsChecked = documentsChecked ?? {};
 
   // Surface pondérée : balcon×50%, cave×20%, terrasse×30%
   double get surfacePonderee =>
@@ -403,6 +408,7 @@ class Estimation {
         'taxeFonciere': taxeFonciere,
         'taxeHabitation': taxeHabitation,
         'diagnostics': jsonEncode(diagnostics),
+        'documentsChecked': jsonEncode(documentsChecked),
         'facade': facade,
         'toiture': toiture,
         'menuiseriesType': jsonEncode(menuiseriesType),
@@ -504,6 +510,9 @@ class Estimation {
               (jsonDecode(m['diagnostics']) as Map).map(
                 (k, v) => MapEntry(k, Map<String, String>.from(v)),
               ))
+          : {},
+      documentsChecked: m['documentsChecked'] != null
+          ? Map<String, bool>.from(jsonDecode(m['documentsChecked']))
           : {},
       facade: m['facade'] ?? 'Bon',
       toiture: m['toiture'] ?? 'Bon',
@@ -609,6 +618,7 @@ class Estimation {
     int? taxeFonciere,
     int? taxeHabitation,
     Map<String, Map<String, String>>? diagnostics,
+    Map<String, bool>? documentsChecked,
     String? facade,
     String? toiture,
     List<String>? menuiseriesType,
@@ -699,6 +709,7 @@ class Estimation {
       taxeFonciere: taxeFonciere ?? this.taxeFonciere,
       taxeHabitation: taxeHabitation ?? this.taxeHabitation,
       diagnostics: diagnostics ?? Map.from(this.diagnostics),
+      documentsChecked: documentsChecked ?? Map.from(this.documentsChecked),
       facade: facade ?? this.facade,
       toiture: toiture ?? this.toiture,
       menuiseriesType: menuiseriesType ?? List.from(this.menuiseriesType),

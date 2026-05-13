@@ -518,6 +518,12 @@ class _Section6ScreenState extends State<Section6Screen> {
               _update(_e.copyWith(conclusion: updated));
             }),
 
+            // Documents à réunir
+            _DocumentsCard(
+              estimation: _e,
+              onChanged: (docs) => _update(_e.copyWith(documentsChecked: docs)),
+            ),
+
             // Conclusion
             SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const CardTitleRow(icon: Icons.edit_note_rounded, label: 'Conclusion'),
@@ -1689,4 +1695,126 @@ class _CalibStat extends StatelessWidget {
           Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color)),
         ]),
       );
+}
+
+// ── Documents à réunir ────────────────────────────────────────────────────────
+
+List<Map<String, String>> requiredDocs(Estimation e) {
+  final docs = <Map<String, String>>[];
+
+  // Toujours obligatoires
+  docs.addAll([
+    {'id': 'titre_propriete',    'label': 'Titre de propriété (acte notarié)'},
+    {'id': 'identite',           'label': 'Pièce(s) d\'identité du/des vendeur(s)'},
+    {'id': 'situation_familiale','label': 'Justificatif situation familiale (livret de famille, jugement…)'},
+    {'id': 'taxe_fonciere',      'label': 'Dernier avis de taxe foncière'},
+    {'id': 'diagnostics',        'label': 'Dossier de diagnostics techniques (DPE…)'},
+  ]);
+
+  // Appartement — copropriété
+  if (e.typeId == 'appartement') {
+    docs.addAll([
+      {'id': 'reglement_copro',  'label': 'Règlement de copropriété + état descriptif de division'},
+      {'id': 'pv_ag',            'label': '3 derniers PV d\'Assemblée Générale'},
+      {'id': 'carnet_entretien', 'label': 'Carnet d\'entretien de l\'immeuble'},
+      {'id': 'fiche_synth',      'label': 'Fiche synthétique de la copropriété'},
+      {'id': 'etat_date',        'label': 'État daté syndic (à demander avant compromis)'},
+    ]);
+  }
+
+  // Maison / Chalet
+  if (e.typeId == 'maison' || e.typeId == 'chalet') {
+    docs.add({'id': 'plans', 'label': 'Plans du bien (si disponibles)'});
+    if (e.anneeConstruction == '2010-2020' || e.anneeConstruction == 'Après 2020') {
+      docs.add({'id': 'permis', 'label': 'Permis de construire + déclaration d\'achèvement'});
+    }
+  }
+
+  // Piscine
+  if (e.annexesActives['piscine'] == true) {
+    docs.add({'id': 'piscine_conf', 'label': 'Attestation de conformité piscine'});
+  }
+
+  // Bien loué
+  if (!e.libreOccupation) {
+    docs.add({'id': 'bail', 'label': 'Bail en cours + 3 dernières quittances de loyer'});
+  }
+
+  // Hypothèque
+  docs.add({'id': 'etat_hypo', 'label': 'Mainlevée ou état hypothécaire (si prêt en cours)'});
+
+  return docs;
+}
+
+class _DocumentsCard extends StatelessWidget {
+  final Estimation estimation;
+  final ValueChanged<Map<String, bool>> onChanged;
+  const _DocumentsCard({required this.estimation, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final docs = requiredDocs(estimation);
+    final checked = estimation.documentsChecked;
+    final nbOk = docs.where((d) => checked[d['id']] == true).length;
+
+    return SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        const CardTitleRow(icon: Icons.checklist_rounded, label: 'Documents à réunir'),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: nbOk == docs.length ? kGreen.withValues(alpha: 0.12) : const Color(0xFFFFF3E0),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            '$nbOk / ${docs.length}',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: nbOk == docs.length ? kGreen : const Color(0xFFE67E22)),
+          ),
+        ),
+      ]),
+      const SizedBox(height: 4),
+      Text('Adapté à ce bien — cochez les documents collectés', style: TextStyle(fontSize: 11, color: kLightGrey, fontStyle: FontStyle.italic)),
+      const SizedBox(height: 10),
+      ...docs.asMap().entries.map((entry) {
+        final i = entry.key;
+        final doc = entry.value;
+        final id = doc['id']!;
+        final isChecked = checked[id] == true;
+        return Column(children: [
+          if (i > 0) const Divider(height: 1, indent: 44),
+          InkWell(
+            onTap: () {
+              final updated = Map<String, bool>.from(checked);
+              updated[id] = !isChecked;
+              onChanged(updated);
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(children: [
+                Container(
+                  width: 28, height: 28,
+                  decoration: BoxDecoration(
+                    color: isChecked ? kGreen : Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: isChecked ? kGreen : kBorderColor, width: 1.5),
+                  ),
+                  child: isChecked ? const Icon(Icons.check, size: 16, color: Colors.white) : null,
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Text(
+                  doc['label']!,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: isChecked ? kGrey : kCharcoal,
+                    decoration: isChecked ? TextDecoration.lineThrough : null,
+                  ),
+                )),
+              ]),
+            ),
+          ),
+        ]);
+      }),
+    ]));
+  }
 }

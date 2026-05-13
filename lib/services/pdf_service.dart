@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/estimation.dart';
 import '../models/vendeur_note.dart';
 import 'georisques_service.dart';
+import '../screens/section6_screen.dart' show requiredDocs;
 
 class PdfService {
   Future<File> generateFile(Estimation e) async {
@@ -42,6 +43,8 @@ class PdfService {
           pw.SizedBox(height: 20),
           _risquesSection(e.risques!),
         ],
+        pw.SizedBox(height: 20),
+        _documentsSection(e),
         if (e.conclusion.isNotEmpty) ...[
           pw.SizedBox(height: 20),
           _conclusionSection(e),
@@ -94,6 +97,8 @@ class PdfService {
           pw.SizedBox(height: 20),
           _risquesSection(e.risques!),
         ],
+        pw.SizedBox(height: 20),
+        _documentsSection(e),
         if (e.conclusion.isNotEmpty) ...[
           pw.SizedBox(height: 20),
           _conclusionSection(e),
@@ -477,6 +482,42 @@ class PdfService {
       if (i + 2 < images.length) rows.add(pw.SizedBox(height: 4));
     }
     return _card('PHOTOS DU BIEN', rows);
+  }
+
+  pw.Widget _documentsSection(Estimation e) {
+    final docs = requiredDocs(e);
+    final checked = e.documentsChecked;
+    final rows = docs.map((doc) {
+      final id = doc['id']!;
+      final isChecked = checked[id] == true;
+      return pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(vertical: 3),
+        child: pw.Row(children: [
+          pw.Container(
+            width: 12, height: 12,
+            decoration: pw.BoxDecoration(
+              color: isChecked ? const PdfColor.fromInt(0xFF7CB342) : PdfColors.white,
+              border: pw.Border.all(color: isChecked ? const PdfColor.fromInt(0xFF7CB342) : PdfColors.grey400, width: 1),
+              borderRadius: pw.BorderRadius.circular(2),
+            ),
+            child: isChecked
+                ? pw.Center(child: pw.Text('v', style: pw.TextStyle(fontSize: 8, color: PdfColors.white, fontWeight: pw.FontWeight.bold)))
+                : null,
+          ),
+          pw.SizedBox(width: 8),
+          pw.Expanded(child: pw.Text(
+            doc['label']!,
+            style: pw.TextStyle(
+              fontSize: 10,
+              color: isChecked ? PdfColors.grey500 : PdfColors.grey900,
+              decoration: isChecked ? pw.TextDecoration.lineThrough : null,
+            ),
+          )),
+        ]),
+      );
+    }).toList();
+    final nbOk = docs.where((d) => checked[d['id']] == true).length;
+    return _card('DOCUMENTS A REUNIR (${nbOk}/${docs.length} collectes)', rows);
   }
 
   pw.Widget _conclusionSection(Estimation e) => _card('CONCLUSION', [
