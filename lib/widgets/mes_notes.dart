@@ -24,18 +24,25 @@ class _MesNotesState extends State<MesNotes> {
     _textCtrl = TextEditingController(text: widget.initialData['text'] ?? '');
   }
 
-  @override
-  void dispose() {
-    _textCtrl.dispose();
-    super.dispose();
+  // Sauvegarde silencieuse (à chaque frappe / transcription vocale)
+  void _autoSave() {
+    widget.onChanged({'text': _textCtrl.text});
   }
 
+  // Sauvegarde avec confirmation visuelle (bouton explicite)
   void _save() {
     widget.onChanged({'text': _textCtrl.text});
     setState(() => _saved = true);
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) setState(() => _saved = false);
     });
+  }
+
+  @override
+  void dispose() {
+    _autoSave(); // sécurité : sauvegarde si l'utilisateur quitte sans appuyer
+    _textCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -97,7 +104,7 @@ class _MesNotesState extends State<MesNotes> {
                           enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
                         ),
                         style: const TextStyle(fontSize: 13, color: kCharcoal, height: 1.6),
-                        onChanged: (_) => setState(() {}),
+                        onChanged: (_) { setState(() {}); _autoSave(); },
                       ),
                       Positioned(
                         bottom: 8, right: 10,
@@ -120,6 +127,7 @@ class _MesNotesState extends State<MesNotes> {
                     final cur = _textCtrl.text;
                     _textCtrl.text = cur.isEmpty ? t : '$cur\n$t';
                     setState(() {});
+                    _autoSave(); // sauvegarde automatique après transcription
                   }),
                   const SizedBox(height: 16),
 
