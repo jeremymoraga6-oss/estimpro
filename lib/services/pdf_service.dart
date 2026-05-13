@@ -209,7 +209,6 @@ class PdfService {
         : 'Non renseigne';
     final rows = <pw.Widget>[
       _row('Taxe fonciere', fmtTax(e.taxeFonciere)),
-      _row('Taxe habitation', fmtTax(e.taxeHabitation)),
     ];
     if (e.typeId == 'appartement') {
       rows.add(_row('Charges copropriete', fmtTax(e.chargesCopro)));
@@ -217,7 +216,7 @@ class PdfService {
         rows.add(_row('  dont mensuel', '~${(e.chargesCopro / 12).round()} EUR/mois'));
       }
     }
-    final total = e.taxeFonciere + e.taxeHabitation + (e.typeId == 'appartement' ? e.chargesCopro : 0);
+    final total = e.taxeFonciere + (e.typeId == 'appartement' ? e.chargesCopro : 0);
     if (total > 0) rows.add(_row('Total annuel', fmtTax(total), bold: true));
     return _card('CHARGES & IMPOTS ANNUELS', rows);
   }

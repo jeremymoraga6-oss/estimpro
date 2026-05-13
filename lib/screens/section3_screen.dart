@@ -30,22 +30,18 @@ class _Section3ScreenState extends State<Section3Screen> {
   late Estimation _e;
   late TextEditingController _chargesCtrl;
   late TextEditingController _taxeFonciereCtrl;
-  late TextEditingController _taxeHabitationCtrl;
-
   @override
   void initState() {
     super.initState();
     _e = widget.estimation;
     _chargesCtrl = TextEditingController(text: _e.chargesCopro > 0 ? _e.chargesCopro.toString() : '');
     _taxeFonciereCtrl = TextEditingController(text: _e.taxeFonciere > 0 ? _e.taxeFonciere.toString() : '');
-    _taxeHabitationCtrl = TextEditingController(text: _e.taxeHabitation > 0 ? _e.taxeHabitation.toString() : '');
   }
 
   @override
   void dispose() {
     _chargesCtrl.dispose();
     _taxeFonciereCtrl.dispose();
-    _taxeHabitationCtrl.dispose();
     super.dispose();
   }
 
@@ -197,13 +193,6 @@ class _Section3ScreenState extends State<Section3Screen> {
                 label: 'Taxe foncière',
                 controller: _taxeFonciereCtrl,
                 onChanged: (v) => _update(_e.copyWith(taxeFonciere: int.tryParse(v) ?? 0)),
-              ),
-              const Divider(height: 1, indent: 44),
-              _TaxRow(
-                icon: Icons.apartment_outlined,
-                label: 'Taxe d\'habitation',
-                controller: _taxeHabitationCtrl,
-                onChanged: (v) => _update(_e.copyWith(taxeHabitation: int.tryParse(v) ?? 0)),
               ),
             ])),
             const SizedBox(height: 14),
