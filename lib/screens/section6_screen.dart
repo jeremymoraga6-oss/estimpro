@@ -1249,8 +1249,20 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
 
   static const _durees = [10, 15, 20, 25];
 
+  // Capacité bancaire (35% des revenus = règle HCSF)
   double get _mensualiteMax => _revenus * 0.35;
 
+  // Mensualité réelle si on finance (prixMandat - apport) sur _duree ans
+  double get _mensualiteRequise {
+    final montant = (widget.prixMandat - _apport).clamp(0, double.infinity);
+    if (montant == 0) return 0;
+    final r = _taux / 100 / 12;
+    final n = _duree * 12;
+    if (r == 0) return montant / n;
+    return montant * r / (1 - pow(1 + r, -n.toDouble()));
+  }
+
+  // Capacité d'emprunt basée sur ce que la banque accepte (35% revenus)
   double get _capaciteEmprunt {
     final r = _taux / 100 / 12;
     final n = _duree * 12;
@@ -1260,6 +1272,8 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
 
   double get _budgetTotal => _capaciteEmprunt + _apport;
   double get _gap => widget.prixMandat - _budgetTotal;
+  // Vrai critère : la mensualité requise dépasse-t-elle le max autorisé ?
+  bool get _accessible => _mensualiteRequise <= _mensualiteMax && _budgetTotal >= widget.prixMandat;
 
   String _fmt(double n) {
     final s = n.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
@@ -1277,7 +1291,7 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
 
   @override
   Widget build(BuildContext context) {
-    final accessible = _gap <= 0;
+    final accessible = _accessible;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -1338,7 +1352,7 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
               ),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 const Text('1 500 €', style: TextStyle(fontSize: 10, color: kLightGrey)),
-                Text('Mensualité max : ${_mensualiteMax.round()} €', style: const TextStyle(fontSize: 10, color: kGrey)),
+                Text('Capacité max : ${_mensualiteMax.round()} €/mois', style: const TextStyle(fontSize: 10, color: kGrey)),
                 const Text('12 000 €', style: TextStyle(fontSize: 10, color: kLightGrey)),
               ]),
               const SizedBox(height: 12),
@@ -1416,6 +1430,40 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
                   border: Border.all(color: (accessible ? kGreen : kRed).withOpacity(0.25)),
                 ),
                 child: Column(children: [
+                  // Mensualité requise vs mensualité max — la comparaison clé
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFEEEEEE)),
+                    ),
+                    child: Row(children: [
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                        Text(
+                          '${_mensualiteRequise.round()} €/mois',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _mensualiteRequise > _mensualiteMax ? kRed : kCharcoal),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text('Mensualité pour ce bien', style: TextStyle(fontSize: 9, color: kGrey), textAlign: TextAlign.center),
+                      ])),
+                      Container(width: 1, height: 36, color: const Color(0xFFEEEEEE)),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                        Text(
+                          '${_mensualiteMax.round()} €/mois',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: kGreen),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text('Capacité max (35% revenus)', style: TextStyle(fontSize: 9, color: kGrey), textAlign: TextAlign.center),
+                      ])),
+                    ]),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    const Text('Montant emprunté :', style: TextStyle(fontSize: 12, color: kGrey)),
+                    Text(_fmt((widget.prixMandat - _apport).clamp(0, double.infinity)), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
+                  ]),
+                  const SizedBox(height: 4),
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                     const Text('Capacité d\'emprunt :', style: TextStyle(fontSize: 12, color: kGrey)),
                     Text(_fmt(_capaciteEmprunt), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
@@ -1450,7 +1498,9 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
                       Text(
                         accessible
                             ? 'Accessible · budget excédentaire ${_fmt(-_gap)}'
-                            : 'Hors budget · déficit ${_fmt(_gap)}',
+                            : _mensualiteRequise > _mensualiteMax
+                                ? 'Mensualité trop élevée · ${_fmt(_mensualiteRequise - _mensualiteMax)} de plus que la capacité'
+                                : 'Budget insuffisant · déficit ${_fmt(_gap)}',
                         style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: accessible ? kGreen : kRed),
                       ),
                     ]),
