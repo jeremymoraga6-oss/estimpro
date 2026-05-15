@@ -5,6 +5,12 @@
 # Google ML Kit — text recognition
 -keep class com.google.mlkit.** { *; }
 -keep class com.google_mlkit_** { *; }
--keep class com.google.android.gms.internal.mlkit_vision_text_latin.** { *; }
 -dontwarn com.google.mlkit.**
 -dontwarn com.google_mlkit_**
+
+# Play Core (dépendance transitive ML Kit — non présente dans l'APK)
+-dontwarn com.google.android.play.core.**
+-dontwarn com.google.android.play.**
+
+# Évite que R8 bloque sur des classes optionnelles absentes
+-ignorewarnings
