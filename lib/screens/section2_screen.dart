@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../theme.dart';
 import '../models/estimation.dart';
 import '../widgets/shared.dart';
 import '../widgets/app_header.dart';
 import '../widgets/mes_notes.dart';
 import '../widgets/star_rating.dart';
+import '../services/dpe_ocr_service.dart';
 
 class _ScoreBadge extends StatelessWidget {
   final double score;
@@ -234,7 +236,13 @@ class _Section2ScreenState extends State<Section2Screen> {
               }),
               const SizedBox(height: 12),
 
-              const FieldLabel('Diagnostic de Performance Énergétique (DPE)'),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                const FieldLabel('Diagnostic de Performance Énergétique (DPE)'),
+                _ScanDpeButton(
+                  onDetected: (classe) =>
+                      _update(_e.copyWith(dpeClasse: classe)),
+                ),
+              ]),
               const SizedBox(height: 6),
               DpeSelector(selected: _e.dpeClasse, onSelect: (v) => _update(_e.copyWith(dpeClasse: v))),
               const CardDivider(),
@@ -289,6 +297,176 @@ class _AnnexeField extends StatelessWidget {
       onChanged: (v) => onChanged(int.tryParse(v) ?? 0),
     ),
   ]);
+}
+
+class _ScanDpeButton extends StatefulWidget {
+  final ValueChanged<String> onDetected;
+  const _ScanDpeButton({required this.onDetected});
+  @override
+  State<_ScanDpeButton> createState() => _ScanDpeButtonState();
+}
+
+class _ScanDpeButtonState extends State<_ScanDpeButton> {
+  bool _loading = false;
+
+  Future<void> _scan(ImageSource src) async {
+    Navigator.pop(context);
+    final picker = ImagePicker();
+    final XFile? file;
+    try {
+      file = await picker.pickImage(
+        source: src,
+        maxWidth: 2000,
+        imageQuality: 85,
+      );
+    } catch (e) {
+      _showError('Impossible d\'accéder à la photo : $e');
+      return;
+    }
+    if (file == null) return;
+
+    setState(() => _loading = true);
+    final result = await DpeOcrService().extractFromImage(file.path);
+    if (!mounted) return;
+    setState(() => _loading = false);
+
+    if (!result.hasData) {
+      _showError('Aucune information DPE détectée. Réessayez avec une photo plus nette ou cadrée sur l\'étiquette.');
+      return;
+    }
+    _showConfirm(result);
+  }
+
+  void _showError(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: kRed),
+    );
+  }
+
+  void _showConfirm(DpeOcrResult r) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.auto_awesome, size: 20, color: kGreen),
+          SizedBox(width: 8),
+          Text('DPE détecté', style: TextStyle(fontSize: 16)),
+        ]),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (r.classeEnergie != null)
+            _resultRow('Classe énergie', r.classeEnergie!, big: true),
+          if (r.consoKwh != null)
+            _resultRow('Consommation', '${r.consoKwh} kWh/m²/an'),
+          if (r.classeGes != null)
+            _resultRow('Classe GES', r.classeGes!),
+          if (r.emissionsGes != null)
+            _resultRow('Émissions', '${r.emissionsGes} kgCO₂/m²/an'),
+          const SizedBox(height: 8),
+          Row(children: [
+            const Icon(Icons.info_outline, size: 13, color: kGrey),
+            const SizedBox(width: 4),
+            Text('Confiance : ${(r.confidence * 100).round()}%',
+                style: const TextStyle(fontSize: 11, color: kGrey)),
+          ]),
+        ]),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          if (r.classeEnergie != null)
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: kGreen),
+              onPressed: () {
+                widget.onDetected(r.classeEnergie!);
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('DPE classe ${r.classeEnergie} appliqué')),
+                );
+              },
+              child: const Text('Appliquer'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _resultRow(String label, String value, {bool big = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(children: [
+        Expanded(
+          child: Text(label, style: const TextStyle(fontSize: 12, color: kGrey)),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: big ? 18 : 13,
+            fontWeight: big ? FontWeight.w800 : FontWeight.w700,
+            color: big ? kGreen : kCharcoal,
+          ),
+        ),
+      ]),
+    );
+  }
+
+  void _showPicker() {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            leading: const Icon(Icons.camera_alt_outlined, color: kGreen),
+            title: const Text('Prendre une photo'),
+            onTap: () => _scan(ImageSource.camera),
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_library_outlined, color: kGreen),
+            title: const Text('Choisir depuis la galerie'),
+            onTap: () => _scan(ImageSource.gallery),
+          ),
+          ListTile(
+            leading: const Icon(Icons.close, color: kGrey),
+            title: const Text('Annuler'),
+            onTap: () => Navigator.pop(ctx),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: _loading ? null : _showPicker,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: kGreen.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: kGreen.withOpacity(0.3)),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          if (_loading)
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2, color: kGreen),
+            )
+          else
+            const Icon(Icons.document_scanner_outlined, size: 14, color: kGreen),
+          const SizedBox(width: 6),
+          Text(
+            _loading ? 'Analyse…' : 'Scanner',
+            style: const TextStyle(
+                fontSize: 11, fontWeight: FontWeight.w700, color: kGreen),
+          ),
+        ]),
+      ),
+    );
+  }
 }
 
 class _TerrainConstructibleWidget extends StatefulWidget {
