@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../models/estimation.dart';
+import '../models/facture.dart';
 import '../widgets/shared.dart';
 import '../widgets/app_header.dart';
 import '../widgets/mes_notes.dart';
 import '../widgets/star_rating.dart';
 import '../services/base_locale_service.dart';
+import '../services/facture_service.dart';
 
 class Section6Screen extends StatefulWidget {
   final Estimation estimation;
@@ -526,6 +528,9 @@ class _Section6ScreenState extends State<Section6Screen> {
               estimation: _e,
               onChanged: (docs) => _update(_e.copyWith(documentsChecked: docs)),
             ),
+
+            // Facturation
+            _FactureCard(estimation: _e),
 
             // Conclusion
             SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1949,5 +1954,239 @@ class _DocumentsCard extends StatelessWidget {
         ]);
       }),
     ]));
+  }
+}
+
+// ── Facturation ───────────────────────────────────────────────────────────────
+
+class _FactureCard extends StatefulWidget {
+  final Estimation estimation;
+  const _FactureCard({required this.estimation});
+
+  @override
+  State<_FactureCard> createState() => _FactureCardState();
+}
+
+class _FactureCardState extends State<_FactureCard> {
+  final _svc = FactureService();
+  Facture? _facture;
+  bool _loading = true;
+  bool _generating = false;
+  double _montantTtc = 200.0;
+  final _customCtrl = TextEditingController();
+  bool _showCustom = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _customCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final f = await _svc.forEstimation(widget.estimation.id);
+    if (mounted) setState(() { _facture = f; _loading = false; });
+  }
+
+  Future<void> _generate() async {
+    setState(() => _generating = true);
+    try {
+      final e = widget.estimation;
+      final adresseParts = e.adresseComplete.split(',');
+      final f = await _svc.create(
+        estimationId: e.id,
+        clientNom: e.proprietaireNom.isNotEmpty ? e.proprietaireNom : 'Client',
+        clientAdresse: adresseParts.isNotEmpty ? adresseParts[0].trim() : e.adresseComplete,
+        clientVille: adresseParts.length > 1 ? adresseParts.sublist(1).join(',').trim() : '',
+        montantTtc: _montantTtc,
+      );
+      if (mounted) setState(() { _facture = f; _generating = false; });
+      await _svc.openOrShare(f);
+    } catch (ex) {
+      if (mounted) setState(() => _generating = false);
+    }
+  }
+
+  Future<void> _markPaid() async {
+    if (_facture == null) return;
+    final updated = _facture!.copyWith(statut: 'payee');
+    await _svc.save(updated);
+    if (mounted) setState(() => _facture = updated);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const SizedBox.shrink();
+
+    return SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const CardTitleRow(icon: Icons.receipt_long_outlined, label: 'Facturation'),
+
+      if (_facture != null) ...[
+        // Facture existante
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: _facture!.statut == 'payee'
+                ? kGreen.withOpacity(0.08)
+                : const Color(0xFFFFF8E1),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: _facture!.statut == 'payee' ? kGreen : const Color(0xFFFFB300),
+              width: 1.5,
+            ),
+          ),
+          child: Row(children: [
+            Icon(
+              _facture!.statut == 'payee' ? Icons.check_circle : Icons.schedule,
+              color: _facture!.statut == 'payee' ? kGreen : const Color(0xFFFFB300),
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Facture n° ${_facture!.numero}',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal)),
+              Text(
+                '${_fmtMontant(_facture!.montantTtc)} TTC · '
+                '${_facture!.statut == 'payee' ? 'Payée' : 'En attente'}',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: _facture!.statut == 'payee' ? kGreen : const Color(0xFFE65100),
+                ),
+              ),
+            ])),
+          ]),
+        ),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _generating ? null : () => _svc.openOrShare(_facture!),
+              icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+              label: const Text('Voir / Partager'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: kGreen,
+                side: const BorderSide(color: kGreen),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ),
+          if (_facture!.statut != 'payee') ...[
+            const SizedBox(width: 8),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _markPaid,
+                icon: const Icon(Icons.check, size: 16),
+                label: const Text('Marquer payée'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: kGreen,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ),
+          ],
+        ]),
+      ] else ...[
+        // Sélection du montant
+        const FieldLabel('Montant TTC'),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final m in [150.0, 200.0, 250.0, 300.0])
+            GestureDetector(
+              onTap: () => setState(() { _montantTtc = m; _showCustom = false; }),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _montantTtc == m && !_showCustom ? kGreen : Colors.white,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: _montantTtc == m && !_showCustom ? kGreen : kBorderColor,
+                    width: 1.5,
+                  ),
+                ),
+                child: Text('${m.toInt()} €',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: _montantTtc == m && !_showCustom ? Colors.white : kGrey,
+                    )),
+              ),
+            ),
+          GestureDetector(
+            onTap: () => setState(() => _showCustom = true),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: _showCustom ? kGreen : Colors.white,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: _showCustom ? kGreen : kBorderColor, width: 1.5),
+              ),
+              child: Text('Autre', style: TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w600,
+                color: _showCustom ? Colors.white : kGrey,
+              )),
+            ),
+          ),
+        ]),
+        if (_showCustom) ...[
+          const SizedBox(height: 10),
+          TextField(
+            controller: _customCtrl,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              hintText: 'Montant TTC en €',
+              hintStyle: const TextStyle(color: kLightGrey, fontSize: 13),
+              suffixText: '€',
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              filled: true, fillColor: Colors.white,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kGreen, width: 2)),
+            ),
+            onChanged: (v) {
+              final parsed = double.tryParse(v);
+              if (parsed != null && parsed > 0) setState(() => _montantTtc = parsed);
+            },
+          ),
+        ],
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _generating ? null : _generate,
+            icon: _generating
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.receipt_long, size: 18),
+            label: Text(_generating ? 'Génération...' : 'Générer la facture'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kGreen,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'HT : ${_fmtMontant(_montantTtc / 1.20)} · TVA 20% : ${_fmtMontant(_montantTtc / 1.20 * 0.20)} · TTC : ${_fmtMontant(_montantTtc)}',
+          style: const TextStyle(fontSize: 11, color: kLightGrey),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    ]));
+  }
+
+  String _fmtMontant(double v) {
+    final parts = v.toStringAsFixed(2).split('.');
+    final euros = parts[0].replaceAllMapped(
+        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
+    return '$euros,${parts[1]} €';
   }
 }
