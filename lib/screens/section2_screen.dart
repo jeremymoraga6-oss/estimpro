@@ -101,6 +101,13 @@ class _Section2ScreenState extends State<Section2Screen> {
                 onChanged: (v) => _update(_e.copyWith(surfaceTerrain: v)),
                 hint: '0 si appartement',
               ),
+              if (_e.typeId != 'appartement' && _e.surfaceTerrain > 500) ...[
+                const SizedBox(height: 10),
+                _TerrainConstructibleWidget(
+                  estimation: _e,
+                  onChanged: _update,
+                ),
+              ],
               const CardDivider(),
 
               // Surfaces annexes pondérées
@@ -282,6 +289,118 @@ class _AnnexeField extends StatelessWidget {
       onChanged: (v) => onChanged(int.tryParse(v) ?? 0),
     ),
   ]);
+}
+
+class _TerrainConstructibleWidget extends StatefulWidget {
+  final Estimation estimation;
+  final ValueChanged<Estimation> onChanged;
+  const _TerrainConstructibleWidget({required this.estimation, required this.onChanged});
+  @override
+  State<_TerrainConstructibleWidget> createState() => _TerrainConstructibleWidgetState();
+}
+
+class _TerrainConstructibleWidgetState extends State<_TerrainConstructibleWidget> {
+  late TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final v = widget.estimation.terrainConstructibleM2;
+    _ctrl = TextEditingController(text: v > 0 ? v.toString() : '');
+  }
+
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  String _fmt(double n) {
+    final s = n.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
+    return '$s €';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final e = widget.estimation;
+    final excedent = e.surfaceTerrain - 500;
+    final hasConstructible = e.terrainConstructibleM2 > 0;
+    final prime = e.primeTerrain;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: kGreen.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: kGreen.withOpacity(0.25)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.landscape_outlined, size: 14, color: kGreen),
+          const SizedBox(width: 6),
+          Text('Prime terrain (+$excedent m² excédentaires)',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kGreen)),
+        ]),
+        const SizedBox(height: 8),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          const Text('Terrain constructible ?', style: TextStyle(fontSize: 12, color: kCharcoal)),
+          Switch(
+            value: hasConstructible,
+            activeColor: kGreen,
+            onChanged: (v) {
+              if (!v) {
+                _ctrl.clear();
+                widget.onChanged(e.copyWith(terrainConstructibleM2: 0));
+              } else {
+                widget.onChanged(e.copyWith(terrainConstructibleM2: (excedent * 0.3).round()));
+                _ctrl.text = (excedent * 0.3).round().toString();
+              }
+            },
+          ),
+        ]),
+        if (hasConstructible) ...[
+          const SizedBox(height: 4),
+          Row(children: [
+            Expanded(
+              child: TextField(
+                controller: _ctrl,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kCharcoal),
+                decoration: InputDecoration(
+                  suffixText: 'm²',
+                  hintText: 'ex: ${(excedent * 0.3).round()}',
+                  hintStyle: const TextStyle(color: kLightGrey),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kBorderColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kBorderColor)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kGreen, width: 2)),
+                ),
+                onChanged: (v) {
+                  final parsed = int.tryParse(v) ?? 0;
+                  widget.onChanged(e.copyWith(terrainConstructibleM2: parsed.clamp(0, excedent)));
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text('/ $excedent m²', style: const TextStyle(fontSize: 12, color: kGrey)),
+          ]),
+          const SizedBox(height: 4),
+          Text('Constructible × 80 €/m²  ·  Non-constructible × 8 €/m²',
+              style: const TextStyle(fontSize: 10, color: kLightGrey, fontStyle: FontStyle.italic)),
+        ] else ...[
+          const Text('Non précisé → 8 €/m² (zone agricole / naturelle)',
+              style: TextStyle(fontSize: 10, color: kLightGrey, fontStyle: FontStyle.italic)),
+        ],
+        if (prime > 0) ...[
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(color: kGreen.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
+            child: Text('Prime terrain estimée : +${_fmt(prime)}',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kGreen)),
+          ),
+        ],
+      ]),
+    );
+  }
 }
 
 class _SurfaceField extends StatelessWidget {

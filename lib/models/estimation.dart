@@ -94,6 +94,9 @@ class Estimation {
   int ponderationPh;      // poids PriceHubble en %
   int ponderationAnnonces; // poids Annonces en %
 
+  // Terrain — valorisation excédentaire
+  int terrainConstructibleM2; // m² du terrain jugés constructibles (0 = non précisé)
+
   // Section 6 — Estimation
   double margeNegociation; // % marge pour prix de mandat (défaut 10%)
   double tauxAgence;       // % honoraires agence (défaut 5%) pour calcul net vendeur
@@ -211,6 +214,7 @@ class Estimation {
     this.ajustExposition = 0,
     this.ajustEnvironnement = 0,
     this.ajustConjoncture = -3,
+    this.terrainConstructibleM2 = 0,
     this.ajustTravaux = 0,
     this.ajustParking = 0,
     this.ajustPiscine = 0,
@@ -362,6 +366,20 @@ class Estimation {
     return (-(chargesCopro - 2000) / 500).clamp(-6.0, 0.0);
   }
 
+  // Prime terrain : valorise les m² au-delà de 500 m² standard (inclus dans le prix/m² DVF)
+  // Constructible : 80 €/m² | Non-constructible : 8 €/m² (calibré marché 74, avec décote liquidité)
+  static const _seuilTerrain = 500;
+  static const _tauxConstructible = 80.0;
+  static const _tauxNonConstructible = 8.0;
+
+  double get primeTerrain {
+    if (typeId == 'appartement' || surfaceTerrain <= _seuilTerrain) return 0;
+    final excedent = surfaceTerrain - _seuilTerrain;
+    final constructible = terrainConstructibleM2.clamp(0, excedent);
+    final nonConstructible = excedent - constructible;
+    return constructible * _tauxConstructible + nonConstructible * _tauxNonConstructible;
+  }
+
   double get prixMandat => (prixCalcule * (1 + margeNegociation / 100) / 1000).round() * 1000;
 
   // Calcul net vendeur réel et coût acquéreur
@@ -374,7 +392,7 @@ class Estimation {
     final totalPct = ajustVue + ajustEtat + ajustDpe + ajustExposition +
         ajustEnvironnement + ajustConjoncture + decoteSurface + occupPct +
         ajustEtageAuto + decoteCharges;
-    final impact = prixBase * totalPct / 100 - ajustTravaux + ajustParking + ajustPiscine;
+    final impact = prixBase * totalPct / 100 - ajustTravaux + ajustParking + ajustPiscine + primeTerrain;
     final raw = prixBase + impact;
     return (raw / 1000).round() * 1000;
   }
@@ -453,6 +471,7 @@ class Estimation {
         'ponderationDvf': ponderationDvf,
         'ponderationPh': ponderationPh,
         'ponderationAnnonces': ponderationAnnonces,
+        'terrainConstructibleM2': terrainConstructibleM2,
         'margeNegociation': margeNegociation,
         'tauxAgence': tauxAgence,
         'ajustVue': ajustVue,
@@ -567,6 +586,7 @@ class Estimation {
       ponderationDvf: m['ponderationDvf'] as int? ?? 45,
       ponderationPh: m['ponderationPh'] as int? ?? 40,
       ponderationAnnonces: m['ponderationAnnonces'] as int? ?? 15,
+      terrainConstructibleM2: m['terrainConstructibleM2'] as int? ?? 0,
       margeNegociation: (m['margeNegociation'] as num?)?.toDouble() ?? 10,
       tauxAgence: (m['tauxAgence'] as num?)?.toDouble() ?? 5.0,
       ajustVue: (m['ajustVue'] as num?)?.toDouble() ?? 0,
@@ -685,6 +705,7 @@ class Estimation {
     double? ajustExposition,
     double? ajustEnvironnement,
     double? ajustConjoncture,
+    int? terrainConstructibleM2,
     int? ajustTravaux,
     int? ajustParking,
     int? ajustPiscine,
@@ -783,6 +804,7 @@ class Estimation {
       ajustExposition: ajustExposition ?? this.ajustExposition,
       ajustEnvironnement: ajustEnvironnement ?? this.ajustEnvironnement,
       ajustConjoncture: ajustConjoncture ?? this.ajustConjoncture,
+      terrainConstructibleM2: terrainConstructibleM2 ?? this.terrainConstructibleM2,
       ajustTravaux: ajustTravaux ?? this.ajustTravaux,
       ajustParking: ajustParking ?? this.ajustParking,
       ajustPiscine: ajustPiscine ?? this.ajustPiscine,

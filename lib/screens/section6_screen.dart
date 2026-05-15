@@ -50,7 +50,7 @@ class _Section6ScreenState extends State<Section6Screen> {
     final totalPct = _e.ajustVue + _e.ajustEtat + _e.ajustDpe + _e.ajustExposition +
         _e.ajustEnvironnement + _e.ajustConjoncture + _e.decoteSurface + occupPct +
         _e.ajustEtageAuto + _e.decoteCharges;
-    final impact = base * totalPct / 100 - _e.ajustTravaux + _e.ajustParking;
+    final impact = base * totalPct / 100 - _e.ajustTravaux + _e.ajustParking + _e.primeTerrain;
     final raw = base + impact;
     final rounded = (raw / 1000).round() * 1000.0;
     final low = _e.fourchetteBasse > 0 ? _e.fourchetteBasse : (rounded * 0.95 / 1000).round() * 1000.0;
@@ -256,6 +256,33 @@ class _Section6ScreenState extends State<Section6Screen> {
                             : 'marché vendeur — forte demande',
                 onChanged: (v) => _update(_e.copyWith(ajustConjoncture: v)),
               ),
+
+              // Prime terrain (lecture seule si calculée automatiquement)
+              if (_e.primeTerrain > 0) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: kGreen.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: kGreen.withOpacity(0.25)),
+                  ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('PRIME TERRAIN', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: kGreen, letterSpacing: 0.8)),
+                    const SizedBox(height: 6),
+                    _PriceDetailRow(
+                      'Terrain ${_e.surfaceTerrain} m² (>500 m²) :',
+                      '+${_fmt(_e.primeTerrain)}',
+                    ),
+                    if (_e.terrainConstructibleM2 > 0) ...[
+                      _PriceDetailRow('  Constructible :', '${_e.terrainConstructibleM2} m² × 80 €/m²'),
+                      _PriceDetailRow('  Non-constructible :', '${_e.surfaceTerrain - 500 - _e.terrainConstructibleM2} m² × 8 €/m²'),
+                    ] else
+                      _PriceDetailRow('  Zone non précisée :', '${_e.surfaceTerrain - 500} m² × 8 €/m²'),
+                  ]),
+                ),
+                const SizedBox(height: 6),
+              ],
 
               // Décotes automatiques (lecture seule)
               if (!_e.libreOccupation || _e.decoteSurface < 0 || _e.ajustEtageAuto != 0 || _e.decoteCharges < 0) ...[
