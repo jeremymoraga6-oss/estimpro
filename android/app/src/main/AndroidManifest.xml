@@ -30,6 +30,9 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="ocr_latin" />
 
         <!-- FileProvider pour les URIs de photos et PDF (Android 7+) -->
         <provider

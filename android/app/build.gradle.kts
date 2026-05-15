@@ -30,6 +30,18 @@ android {
         versionName = flutter.versionName
     }
 
+    // Prevents AGP from compressing ML Kit .tflite model files
+    androidResources {
+        noCompress += listOf("tflite")
+    }
+
+    packaging {
+        jniLibs {
+            // Avoids duplicate native lib conflicts from ML Kit transitive deps
+            pickFirsts += setOf("**/libmlkitcore.so", "**/libtflite.so")
+        }
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
