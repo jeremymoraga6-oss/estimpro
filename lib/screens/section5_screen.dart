@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme.dart';
 import '../models/estimation.dart';
 import '../models/reference_locale.dart';
@@ -9,6 +10,7 @@ import '../services/dvf_service.dart';
 import '../services/georisques_service.dart';
 import '../services/base_locale_service.dart';
 import '../services/pricehubble_parser.dart';
+import '../services/concurrence_service.dart';
 
 class Section5Screen extends StatefulWidget {
   final Estimation estimation;
@@ -349,6 +351,9 @@ class _Section5ScreenState extends State<Section5Screen> {
                   ),
                 ]),
               ),
+
+            // Veille concurrence — deep-links portails immobiliers
+            _ConcurrenceCard(estimation: _e),
 
             // Synthèse pondérée DVF / PH / Annonces
             _SynthesePondereeCard(
@@ -1356,4 +1361,133 @@ class _ConfirmRow extends StatelessWidget {
           ),
         ]),
       );
+}
+
+// ── Veille concurrence — Deep-links portails immobiliers ───────────────────
+class _ConcurrenceCard extends StatelessWidget {
+  final Estimation estimation;
+  const _ConcurrenceCard({required this.estimation});
+
+  Future<void> _open(BuildContext context, String url) async {
+    final uri = Uri.parse(url);
+    try {
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible d\'ouvrir le portail')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur : $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final e = estimation;
+    final canQuery = ConcurrenceService.canQuery(e);
+
+    if (!canQuery) {
+      return SectionCard(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const CardTitleRow(
+              icon: Icons.travel_explore_rounded, label: 'Veille concurrence'),
+          const SizedBox(height: 4),
+          Text(
+            e.typeId == 'terrain'
+                ? 'Non disponible pour les terrains'
+                : 'Renseignez l\'adresse et la surface pour activer la veille.',
+            style: const TextStyle(
+                fontSize: 12, color: kGrey, fontStyle: FontStyle.italic),
+          ),
+        ]),
+      );
+    }
+
+    final portails = ConcurrenceService.allPortails(e);
+    final smin = (e.surfaceHabitable * 0.8).round();
+    final smax = (e.surfaceHabitable * 1.2).round();
+    final filterDesc = '${e.typeId == 'appartement' ? 'Appartements' : 'Maisons'}'
+        ' · $smin–$smax m² · ${e.codePostal}';
+
+    return SectionCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const CardTitleRow(
+            icon: Icons.travel_explore_rounded, label: 'Veille concurrence'),
+        const SizedBox(height: 2),
+        Text(filterDesc,
+            style: const TextStyle(fontSize: 11, color: kGrey)),
+        if (e.prixCalcule > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              'Fourchette prix : ${(e.prixCalcule * 0.8 / 1000).round()}K – ${(e.prixCalcule * 1.2 / 1000).round()}K €',
+              style: const TextStyle(fontSize: 11, color: kGrey),
+            ),
+          ),
+        const SizedBox(height: 10),
+        ...portails.map((p) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: InkWell(
+                onTap: () => _open(context, p.url),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFAFAFA),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE8E8E8)),
+                  ),
+                  child: Row(children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: Color(p.couleur),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        p.nom.substring(0, 1).toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(p.nom,
+                                style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: kCharcoal)),
+                            Text(p.description,
+                                style: const TextStyle(
+                                    fontSize: 11, color: kGrey)),
+                          ]),
+                    ),
+                    const Icon(Icons.open_in_new_rounded,
+                        size: 18, color: kGreen),
+                  ]),
+                ),
+              ),
+            )),
+        const SizedBox(height: 4),
+        const Text(
+          'S\'ouvre dans l\'app du portail si installée, sinon navigateur.',
+          style: TextStyle(
+              fontSize: 10, color: kLightGrey, fontStyle: FontStyle.italic),
+        ),
+      ]),
+    );
+  }
 }
