@@ -369,7 +369,7 @@ class Estimation {
   // Prime terrain : valorise les m² au-delà de 500 m² standard (inclus dans le prix/m² DVF)
   // Constructible : 80 €/m² | Non-constructible : 8 €/m² (calibré marché 74, avec décote liquidité)
   static const _seuilTerrain = 500;
-  static const _tauxConstructible = 80.0;
+  static const _tauxConstructible = 100.0;
   static const _tauxNonConstructible = 8.0;
 
   double get primeTerrain {
