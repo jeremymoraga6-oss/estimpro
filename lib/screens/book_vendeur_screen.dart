@@ -44,11 +44,9 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
     setState(() => _sharing = true);
     try {
       final file = await _writeTempPdf();
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(file.path)],
-          subject: 'Book Vendeur — Faucigny Immobilier',
-        ),
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        subject: 'Book Vendeur — Faucigny Immobilier',
       );
     } finally {
       if (mounted) setState(() => _sharing = false);
@@ -78,12 +76,10 @@ Conseiller immobilier
 Faucigny Immobilier by Efficity
 Saint-Pierre-en-Faucigny — Haute-Savoie
 ''';
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(file.path)],
-          subject: 'Faucigny Immobilier — Votre dossier vendeur',
-          text: body,
-        ),
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        subject: 'Faucigny Immobilier — Votre dossier vendeur',
+        text: body,
       );
     } finally {
       if (mounted) setState(() => _sharing = false);
