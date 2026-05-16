@@ -52,7 +52,7 @@ class _Section5ScreenState extends State<Section5Screen> {
 
   Future<void> _loadDvf() async {
     setState(() { _loading = true; _result = null; });
-    final r = await DvfService().fetch(
+    var r = await DvfService().fetch(
       codeInsee: _e.codeInsee,
       typeLocal: _filterType,
       surface: _e.surfaceHabitable.toDouble(),
@@ -60,7 +60,28 @@ class _Section5ScreenState extends State<Section5Screen> {
       latitude: _e.latitude,
       longitude: _e.longitude,
     );
-    setState(() { _result = r; _loading = false; });
+
+    // Auto-élargissement progressif si aucun résultat :
+    // 1 km → 3 km → 5 km, jusqu'à trouver des transactions.
+    final widenSteps = [3.0, 5.0];
+    for (final km in widenSteps) {
+      if (r.transactions.isNotEmpty) break;
+      if (_e.dvfRadiusKm >= km) continue; // déjà testé ou plus large
+      r = await DvfService().fetch(
+        codeInsee: _e.codeInsee,
+        typeLocal: _filterType,
+        surface: _e.surfaceHabitable.toDouble(),
+        radiusKm: km,
+        latitude: _e.latitude,
+        longitude: _e.longitude,
+      );
+      if (r.transactions.isNotEmpty) {
+        // Sauvegarde le rayon qui a marché pour les prochaines fois
+        _update(_e.copyWith(dvfRadiusKm: km));
+        break;
+      }
+    }
+    if (mounted) setState(() { _result = r; _loading = false; });
   }
 
   void _setRadius(double km) {
