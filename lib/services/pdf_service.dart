@@ -980,8 +980,10 @@ class PdfService {
     }
     final ans = (DateTime.now().year - e.anneeAchat).clamp(0, 50);
     final fraisAcq = (e.prixAchat * 0.075).round();
-    final prixRevient = e.prixAchat + fraisAcq;
-    final pvBrute = e.prixFinal - prixRevient;
+    // Forfait travaux 15% — article 150 VB II 4° CGI, applicable si détention > 5 ans
+    final forfaitTravaux = ans > 5 ? (e.prixAchat * 0.15).round() : 0;
+    final prixRevient = e.prixAchat + fraisAcq + forfaitTravaux;
+    final pvBrute = (e.prixFinal - prixRevient).toDouble();
     if (pvBrute <= 0) {
       return _card('PLUS-VALUE',
           [_row('Situation', 'Moins-value - aucune imposition')]);
@@ -1001,18 +1003,46 @@ class PdfService {
       return 100;
     }
 
+    // Surtaxe PV > 50 000 EUR — barème article 1609 nonies G CGI
+    double surtaxe(double pv) {
+      if (pv <= 50000) return 0;
+      if (pv <= 60000) return 0.02 * pv - (60000 - pv) / 20;
+      if (pv <= 100000) return 0.02 * pv;
+      if (pv <= 110000) return 0.03 * pv - (110000 - pv) / 10;
+      if (pv <= 150000) return 0.03 * pv;
+      if (pv <= 160000) return 0.04 * pv - (160000 - pv) * 15 / 100;
+      if (pv <= 200000) return 0.04 * pv;
+      if (pv <= 210000) return 0.05 * pv - (210000 - pv) * 20 / 100;
+      if (pv <= 250000) return 0.05 * pv;
+      if (pv <= 260000) return 0.06 * pv - (260000 - pv) * 25 / 100;
+      return 0.06 * pv;
+    }
+
     final ai = abIR(ans).clamp(0.0, 100.0);
     final ap = abPS(ans).clamp(0.0, 100.0);
-    final impot = pvBrute * (1 - ai / 100) * 0.19 +
-        pvBrute * (1 - ap / 100) * 0.172;
+    final pvImposIR = pvBrute * (1 - ai / 100);
+    final pvImposPS = pvBrute * (1 - ap / 100);
+    final impotIR = pvImposIR * 0.19;
+    final impotPS = pvImposPS * 0.172;
+    final pvSurtaxe = surtaxe(pvImposIR);
+    final impot = impotIR + impotPS + pvSurtaxe;
     return _card('PLUS-VALUE (residence secondaire)', [
       _row('Annees de detention', '$ans ans'),
-      _row('Prix de revient (achat + frais 7.5%)',
-          fmt(prixRevient.toDouble())),
-      _row('Plus-value brute', fmt(pvBrute.toDouble()), bold: true),
+      _row('Prix d\'acquisition', fmt(e.prixAchat.toDouble())),
+      _row('Frais d\'acquisition forfaitaires (7,5%)',
+          '+${fmt(fraisAcq.toDouble())}'),
+      if (forfaitTravaux > 0)
+        _row('Forfait travaux (15%, detention >5 ans)',
+            '+${fmt(forfaitTravaux.toDouble())}'),
+      _row('Prix de revient net', fmt(prixRevient.toDouble()), bold: true),
+      _row('Plus-value brute', fmt(pvBrute), bold: true),
       _row('Abattement IR / PS',
           '${ai.toStringAsFixed(0)}% / ${ap.toStringAsFixed(0)}%'),
-      _row('Imposition estimee (IR 19% + PS 17.2%)', fmt(impot), bold: true),
+      _row('Impot IR (19%)', fmt(impotIR)),
+      _row('Prelevements sociaux (17,2%)', fmt(impotPS)),
+      if (pvSurtaxe > 0)
+        _row('Surtaxe PV > 50 KEUR (2-6%)', fmt(pvSurtaxe)),
+      _row('Imposition totale estimee', fmt(impot), bold: true),
       if (ai >= 100 && ap >= 100) _row('Statut', 'Exoneration totale'),
     ]);
   }

@@ -1753,11 +1753,11 @@ class _PlusValueCard extends StatelessWidget {
   final Estimation estimation;
   const _PlusValueCard({required this.estimation});
 
-  // Abattement IR : 6%/an de 6 à 21 ans, 4% à 22 ans
+  // Abattement IR : 6%/an de 6 à 21 ans, 4% à 22 ans, total à 22 ans
   double _abattIR(int ans) {
     if (ans <= 5) return 0;
     if (ans <= 21) return (ans - 5) * 6.0;
-    if (ans == 22) return 96 + 4.0;
+    if (ans == 22) return 16 * 6 + 4.0; // 96 + 4 = 100
     return 100;
   }
 
@@ -1765,9 +1765,25 @@ class _PlusValueCard extends StatelessWidget {
   double _abattPS(int ans) {
     if (ans <= 5) return 0;
     if (ans <= 21) return (ans - 5) * 1.65;
-    if (ans == 22) return 96 * 1.65 / 6 + 1.60;
-    if (ans <= 30) return (21 - 5) * 1.65 + 1.60 + (ans - 22) * 9.0;
+    if (ans == 22) return 16 * 1.65 + 1.60; // 26.4 + 1.60 = 28
+    if (ans <= 30) return 16 * 1.65 + 1.60 + (ans - 22) * 9.0;
     return 100;
+  }
+
+  // Surtaxe PV > 50 000 € — barème article 1609 nonies G CGI
+  // Calcul sur la PV imposable à l'IR (après abattement durée de détention)
+  double _surtaxe(double pv) {
+    if (pv <= 50000) return 0;
+    if (pv <= 60000) return 0.02 * pv - (60000 - pv) * 1 / 20;
+    if (pv <= 100000) return 0.02 * pv;
+    if (pv <= 110000) return 0.03 * pv - (110000 - pv) * 1 / 10;
+    if (pv <= 150000) return 0.03 * pv;
+    if (pv <= 160000) return 0.04 * pv - (160000 - pv) * 15 / 100;
+    if (pv <= 200000) return 0.04 * pv;
+    if (pv <= 210000) return 0.05 * pv - (210000 - pv) * 20 / 100;
+    if (pv <= 250000) return 0.05 * pv;
+    if (pv <= 260000) return 0.06 * pv - (260000 - pv) * 25 / 100;
+    return 0.06 * pv;
   }
 
   @override
@@ -1800,8 +1816,10 @@ class _PlusValueCard extends StatelessWidget {
 
     final annee = DateTime.now().year;
     final ans = (annee - e.anneeAchat).clamp(0, 50);
-    final fraisAcq = (e.prixAchat * 0.075).round(); // forfait 7.5%
-    final prixRevientNet = e.prixAchat + fraisAcq;
+    final fraisAcq = (e.prixAchat * 0.075).round(); // forfait frais d'acquisition 7.5%
+    // Forfait travaux 15% : article 150 VB II 4° CGI, applicable si détention > 5 ans
+    final forfaitTravaux = ans > 5 ? (e.prixAchat * 0.15).round() : 0;
+    final prixRevientNet = e.prixAchat + fraisAcq + forfaitTravaux;
     final pvBrute = (e.prixFinal - prixRevientNet).toDouble();
 
     if (pvBrute <= 0) {
@@ -1818,7 +1836,9 @@ class _PlusValueCard extends StatelessWidget {
     final pvImposPS = pvBrute * (1 - abPS / 100);
     final impotIR = pvImposIR * 0.19;
     final impotPS = pvImposPS * 0.172;
-    final totalImpot = impotIR + impotPS;
+    // Surtaxe sur PV imposable IR > 50 000 € (résidence secondaire, hors terrain à bâtir)
+    final surtaxe = _surtaxe(pvImposIR);
+    final totalImpot = impotIR + impotPS + surtaxe;
 
     fmt(double v) => '${v.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} €';
 
@@ -1832,7 +1852,9 @@ class _PlusValueCard extends StatelessWidget {
       Text('Résidence secondaire · $ans ans de détention', style: const TextStyle(fontSize: 11, color: kGrey, fontStyle: FontStyle.italic)),
       const SizedBox(height: 12),
       _pvRow('Prix d\'acquisition', fmt(e.prixAchat.toDouble())),
-      _pvRow('Frais d\'acquisition forfaitaires (7.5%)', '+${fmt(fraisAcq.toDouble())}'),
+      _pvRow('Frais d\'acquisition forfaitaires (7,5%)', '+${fmt(fraisAcq.toDouble())}'),
+      if (forfaitTravaux > 0)
+        _pvRow('Forfait travaux (15%, détention >5 ans)', '+${fmt(forfaitTravaux.toDouble())}'),
       _pvRow('Prix de revient net', fmt(prixRevientNet.toDouble()), bold: true),
       _pvRow('Prix de vente estimé', fmt(e.prixFinal)),
       const Divider(height: 16),
@@ -1844,7 +1866,8 @@ class _PlusValueCard extends StatelessWidget {
         _alertBox(kGreen, Icons.check_circle_outline, 'Exonération totale — ${ans} ans de détention.')
       else ...[
         if (!exonereIR) _pvRow('Impôt sur le revenu (19%)', fmt(impotIR), color: kRed),
-        if (!exonerePS) _pvRow('Prélèvements sociaux (17.2%)', fmt(impotPS), color: kRed),
+        if (!exonerePS) _pvRow('Prélèvements sociaux (17,2%)', fmt(impotPS), color: kRed),
+        if (surtaxe > 0) _pvRow('Surtaxe PV > 50 K€ (2-6%)', fmt(surtaxe), color: kRed),
         _pvRow('Imposition totale estimée', fmt(totalImpot), bold: true, color: kRed),
         const SizedBox(height: 8),
         _alertBox(
