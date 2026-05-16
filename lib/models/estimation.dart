@@ -213,7 +213,7 @@ class Estimation {
     this.ajustDpe = 0,
     this.ajustExposition = 0,
     this.ajustEnvironnement = 0,
-    this.ajustConjoncture = -3,
+    this.ajustConjoncture = -1, // marché Haute-Savoie 2026 : légère hausse, défaut prudent
     this.terrainConstructibleM2 = 0,
     this.ajustTravaux = 0,
     this.ajustParking = 0,
@@ -257,24 +257,28 @@ class Estimation {
         documentsChecked = documentsChecked ?? {};
 
   // Surface pondérée : balcon×50%, cave×20%, terrasse×30%
+  // Pondération annexes — convention métier 2026 (terrasse > balcon car plus utile)
+  // Source : pratique FNAIM, Hosman, Imop. Plafond habituel ~8 m² par annexe.
   double get surfacePonderee =>
-      surfaceHabitable + surfaceBalcon * 0.5 + surfaceCave * 0.2 + surfaceTerrasse * 0.3;
+      surfaceHabitable + surfaceBalcon * 0.4 + surfaceCave * 0.2 + surfaceTerrasse * 0.5;
 
-  // Coefficients DPE calibrés depuis exemples terrain (Bonneville DPE F, Saint-Pierre DPE E)
-  static double dpeCoefficient(String classe) {
+  // Coefficients DPE — calibrés sur l'étude Notaires de France 2024
+  // (les maisons subissent une décote plus forte que les appartements en F/G)
+  static double dpeCoefficient(String classe, {String typeId = 'maison'}) {
+    final isAppt = typeId == 'appartement';
     switch (classe.toUpperCase()) {
-      case 'A': return 5.0;
-      case 'B': return 3.0;
-      case 'C': return 2.0;  // calibré Arenthon DPE C — atout commercial
+      case 'A': return isAppt ? 4.0 : 6.0;
+      case 'B': return isAppt ? 2.0 : 4.0;
+      case 'C': return 2.0;
       case 'D': return 0.0;
-      case 'E': return -3.0; // calibré Saint-Pierre DPE E
-      case 'F': return -5.0; // calibré Bonneville DPE F
-      case 'G': return -8.0;
+      case 'E': return -3.0;
+      case 'F': return isAppt ? -7.0 : -12.0;  // NdF 2024 : appt -7, maison -16 (modulé)
+      case 'G': return isAppt ? -10.0 : -18.0; // NdF 2024 : appt -10, maison -22 (modulé)
       default: return 0.0;
     }
   }
 
-  double get recommendedAjustDpe => Estimation.dpeCoefficient(dpeClasse);
+  double get recommendedAjustDpe => Estimation.dpeCoefficient(dpeClasse, typeId: typeId);
 
   // Coefficient d'exposition basé sur les orientations
   // Prend la meilleure orientation si plusieurs (ex: S + N → S=+3%)
@@ -319,13 +323,18 @@ class Estimation {
     return 'haut de gamme';
   }
 
+  // Fallback prix m² si aucun comparable DVF disponible.
+  // 5000 EUR/m² = moyenne Saint-Pierre-en-Faucigny / Bonneville 2026
+  // (MeilleursAgents : Haute-Savoie 4600/m², zones frontalières +10-15%)
+  static const double _fallbackPrixM2 = 5000;
+
   double get prixMoyen {
-    if (comparables.isEmpty) return 3381;
+    if (comparables.isEmpty) return _fallbackPrixM2;
     final prices = comparables
         .map<double>((c) => (c['prixM2'] as num?)?.toDouble() ?? 0)
         .where((p) => p > 0)
         .toList();
-    if (prices.isEmpty) return 3381;
+    if (prices.isEmpty) return _fallbackPrixM2;
     prices.sort();
     return prices[prices.length ~/ 2];
   }
@@ -367,7 +376,7 @@ class Estimation {
   }
 
   // Prime terrain : valorise les m² au-delà de 500 m² standard (inclus dans le prix/m² DVF)
-  // Constructible : 80 €/m² | Non-constructible : 8 €/m² (calibré marché 74, avec décote liquidité)
+  // Constructible : 100 €/m² | Non-constructible : 8 €/m² (calibré marché 74, décote liquidité ~60%)
   static const _seuilTerrain = 500;
   static const _tauxConstructible = 100.0;
   static const _tauxNonConstructible = 8.0;
