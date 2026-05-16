@@ -1284,11 +1284,46 @@ class _SimulationCreditCard extends StatefulWidget {
 class _SimulationCreditCardState extends State<_SimulationCreditCard> {
   bool _open = false;
   double _revenus = 3500;
-  double _apport = 30000;
+  late double _apport;
   int _duree = 20;
   double _taux = 3.7;
 
   static const _durees = [10, 15, 20, 25];
+
+  @override
+  void initState() {
+    super.initState();
+    _apport = _defaultApport;
+  }
+
+  @override
+  void didUpdateWidget(_SimulationCreditCard old) {
+    super.didUpdateWidget(old);
+    // Si le prix de mandat change, recalibrer l'apport par défaut (sauf si user a déjà choisi)
+    if (old.prixMandat != widget.prixMandat && _apport == _defaultApportFor(old.prixMandat)) {
+      _apport = _defaultApport;
+    }
+  }
+
+  // Apport par défaut : 20% du prix de mandat (médiane primo-accédant 2025 = 22.7%)
+  double _defaultApportFor(double prix) {
+    if (prix <= 0) return 30000;
+    return ((prix * 0.20) / 5000).round() * 5000;
+  }
+
+  double get _defaultApport => _defaultApportFor(widget.prixMandat);
+
+  // Maximum apport sur le slider : 60% du prix (rares cas d'apport très élevé)
+  double get _apportMax {
+    if (widget.prixMandat <= 0) return 200000;
+    return ((widget.prixMandat * 0.60) / 10000).ceil() * 10000;
+  }
+
+  // Apport minimum conseillé : couvre les frais de notaire (banque finance pas les frais)
+  double get _apportMin => _fraisNotaire;
+
+  // % apport / prix mandat
+  double get _apportPct => widget.prixMandat > 0 ? (_apport / widget.prixMandat * 100) : 0;
 
   // Capacité bancaire (35% des revenus = règle HCSF)
   double get _mensualiteMax => _revenus * 0.35;
@@ -1333,6 +1368,28 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
       result *= base;
     }
     return exp < 0 ? 1 / result : result;
+  }
+
+  Widget _profilChip(String label, double pct) {
+    final target = (widget.prixMandat * pct / 5000).round() * 5000.0;
+    final selected = (_apport - target).abs() < 100;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _apport = target.clamp(0, _apportMax)),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          decoration: BoxDecoration(
+            color: selected ? kGreen : Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: selected ? kGreen : kBorderColor, width: 1.2),
+          ),
+          alignment: Alignment.center,
+          child: Text(label,
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
+                  color: selected ? Colors.white : kGrey)),
+        ),
+      ),
+    );
   }
 
   @override
@@ -1403,23 +1460,57 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
               ]),
               const SizedBox(height: 12),
 
-              // Apport slider
+              // Presets apport selon profil acquéreur typique
+              if (widget.prixMandat > 0) ...[
+                Row(children: [
+                  const Text('Profil :', style: TextStyle(fontSize: 11, color: kGrey)),
+                  const SizedBox(width: 8),
+                  _profilChip('Primo 15%', 0.15),
+                  const SizedBox(width: 6),
+                  _profilChip('Secondo 25%', 0.25),
+                  const SizedBox(width: 6),
+                  _profilChip('Frontalier 40%', 0.40),
+                ]),
+                const SizedBox(height: 8),
+              ],
+
+              // Apport slider — calibré sur le prix de mandat
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 const Text('Apport personnel', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kCharcoal)),
-                Text(_fmt(_apport), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
+                Row(children: [
+                  Text(_fmt(_apport), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
+                  if (widget.prixMandat > 0) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: _apport < _apportMin ? kRed.withOpacity(0.12) : kGreen.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text('${_apportPct.toStringAsFixed(0)}%',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
+                              color: _apport < _apportMin ? kRed : kGreen)),
+                    ),
+                  ],
+                ]),
               ]),
               Slider(
-                value: _apport,
+                value: _apport.clamp(0, _apportMax),
                 min: 0,
-                max: 200000,
-                divisions: 40,
+                max: _apportMax,
+                divisions: (_apportMax / 5000).round().clamp(20, 100),
                 activeColor: kGreen,
                 inactiveColor: kGreen.withOpacity(0.15),
                 onChanged: (v) => setState(() => _apport = (v / 5000).round() * 5000),
               ),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 const Text('0 €', style: TextStyle(fontSize: 10, color: kLightGrey)),
-                const Text('200 000 €', style: TextStyle(fontSize: 10, color: kLightGrey)),
+                if (widget.prixMandat > 0)
+                  Text('Mini frais notaire : ${_fmt(_apportMin)}',
+                      style: TextStyle(fontSize: 10,
+                          color: _apport < _apportMin ? kRed : kGrey,
+                          fontWeight: _apport < _apportMin ? FontWeight.w700 : FontWeight.w400)),
+                Text(_fmt(_apportMax), style: const TextStyle(fontSize: 10, color: kLightGrey)),
               ]),
               const SizedBox(height: 12),
 
