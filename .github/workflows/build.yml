@@ -66,6 +66,7 @@ jobs:
           add_or_set NSPhotoLibraryUsageDescription "Ajouter des photos du bien à estimer"
           add_or_set NSPhotoLibraryAddUsageDescription "Sauvegarder des photos de l'estimation"
           add_or_set NSCameraUsageDescription "Prendre des photos du bien immobilier"
+          add_or_set NSLocationWhenInUseUsageDescription "Détection automatique de l'adresse du bien lors de la visite"
 
           # iPad: support portrait + paysage
           /usr/libexec/PlistBuddy -c "Delete :UISupportedInterfaceOrientations~ipad" "$PLIST" 2>/dev/null || true

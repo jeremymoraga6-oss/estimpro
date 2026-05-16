@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import '../theme.dart';
 
@@ -57,6 +58,7 @@ class _AdresseFieldState extends State<AdresseField> {
   List<AdresseSuggestion> _suggestions = [];
   Timer? _debounce;
   bool _loading = false;
+  bool _geoLoading = false;
 
   @override
   void initState() {
@@ -181,6 +183,61 @@ class _AdresseFieldState extends State<AdresseField> {
     widget.onSelected(s);
   }
 
+  Future<void> _useCurrentLocation() async {
+    if (_geoLoading) return;
+    setState(() => _geoLoading = true);
+    try {
+      final service = await Geolocator.isLocationServiceEnabled();
+      if (!service) {
+        _toast('Activez la localisation dans les paramètres');
+        return;
+      }
+      var perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+        _toast('Autorisation de localisation refusée');
+        return;
+      }
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      ).timeout(const Duration(seconds: 15));
+
+      final uri = Uri.parse('https://api-adresse.data.gouv.fr/reverse/').replace(
+        queryParameters: {
+          'lon': pos.longitude.toString(),
+          'lat': pos.latitude.toString(),
+          'limit': '1',
+        },
+      );
+      final resp = await http.get(uri).timeout(const Duration(seconds: 8));
+      if (resp.statusCode != 200) {
+        _toast('Adresse introuvable à votre position');
+        return;
+      }
+      final json = jsonDecode(resp.body) as Map<String, dynamic>;
+      final features = (json['features'] as List?) ?? [];
+      if (features.isEmpty) {
+        _toast('Aucune adresse trouvée à proximité');
+        return;
+      }
+      final s = AdresseSuggestion.fromFeature(features.first as Map<String, dynamic>);
+      _select(s);
+    } catch (e) {
+      _toast('Erreur géolocalisation');
+    } finally {
+      if (mounted) setState(() => _geoLoading = false);
+    }
+  }
+
+  void _toast(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), duration: const Duration(seconds: 3)),
+    );
+  }
+
   double _fieldWidth() {
     final box = context.findRenderObject() as RenderBox?;
     return box?.size.width ?? 300;
@@ -207,7 +264,17 @@ class _AdresseFieldState extends State<AdresseField> {
                         height: 16,
                         child:
                             CircularProgressIndicator(strokeWidth: 2, color: kGreen)))
-                : null,
+                : IconButton(
+                    tooltip: 'Utiliser ma position',
+                    icon: _geoLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: kGreen),
+                          )
+                        : const Icon(Icons.my_location_rounded, size: 18, color: kGreen),
+                    onPressed: _useCurrentLocation,
+                  ),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             filled: true,

@@ -1293,9 +1293,14 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
   // Capacité bancaire (35% des revenus = règle HCSF)
   double get _mensualiteMax => _revenus * 0.35;
 
-  // Mensualité réelle si on finance (prixMandat - apport) sur _duree ans
+  // Frais de notaire ~7.5% pour l'ancien (droits + émoluments + débours)
+  double get _fraisNotaire => widget.prixMandat * 0.075;
+  // Coût total acquéreur = prix + frais notaire (ce que la banque évalue)
+  double get _coutTotal => widget.prixMandat + _fraisNotaire;
+
+  // Mensualité réelle si on finance (coutTotal - apport) sur _duree ans
   double get _mensualiteRequise {
-    final montant = (widget.prixMandat - _apport).clamp(0, double.infinity);
+    final montant = (_coutTotal - _apport).clamp(0, double.infinity);
     if (montant == 0) return 0;
     final r = _taux / 100 / 12;
     final n = _duree * 12;
@@ -1312,9 +1317,9 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
   }
 
   double get _budgetTotal => _capaciteEmprunt + _apport;
-  double get _gap => widget.prixMandat - _budgetTotal;
+  double get _gap => _coutTotal - _budgetTotal;
   // Vrai critère : la mensualité requise dépasse-t-elle le max autorisé ?
-  bool get _accessible => _mensualiteRequise <= _mensualiteMax && _budgetTotal >= widget.prixMandat;
+  bool get _accessible => _mensualiteRequise <= _mensualiteMax && _budgetTotal >= _coutTotal;
 
   String _fmt(double n) {
     final s = n.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
@@ -1501,8 +1506,23 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
                   ),
                   const SizedBox(height: 10),
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    const Text('Prix de mandat :', style: TextStyle(fontSize: 12, color: kGrey)),
+                    Text(_fmt(widget.prixMandat), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
+                  ]),
+                  const SizedBox(height: 4),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    const Text('Frais de notaire (~7,5%) :', style: TextStyle(fontSize: 12, color: kGrey)),
+                    Text(_fmt(_fraisNotaire), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
+                  ]),
+                  const SizedBox(height: 4),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    const Text('Coût total acquéreur :', style: TextStyle(fontSize: 12, color: kGrey, fontWeight: FontWeight.w600)),
+                    Text(_fmt(_coutTotal), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: kCharcoal)),
+                  ]),
+                  const Divider(height: 14),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                     const Text('Montant emprunté :', style: TextStyle(fontSize: 12, color: kGrey)),
-                    Text(_fmt((widget.prixMandat - _apport).clamp(0, double.infinity)), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
+                    Text(_fmt((_coutTotal - _apport).clamp(0, double.infinity)), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
                   ]),
                   const SizedBox(height: 4),
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -1518,11 +1538,6 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                     const Text('Budget total acquéreur :', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal)),
                     Text(_fmt(_budgetTotal), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: accessible ? kGreen : kRed)),
-                  ]),
-                  const SizedBox(height: 8),
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    const Text('Prix de mandat :', style: TextStyle(fontSize: 12, color: kGrey)),
-                    Text(_fmt(widget.prixMandat), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
                   ]),
                   const SizedBox(height: 8),
                   Container(

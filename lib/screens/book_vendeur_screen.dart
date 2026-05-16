@@ -31,18 +31,58 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
     super.dispose();
   }
 
+  Future<File> _writeTempPdf() async {
+    final bytes = await rootBundle.load('assets/docs/book_vendeur.pdf');
+    final tmp = await getTemporaryDirectory();
+    final file = File('${tmp.path}/Book_Vendeur_Faucigny.pdf');
+    await file.writeAsBytes(bytes.buffer.asUint8List());
+    return file;
+  }
+
   Future<void> _share() async {
     if (_sharing) return;
     setState(() => _sharing = true);
     try {
-      final bytes = await rootBundle.load('assets/docs/book_vendeur.pdf');
-      final tmp = await getTemporaryDirectory();
-      final file = File('${tmp.path}/Book_Vendeur_Faucigny.pdf');
-      await file.writeAsBytes(bytes.buffer.asUint8List());
+      final file = await _writeTempPdf();
       await SharePlus.instance.share(
         ShareParams(
           files: [XFile(file.path)],
           subject: 'Book Vendeur — Faucigny Immobilier',
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _sharing = false);
+    }
+  }
+
+  Future<void> _sendByEmail() async {
+    if (_sharing) return;
+    setState(() => _sharing = true);
+    try {
+      final file = await _writeTempPdf();
+      const body = '''Bonjour,
+
+Suite à notre échange, je vous transmets notre book de présentation Faucigny Immobilier.
+
+Vous y trouverez :
+• Notre approche personnalisée et notre ancrage local à Saint-Pierre-en-Faucigny
+• La force du réseau Efficity à l'échelle nationale
+• Nos engagements et nos services pour réussir la vente de votre bien
+
+Je reste à votre entière disposition pour échanger sur votre projet et planifier une estimation gratuite et sans engagement.
+
+Bien cordialement,
+
+Jérémy MORAGA
+Conseiller immobilier
+Faucigny Immobilier by Efficity
+Saint-Pierre-en-Faucigny — Haute-Savoie
+''';
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          subject: 'Faucigny Immobilier — Votre dossier vendeur',
+          text: body,
         ),
       );
     } finally {
@@ -63,18 +103,11 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
           if (_totalPages > 0)
             Center(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Text('$_currentPage / $_totalPages',
                     style: const TextStyle(color: Color(0xFFB2BEC3), fontSize: 13)),
               ),
             ),
-          IconButton(
-            icon: _sharing
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : const Icon(Icons.share_rounded),
-            tooltip: 'Partager le book',
-            onPressed: _share,
-          ),
         ],
       ),
       body: PdfViewer.asset(
@@ -89,6 +122,50 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
           onViewerReady: (document, controller) {
             if (mounted) setState(() => _totalPages = document.pages.length);
           },
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+          decoration: const BoxDecoration(
+            color: kCharcoal,
+            border: Border(top: BorderSide(color: Color(0xFF2D3436), width: 1)),
+          ),
+          child: Row(children: [
+            Expanded(
+              child: SizedBox(
+                height: 46,
+                child: ElevatedButton.icon(
+                  onPressed: _sharing ? null : _sendByEmail,
+                  icon: const Icon(Icons.email_rounded, size: 18),
+                  label: const Text('Envoyer par email',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kGreen,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            SizedBox(
+              height: 46,
+              width: 46,
+              child: ElevatedButton(
+                onPressed: _sharing ? null : _share,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2D3436),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Icon(Icons.share_rounded, size: 18),
+              ),
+            ),
+          ]),
         ),
       ),
     );
