@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'dvf_cache.dart';
 import 'geo_service.dart';
 
 class DvfTransaction {
@@ -111,6 +112,7 @@ class DvfFetchResult {
 /// Pattern : .../latest/csv/{année}/communes/{dep}/{insee}.csv
 class DvfService {
   static const _base = 'https://files.data.gouv.fr/geo-dvf/latest/csv';
+  final _cache = DvfCache();
 
   /// Fetch DVF transactions for a commune across the last 3-4 years,
   /// with optional surface (±30%), type, and radius (km) filtering.
@@ -279,27 +281,55 @@ class DvfService {
     required String dep,
     required String codeInsee,
   }) async {
-    final url = '$_base/$year/communes/$dep/$codeInsee.csv';
-    try {
-      final resp = await http
-          .get(Uri.parse(url))
-          .timeout(const Duration(seconds: 15));
-      if (resp.statusCode == 404) {
-        // Année pas encore publiée — pas une erreur
-        debugPrint('[DVF] $year : 404 (pas encore publié)');
-        return _YearResult.empty();
-      }
-      if (resp.statusCode != 200) {
-        return _YearResult(error: 'HTTP ${resp.statusCode} sur $year');
-      }
-      final rows = _parseCsv(resp.body);
+    // 1. Tente le cache frais (< 30 jours)
+    final cached = await _cache.read(year, dep, codeInsee);
+    if (cached != null) {
+      final rows = _parseCsv(cached);
       final txs = rows.map(DvfTransaction.fromCsvRow).toList();
-      debugPrint('[DVF] $year : ${txs.length} ventes');
       return _YearResult(transactions: txs, count: txs.length);
-    } catch (e) {
-      debugPrint('[DVF] $year exception : $e');
-      return _YearResult(error: e.toString());
     }
+
+    // 2. Téléchargement avec retry (2s, 4s, 8s)
+    final url = '$_base/$year/communes/$dep/$codeInsee.csv';
+    String? error;
+    for (int attempt = 0; attempt < 3; attempt++) {
+      try {
+        if (attempt > 0) {
+          await Future.delayed(Duration(seconds: 2 << (attempt - 1)));
+          debugPrint('[DVF] $year retry ${attempt + 1}/3');
+        }
+        final resp = await http
+            .get(Uri.parse(url))
+            .timeout(const Duration(seconds: 20));
+        if (resp.statusCode == 404) {
+          debugPrint('[DVF] $year : 404 (pas encore publié)');
+          return _YearResult.empty();
+        }
+        if (resp.statusCode == 200) {
+          // Sauvegarde dans le cache
+          await _cache.write(year, dep, codeInsee, resp.body);
+          final rows = _parseCsv(resp.body);
+          final txs = rows.map(DvfTransaction.fromCsvRow).toList();
+          debugPrint('[DVF] $year : ${txs.length} ventes');
+          return _YearResult(transactions: txs, count: txs.length);
+        }
+        error = 'HTTP ${resp.statusCode} sur $year';
+      } catch (e) {
+        error = e.toString();
+        debugPrint('[DVF] $year attempt ${attempt + 1} échec : $e');
+      }
+    }
+
+    // 3. Échec total après retry → tente le cache expiré en filet de sécurité
+    final stale = await _cache.readStale(year, dep, codeInsee);
+    if (stale != null) {
+      debugPrint('[DVF] $year servi depuis cache STALE (réseau KO)');
+      final rows = _parseCsv(stale);
+      final txs = rows.map(DvfTransaction.fromCsvRow).toList();
+      return _YearResult(transactions: txs, count: txs.length);
+    }
+
+    return _YearResult(error: error ?? 'Erreur inconnue');
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────
