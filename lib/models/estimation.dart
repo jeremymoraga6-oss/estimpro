@@ -324,9 +324,12 @@ class Estimation {
   }
 
   // Fallback prix m² si aucun comparable DVF disponible.
-  // 5000 EUR/m² = moyenne Saint-Pierre-en-Faucigny / Bonneville 2026
-  // (MeilleursAgents : Haute-Savoie 4600/m², zones frontalières +10-15%)
-  static const double _fallbackPrixM2 = 5000;
+  // 4200 EUR/m² = moyenne pondérée Faucigny 2026 :
+  // - Bonneville centre : 3800-4200/m²
+  // - Saint-Pierre-en-Faucigny : 4500-5000/m²
+  // - Communes plus rurales (Ayse, Marignier) : 3500-4000/m²
+  // Volontairement légèrement bas pour ne pas surévaluer en l'absence de comparable.
+  static const double _fallbackPrixM2 = 4200;
 
   double get prixMoyen {
     if (comparables.isEmpty) return _fallbackPrixM2;

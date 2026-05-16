@@ -50,76 +50,17 @@ class _Section5ScreenState extends State<Section5Screen> {
 
   void _update(Estimation e) { setState(() => _e = e); widget.onChanged(e); }
 
-  Future<void> _loadDvf({bool forceRefresh = false}) async {
+  Future<void> _loadDvf() async {
     setState(() { _loading = true; _result = null; });
-
-    Future<DvfFetchResult> fetch(double km, String? type, {bool noSurface = false}) =>
-        DvfService().fetch(
-          codeInsee: _e.codeInsee,
-          typeLocal: type,
-          surface: noSurface ? null : _e.surfaceHabitable.toDouble(),
-          radiusKm: km > 0 ? km : null,
-          latitude: _e.latitude,
-          longitude: _e.longitude,
-          bypassCache: forceRefresh,
-        );
-
-    // Cascade de relaxation : 3 dimensions (rayon, type, surface).
-    // 0 km = pas de filtre géographique (toute la commune).
-    final initialKm = _e.dvfRadiusKm > 0 ? _e.dvfRadiusKm : 3.0;
-    final attempts = <(double, String?, bool)>[
-      // Étape 1 : filtres actuels, rayons progressifs
-      (initialKm, _filterType, false),
-      if (initialKm < 3) (3.0, _filterType, false),
-      if (initialKm < 5) (5.0, _filterType, false),
-      (0, _filterType, false), // toute la commune avec le type + surface
-      // Étape 2 : retire le type, garde surface
-      if (_filterType != null) ...[
-        (initialKm, null, false),
-        if (initialKm < 3) (3.0, null, false),
-        if (initialKm < 5) (5.0, null, false),
-        (0, null, false),
-      ],
-      // Étape 3 : retire surface aussi (sécurité ultime)
-      (initialKm, _filterType, true),
-      (5.0, _filterType, true),
-      (0, _filterType, true),
-      if (_filterType != null) (0, null, true), // tout ouvert
-    ];
-
-    DvfFetchResult? r;
-    (double, String?, bool)? winning;
-    for (final tuple in attempts) {
-      final (km, type, noSurface) = tuple;
-      r = await fetch(km, type, noSurface: noSurface);
-      debugPrint('[DVF] tried km=$km type=$type noSurface=$noSurface → ${r.transactions.length} ventes (brut=${r.nombreBrut})');
-      if (r.transactions.isNotEmpty) {
-        winning = tuple;
-        if (km != _e.dvfRadiusKm) _update(_e.copyWith(dvfRadiusKm: km));
-        if (type != _filterType && mounted) setState(() => _filterType = type);
-        break;
-      }
-    }
-
+    final r = await DvfService().fetch(
+      codeInsee: _e.codeInsee,
+      typeLocal: _filterType,
+      surface: _e.surfaceHabitable.toDouble(),
+      radiusKm: _e.dvfRadiusKm > 0 ? _e.dvfRadiusKm : null,
+      latitude: _e.latitude,
+      longitude: _e.longitude,
+    );
     if (mounted) setState(() { _result = r; _loading = false; });
-
-    // Toast informatif si on a dû relaxer
-    if (winning != null && r != null && r.transactions.isNotEmpty) {
-      final (km, type, noSurface) = winning;
-      final relaxations = <String>[];
-      if (km != (_e.dvfRadiusKm > 0 ? _e.dvfRadiusKm : 3.0)) {
-        relaxations.add(km == 0 ? 'toute la commune' : 'rayon ${km.toInt()} km');
-      }
-      if (type == null && _filterType != null) relaxations.add('tous types');
-      if (noSurface) relaxations.add('toutes surfaces');
-      if (relaxations.isNotEmpty && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Critères élargis : ${relaxations.join(", ")}'),
-          duration: const Duration(seconds: 3),
-          backgroundColor: kGreen,
-        ));
-      }
-    }
   }
 
   void _setRadius(double km) {
@@ -230,7 +171,7 @@ class _Section5ScreenState extends State<Section5Screen> {
                 ]),
                 Row(children: [
                   GestureDetector(
-                    onTap: _loading ? null : () => _loadDvf(forceRefresh: true),
+                    onTap: _loading ? null : () => _loadDvf(),
                     child: Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(color: const Color(0xFFF7F9F7), borderRadius: BorderRadius.circular(8)),
@@ -319,7 +260,7 @@ class _Section5ScreenState extends State<Section5Screen> {
                   ),
                   const SizedBox(height: 8),
                   TextButton.icon(
-                    onPressed: () => _loadDvf(forceRefresh: true),
+                    onPressed: () => _loadDvf(),
                     icon: const Icon(Icons.cloud_download_rounded, size: 16),
                     label: const Text('Forcer le re-téléchargement'),
                     style: TextButton.styleFrom(foregroundColor: kGreen),
