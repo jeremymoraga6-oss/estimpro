@@ -146,6 +146,12 @@ class _HomeTab extends StatelessWidget {
                         Row(children: [
                           const Text('Bonjour Jérémy ', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700)),
                           const Text('👋', style: TextStyle(fontSize: 16)),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: kGreen.withOpacity(0.2), borderRadius: BorderRadius.circular(4)),
+                            child: const Text('v1.1.0', style: TextStyle(color: Color(0xFFB2DFDB), fontSize: 9, fontWeight: FontWeight.w600)),
+                          ),
                         ]),
                       ]),
                     ),
