@@ -52,35 +52,42 @@ class _Section5ScreenState extends State<Section5Screen> {
 
   Future<void> _loadDvf() async {
     setState(() { _loading = true; _result = null; });
-    var r = await DvfService().fetch(
-      codeInsee: _e.codeInsee,
-      typeLocal: _filterType,
-      surface: _e.surfaceHabitable.toDouble(),
-      radiusKm: _e.dvfRadiusKm > 0 ? _e.dvfRadiusKm : null,
-      latitude: _e.latitude,
-      longitude: _e.longitude,
-    );
 
-    // Auto-élargissement progressif si aucun résultat :
-    // 1 km → 3 km → 5 km, jusqu'à trouver des transactions.
-    final widenSteps = [3.0, 5.0];
-    for (final km in widenSteps) {
-      if (r.transactions.isNotEmpty) break;
-      if (_e.dvfRadiusKm >= km) continue; // déjà testé ou plus large
-      r = await DvfService().fetch(
-        codeInsee: _e.codeInsee,
-        typeLocal: _filterType,
-        surface: _e.surfaceHabitable.toDouble(),
-        radiusKm: km,
-        latitude: _e.latitude,
-        longitude: _e.longitude,
-      );
+    Future<DvfFetchResult> fetch(double km, String? type) => DvfService().fetch(
+          codeInsee: _e.codeInsee,
+          typeLocal: type,
+          surface: _e.surfaceHabitable.toDouble(),
+          radiusKm: km > 0 ? km : null,
+          latitude: _e.latitude,
+          longitude: _e.longitude,
+        );
+
+    // Combinaisons testées dans l'ordre : (rayon, type)
+    // On commence par les filtres actuels puis on relaxe progressivement.
+    final initialKm = _e.dvfRadiusKm > 0 ? _e.dvfRadiusKm : 3.0;
+    final attempts = <(double, String?)>[
+      (initialKm, _filterType),
+      if (initialKm < 3) (3.0, _filterType),
+      if (initialKm < 5) (5.0, _filterType),
+      // Si toujours 0 avec le type filtré, on retire le type
+      if (_filterType != null) (initialKm, null),
+      if (_filterType != null && initialKm < 3) (3.0, null),
+      if (_filterType != null && initialKm < 5) (5.0, null),
+    ];
+
+    DvfFetchResult? r;
+    for (final (km, type) in attempts) {
+      r = await fetch(km, type);
+      debugPrint('[DVF] tried km=$km type=$type → ${r.transactions.length} ventes');
       if (r.transactions.isNotEmpty) {
-        // Sauvegarde le rayon qui a marché pour les prochaines fois
-        _update(_e.copyWith(dvfRadiusKm: km));
+        // Sauvegarde le rayon trouvé pour la prochaine fois
+        if (km != _e.dvfRadiusKm) _update(_e.copyWith(dvfRadiusKm: km));
+        // Si le filtre type a été retiré pour trouver des résultats, on bascule l'UI
+        if (type != _filterType && mounted) setState(() => _filterType = type);
         break;
       }
     }
+
     if (mounted) setState(() { _result = r; _loading = false; });
   }
 
