@@ -127,6 +127,7 @@ class DvfService {
     double? radiusKm,
     double? latitude,
     double? longitude,
+    bool bypassCache = false, // force le re-téléchargement (ignore cache)
   }) async {
     if (codeInsee.isEmpty) {
       return const DvfFetchResult(
@@ -190,7 +191,7 @@ class DvfService {
     for (final c in communeCodes) {
       final cdep = _depFromInsee(c);
       for (final y in years) {
-        tasks.add(_fetchYear(year: y, dep: cdep, codeInsee: c));
+        tasks.add(_fetchYear(year: y, dep: cdep, codeInsee: c, bypassCache: bypassCache));
       }
     }
     final results = await Future.wait(tasks);
@@ -280,13 +281,17 @@ class DvfService {
     required int year,
     required String dep,
     required String codeInsee,
+    bool bypassCache = false,
   }) async {
-    // 1. Tente le cache frais (< 30 jours)
-    final cached = await _cache.read(year, dep, codeInsee);
-    if (cached != null) {
-      final rows = _parseCsv(cached);
-      final txs = rows.map(DvfTransaction.fromCsvRow).toList();
-      return _YearResult(transactions: txs, count: txs.length);
+    // 1. Tente le cache frais (< 30 jours) sauf bypass explicite
+    if (!bypassCache) {
+      final cached = await _cache.read(year, dep, codeInsee);
+      // Ignore les caches suspectement vides (< 200 bytes = probablement corrompus)
+      if (cached != null && cached.length >= 200) {
+        final rows = _parseCsv(cached);
+        final txs = rows.map(DvfTransaction.fromCsvRow).toList();
+        return _YearResult(transactions: txs, count: txs.length);
+      }
     }
 
     // 2. Téléchargement avec retry (2s, 4s, 8s)
@@ -306,11 +311,13 @@ class DvfService {
           return _YearResult.empty();
         }
         if (resp.statusCode == 200) {
-          // Sauvegarde dans le cache
-          await _cache.write(year, dep, codeInsee, resp.body);
+          // Sauvegarde dans le cache UNIQUEMENT si la réponse semble valide (> 200 bytes)
+          if (resp.body.length >= 200) {
+            await _cache.write(year, dep, codeInsee, resp.body);
+          }
           final rows = _parseCsv(resp.body);
           final txs = rows.map(DvfTransaction.fromCsvRow).toList();
-          debugPrint('[DVF] $year : ${txs.length} ventes');
+          debugPrint('[DVF] $year : ${txs.length} ventes (${resp.body.length} bytes)');
           return _YearResult(transactions: txs, count: txs.length);
         }
         error = 'HTTP ${resp.statusCode} sur $year';

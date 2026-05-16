@@ -50,7 +50,7 @@ class _Section5ScreenState extends State<Section5Screen> {
 
   void _update(Estimation e) { setState(() => _e = e); widget.onChanged(e); }
 
-  Future<void> _loadDvf() async {
+  Future<void> _loadDvf({bool forceRefresh = false}) async {
     setState(() { _loading = true; _result = null; });
 
     Future<DvfFetchResult> fetch(double km, String? type) => DvfService().fetch(
@@ -60,19 +60,21 @@ class _Section5ScreenState extends State<Section5Screen> {
           radiusKm: km > 0 ? km : null,
           latitude: _e.latitude,
           longitude: _e.longitude,
+          bypassCache: forceRefresh,
         );
 
-    // Combinaisons testées dans l'ordre : (rayon, type)
-    // On commence par les filtres actuels puis on relaxe progressivement.
+    // Combinaisons testées dans l'ordre, relaxation progressive.
+    // 0 = pas de filtre géographique (toute la commune)
     final initialKm = _e.dvfRadiusKm > 0 ? _e.dvfRadiusKm : 3.0;
     final attempts = <(double, String?)>[
       (initialKm, _filterType),
       if (initialKm < 3) (3.0, _filterType),
       if (initialKm < 5) (5.0, _filterType),
-      // Si toujours 0 avec le type filtré, on retire le type
+      (0, _filterType), // toute la commune avec le type
       if (_filterType != null) (initialKm, null),
       if (_filterType != null && initialKm < 3) (3.0, null),
       if (_filterType != null && initialKm < 5) (5.0, null),
+      if (_filterType != null) (0, null), // toute la commune, tous types
     ];
 
     DvfFetchResult? r;
@@ -80,9 +82,7 @@ class _Section5ScreenState extends State<Section5Screen> {
       r = await fetch(km, type);
       debugPrint('[DVF] tried km=$km type=$type → ${r.transactions.length} ventes');
       if (r.transactions.isNotEmpty) {
-        // Sauvegarde le rayon trouvé pour la prochaine fois
         if (km != _e.dvfRadiusKm) _update(_e.copyWith(dvfRadiusKm: km));
-        // Si le filtre type a été retiré pour trouver des résultats, on bascule l'UI
         if (type != _filterType && mounted) setState(() => _filterType = type);
         break;
       }
@@ -197,11 +197,26 @@ class _Section5ScreenState extends State<Section5Screen> {
                     const Text('Données officielles notaires', style: TextStyle(fontSize: 11, color: kGrey)),
                   ]),
                 ]),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                  child: const Text('SOURCE OFFICIELLE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: kGreen, letterSpacing: 0.8)),
-                ),
+                Row(children: [
+                  GestureDetector(
+                    onTap: _loading ? null : () => _loadDvf(forceRefresh: true),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(color: const Color(0xFFF7F9F7), borderRadius: BorderRadius.circular(8)),
+                      child: Icon(
+                        _loading ? Icons.hourglass_empty_rounded : Icons.refresh_rounded,
+                        size: 16,
+                        color: _loading ? kLightGrey : kGreen,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                    child: const Text('SOURCE OFFICIELLE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: kGreen, letterSpacing: 0.8)),
+                  ),
+                ]),
               ]),
               const SizedBox(height: 12),
 

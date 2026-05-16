@@ -11,6 +11,7 @@ class AppSettings {
   static final AppSettings instance = AppSettings._();
 
   String _anthropicKey = '';
+  int _dvfCacheVersion = 0; // utilisé pour migrer/clear le cache DVF entre versions
   bool _loaded = false;
 
   Future<File> get _file async {
@@ -28,6 +29,7 @@ class AppSettings {
       }
       final data = jsonDecode(await f.readAsString()) as Map<String, dynamic>;
       _anthropicKey = (data['anthropicKey'] as String?) ?? '';
+      _dvfCacheVersion = (data['dvfCacheVersion'] as int?) ?? 0;
     } catch (e) {
       debugPrint('[Settings] load error: $e');
     }
@@ -37,7 +39,10 @@ class AppSettings {
   Future<void> save() async {
     try {
       final f = await _file;
-      await f.writeAsString(jsonEncode({'anthropicKey': _anthropicKey}));
+      await f.writeAsString(jsonEncode({
+        'anthropicKey': _anthropicKey,
+        'dvfCacheVersion': _dvfCacheVersion,
+      }));
     } catch (e) {
       debugPrint('[Settings] save error: $e');
     }
@@ -51,4 +56,10 @@ class AppSettings {
   }
 
   bool get hasAnthropicKey => _anthropicKey.isNotEmpty;
+
+  int get dvfCacheVersion => _dvfCacheVersion;
+  Future<void> setDvfCacheVersion(int v) async {
+    _dvfCacheVersion = v;
+    await save();
+  }
 }

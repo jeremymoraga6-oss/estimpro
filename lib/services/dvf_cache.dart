@@ -63,6 +63,24 @@ class DvfCache {
     }
   }
 
+  /// Vide TOUT le cache DVF (utilisé pour forcer un re-téléchargement complet)
+  Future<int> clearAll() async {
+    try {
+      final dir = await _dir;
+      int deleted = 0;
+      await for (final entity in dir.list()) {
+        if (entity is File) {
+          await entity.delete();
+          deleted++;
+        }
+      }
+      debugPrint('[DVF-cache] clearAll: $deleted fichiers supprimés');
+      return deleted;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   /// Nettoie les fichiers de plus de 90 jours pour ne pas remplir le disque
   Future<void> cleanup() async {
     try {
