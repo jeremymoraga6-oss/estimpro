@@ -59,6 +59,8 @@ class PdfService {
         _prestationsSection(e),
         pw.SizedBox(height: 20),
         _estimationSection(e, price),
+        pw.SizedBox(height: 20),
+        _simulationAcquereurSection(e),
         if (e.risques != null && e.risques!.hasData) ...[
           pw.SizedBox(height: 20),
           _risquesSection(e.risques!),
@@ -117,6 +119,8 @@ class PdfService {
         _prestationsSection(e),
         pw.SizedBox(height: 20),
         _estimationSection(e, price),
+        pw.SizedBox(height: 20),
+        _simulationAcquereurSection(e),
         if (e.risques != null && e.risques!.hasData) ...[
           pw.SizedBox(height: 20),
           _risquesSection(e.risques!),
@@ -828,6 +832,8 @@ class PdfService {
         _row('Parking supplémentaire', '+${fmt(e.ajustParking.toDouble())}'),
       if (e.ajustPiscine > 0)
         _row('Prime piscine', '+${fmt(e.ajustPiscine.toDouble())}'),
+      if (e.primeTerrain > 0)
+        _row('Prime terrain (>500 m²)', '+${fmt(e.primeTerrain)}'),
       if (e.ajustTravaux > 0)
         _row('Travaux', '-${fmt(e.ajustTravaux.toDouble())}'),
       pw.Padding(
@@ -840,6 +846,24 @@ class PdfService {
           bold: true),
       _row('Fourchette', '${fmt(low)} — ${fmt(high)}'),
       _row('Validité', _fmtDate(e.validiteJusquau)),
+    ]);
+  }
+
+  pw.Widget _simulationAcquereurSection(Estimation e) {
+    fmt(double v) => '${v.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} EUR';
+    return _card('SIMULATION COUT ACQUEREUR', [
+      _row('Prix de mandat', fmt(e.prixMandat), bold: true),
+      _row('Frais de notaire (~8%, ancien Haute-Savoie)', '+${fmt(e.fraisNotaireAcquereur)}'),
+      pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(vertical: 6),
+        child: pw.Container(height: 0.5, color: PdfColors.grey300),
+      ),
+      _row('Budget total acquereur', fmt(e.budgetTotalAcquereur), bold: true),
+      pw.SizedBox(height: 8),
+      pw.Text(
+        'Indicatif : DMTO 5% + emoluments + debours. Hors assurance et frais bancaires.',
+        style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600, fontStyle: pw.FontStyle.italic),
+      ),
     ]);
   }
 
