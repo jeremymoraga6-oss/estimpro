@@ -53,35 +53,48 @@ class _Section5ScreenState extends State<Section5Screen> {
   Future<void> _loadDvf({bool forceRefresh = false}) async {
     setState(() { _loading = true; _result = null; });
 
-    Future<DvfFetchResult> fetch(double km, String? type) => DvfService().fetch(
+    Future<DvfFetchResult> fetch(double km, String? type, {bool noSurface = false}) =>
+        DvfService().fetch(
           codeInsee: _e.codeInsee,
           typeLocal: type,
-          surface: _e.surfaceHabitable.toDouble(),
+          surface: noSurface ? null : _e.surfaceHabitable.toDouble(),
           radiusKm: km > 0 ? km : null,
           latitude: _e.latitude,
           longitude: _e.longitude,
           bypassCache: forceRefresh,
         );
 
-    // Combinaisons testées dans l'ordre, relaxation progressive.
-    // 0 = pas de filtre géographique (toute la commune)
+    // Cascade de relaxation : 3 dimensions (rayon, type, surface).
+    // 0 km = pas de filtre géographique (toute la commune).
     final initialKm = _e.dvfRadiusKm > 0 ? _e.dvfRadiusKm : 3.0;
-    final attempts = <(double, String?)>[
-      (initialKm, _filterType),
-      if (initialKm < 3) (3.0, _filterType),
-      if (initialKm < 5) (5.0, _filterType),
-      (0, _filterType), // toute la commune avec le type
-      if (_filterType != null) (initialKm, null),
-      if (_filterType != null && initialKm < 3) (3.0, null),
-      if (_filterType != null && initialKm < 5) (5.0, null),
-      if (_filterType != null) (0, null), // toute la commune, tous types
+    final attempts = <(double, String?, bool)>[
+      // Étape 1 : filtres actuels, rayons progressifs
+      (initialKm, _filterType, false),
+      if (initialKm < 3) (3.0, _filterType, false),
+      if (initialKm < 5) (5.0, _filterType, false),
+      (0, _filterType, false), // toute la commune avec le type + surface
+      // Étape 2 : retire le type, garde surface
+      if (_filterType != null) ...[
+        (initialKm, null, false),
+        if (initialKm < 3) (3.0, null, false),
+        if (initialKm < 5) (5.0, null, false),
+        (0, null, false),
+      ],
+      // Étape 3 : retire surface aussi (sécurité ultime)
+      (initialKm, _filterType, true),
+      (5.0, _filterType, true),
+      (0, _filterType, true),
+      if (_filterType != null) (0, null, true), // tout ouvert
     ];
 
     DvfFetchResult? r;
-    for (final (km, type) in attempts) {
-      r = await fetch(km, type);
-      debugPrint('[DVF] tried km=$km type=$type → ${r.transactions.length} ventes');
+    (double, String?, bool)? winning;
+    for (final tuple in attempts) {
+      final (km, type, noSurface) = tuple;
+      r = await fetch(km, type, noSurface: noSurface);
+      debugPrint('[DVF] tried km=$km type=$type noSurface=$noSurface → ${r.transactions.length} ventes (brut=${r.nombreBrut})');
       if (r.transactions.isNotEmpty) {
+        winning = tuple;
         if (km != _e.dvfRadiusKm) _update(_e.copyWith(dvfRadiusKm: km));
         if (type != _filterType && mounted) setState(() => _filterType = type);
         break;
@@ -89,6 +102,24 @@ class _Section5ScreenState extends State<Section5Screen> {
     }
 
     if (mounted) setState(() { _result = r; _loading = false; });
+
+    // Toast informatif si on a dû relaxer
+    if (winning != null && r != null && r.transactions.isNotEmpty) {
+      final (km, type, noSurface) = winning;
+      final relaxations = <String>[];
+      if (km != (_e.dvfRadiusKm > 0 ? _e.dvfRadiusKm : 3.0)) {
+        relaxations.add(km == 0 ? 'toute la commune' : 'rayon ${km.toInt()} km');
+      }
+      if (type == null && _filterType != null) relaxations.add('tous types');
+      if (noSurface) relaxations.add('toutes surfaces');
+      if (relaxations.isNotEmpty && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Critères élargis : ${relaxations.join(", ")}'),
+          duration: const Duration(seconds: 3),
+          backgroundColor: kGreen,
+        ));
+      }
+    }
   }
 
   void _setRadius(double km) {
@@ -273,11 +304,26 @@ class _Section5ScreenState extends State<Section5Screen> {
                 child: Column(children: [
                   const Icon(Icons.search_off_rounded, color: kLightGrey, size: 36),
                   const SizedBox(height: 10),
-                  const Text('Aucune vente trouvée dans ce secteur.', style: TextStyle(fontSize: 13, color: kGrey), textAlign: TextAlign.center),
+                  const Text('Aucune vente trouvée après toutes les relaxations.',
+                      style: TextStyle(fontSize: 13, color: kGrey), textAlign: TextAlign.center),
                   const SizedBox(height: 4),
-                  Text('Code INSEE utilisé : ${_result!.codeInsee}', style: const TextStyle(fontSize: 11, color: kLightGrey)),
+                  Text('Code INSEE : ${_result!.codeInsee} · ${_result!.nombreBrut} transactions brutes téléchargées',
+                      style: const TextStyle(fontSize: 11, color: kLightGrey)),
                   const SizedBox(height: 4),
-                  const Text('Essayez d\'élargir la recherche.', style: TextStyle(fontSize: 11, color: kLightGrey, fontStyle: FontStyle.italic)),
+                  Text(
+                    _result!.nombreBrut == 0
+                        ? 'files.data.gouv.fr n\'a publié aucune donnée pour cette commune dans les 3 dernières années.'
+                        : 'Les ${_result!.nombreBrut} transactions DVF disponibles sont toutes filtrées par les critères.',
+                    style: const TextStyle(fontSize: 11, color: kLightGrey, fontStyle: FontStyle.italic),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: () => _loadDvf(forceRefresh: true),
+                    icon: const Icon(Icons.cloud_download_rounded, size: 16),
+                    label: const Text('Forcer le re-téléchargement'),
+                    style: TextButton.styleFrom(foregroundColor: kGreen),
+                  ),
                 ]),
               )
             else if (_filtered.isNotEmpty) ...[
