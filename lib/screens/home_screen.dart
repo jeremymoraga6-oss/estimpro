@@ -8,6 +8,7 @@ import 'estimations_list_screen.dart';
 import 'marche_screen.dart';
 import 'profil_screen.dart';
 import 'base_locale_screen.dart';
+import 'book_vendeur_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -191,6 +192,39 @@ class _HomeTab extends StatelessWidget {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         elevation: 0,
                       ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Book Vendeur
+                  GestureDetector(
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BookVendeurScreen())),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF2D3436), Color(0xFF1A1A2E)],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(children: [
+                        Container(
+                          width: 42, height: 42,
+                          decoration: BoxDecoration(color: kGreen.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                          child: const Icon(Icons.menu_book_rounded, color: kGreen, size: 22),
+                        ),
+                        const SizedBox(width: 14),
+                        const Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text('Book Vendeur', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+                            SizedBox(height: 2),
+                            Text('Présentation Faucigny Immobilier · 11 pages', style: TextStyle(color: Color(0xFFB2BEC3), fontSize: 12)),
+                          ]),
+                        ),
+                        const Icon(Icons.chevron_right, color: Color(0xFFB2BEC3), size: 20),
+                      ]),
                     ),
                   ),
                   const SizedBox(height: 20),
