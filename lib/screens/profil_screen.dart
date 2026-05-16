@@ -5,9 +5,16 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:path_provider/path_provider.dart';
 import '../theme.dart';
 import '../services/crash_reporter.dart';
+import '../services/app_settings.dart';
 
-class ProfilScreen extends StatelessWidget {
+class ProfilScreen extends StatefulWidget {
   const ProfilScreen({super.key});
+
+  @override
+  State<ProfilScreen> createState() => _ProfilScreenState();
+}
+
+class _ProfilScreenState extends State<ProfilScreen> {
 
   Future<void> _viewCrashLog(BuildContext context) async {
     final log = await CrashReporter.readLog();
@@ -212,6 +219,9 @@ class ProfilScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
+            // Configuration clé API Anthropic (pour features IA)
+            _ApiKeyCard(onChanged: () => setState(() {})),
+            const SizedBox(height: 12),
             // Bouton journal de débogage
             Container(
               decoration: kCardDecoration(),
@@ -357,4 +367,124 @@ class _ActionCard extends StatelessWidget {
       ),
     ),
   );
+}
+
+
+class _ApiKeyCard extends StatefulWidget {
+  final VoidCallback onChanged;
+  const _ApiKeyCard({required this.onChanged});
+  @override
+  State<_ApiKeyCard> createState() => _ApiKeyCardState();
+}
+
+class _ApiKeyCardState extends State<_ApiKeyCard> {
+  Future<void> _edit() async {
+    final ctrl = TextEditingController(text: AppSettings.instance.anthropicKey);
+    bool obscure = true;
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          title: const Text('Clé API Anthropic'),
+          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text(
+              'Active la transcription vocale structurée et la génération d\'annonces par IA.\n\nObtiens ta clé sur console.anthropic.com → API Keys.',
+              style: TextStyle(fontSize: 12, color: kGrey),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: ctrl,
+              obscureText: obscure,
+              autocorrect: false,
+              enableSuggestions: false,
+              decoration: InputDecoration(
+                hintText: 'sk-ant-...',
+                hintStyle: const TextStyle(fontSize: 12, color: kLightGrey),
+                suffixIcon: IconButton(
+                  icon: Icon(obscure ? Icons.visibility_off : Icons.visibility, size: 18),
+                  onPressed: () => setS(() => obscure = !obscure),
+                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              style: const TextStyle(fontSize: 13, fontFamily: 'monospace'),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Stockée localement uniquement (jamais envoyée ailleurs).',
+              style: TextStyle(fontSize: 10, color: kLightGrey, fontStyle: FontStyle.italic),
+            ),
+          ]),
+          actions: [
+            if (AppSettings.instance.hasAnthropicKey)
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, ''),
+                child: const Text('Supprimer', style: TextStyle(color: Color(0xFFC0392B))),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, null),
+              child: const Text('Annuler', style: TextStyle(color: kGrey)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: kGreen, foregroundColor: Colors.white),
+              onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+              child: const Text('Enregistrer'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result != null) {
+      await AppSettings.instance.setAnthropicKey(result);
+      if (mounted) {
+        setState(() {});
+        widget.onChanged();
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasKey = AppSettings.instance.hasAnthropicKey;
+    return Container(
+      decoration: kCardDecoration(),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: _edit,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(children: [
+            Container(
+              width: 32, height: 32,
+              decoration: BoxDecoration(
+                color: (hasKey ? kGreen : kAmber).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.auto_awesome_rounded, size: 18, color: hasKey ? kGreen : kAmber),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Clé API Anthropic',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kCharcoal)),
+                SizedBox(height: 2),
+                Text('Active la transcription IA et la génération d\'annonces',
+                    style: TextStyle(fontSize: 11, color: kGrey)),
+              ]),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: (hasKey ? kGreen : kAmber).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(hasKey ? 'Configurée' : 'À configurer',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: hasKey ? kGreen : kAmber)),
+            ),
+            const SizedBox(width: 6),
+            const Icon(Icons.chevron_right, color: kLightGrey, size: 22),
+          ]),
+        ),
+      ),
+    );
+  }
 }

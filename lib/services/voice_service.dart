@@ -6,9 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import '../models/vendeur_note.dart';
-
-// Set your Anthropic API key here before building
-const _kAnthropicKey = '';
+import 'app_settings.dart';
 
 const _kSystemPrompt = '''Tu es un assistant pour agent immobilier.
 Extrait de cette note vocale les informations suivantes en JSON :
@@ -105,14 +103,14 @@ class VoiceService {
       audioPath: audioPath,
     );
 
-    if (transcription.isEmpty || _kAnthropicKey.isEmpty) return base;
+    if (transcription.isEmpty || AppSettings.instance.anthropicKey.isEmpty) return base;
 
     try {
       final resp = await http
           .post(
             Uri.parse('https://api.anthropic.com/v1/messages'),
             headers: {
-              'x-api-key': _kAnthropicKey,
+              'x-api-key': AppSettings.instance.anthropicKey,
               'anthropic-version': '2023-06-01',
               'content-type': 'application/json',
             },
@@ -155,5 +153,158 @@ class VoiceService {
     if (v == null) return [];
     if (v is List) return v.map((e) => e.toString()).toList();
     return [v.toString()];
+  }
+
+  /// Extrait les caractéristiques du BIEN depuis une note vocale ou texte libre.
+  /// Retourne null si pas de clé API ou erreur — null = "aucune extraction".
+  /// Sinon retourne un BienExtraction prêt à appliquer aux champs de l'estimation.
+  Future<BienExtraction?> extractBienFields(String text) async {
+    if (text.isEmpty || AppSettings.instance.anthropicKey.isEmpty) return null;
+
+    const prompt = '''Tu es un assistant pour agent immobilier qui visite un bien.
+Extrait UNIQUEMENT les caractéristiques OBJECTIVES du bien depuis la description.
+Réponds en JSON strict (rien d'autre, pas de markdown), avec ces clés (toutes optionnelles — n'inclus que ce qui est clairement mentionné) :
+
+{
+  "vue_degagee": true|false,         // vue claire mentionnée (montagne, lac, dégagement)
+  "etat_general": 1|2|3|4,           // 1=très mauvais, 2=moyen/à rafraîchir, 3=bon, 4=excellent/refait à neuf
+  "note_cuisine": 1|2|3|4,           // état/équipement cuisine
+  "note_sol": 1|2|3|4,                // état/qualité des sols
+  "note_sdb": 1|2|3|4,                // état salle de bain
+  "note_fenetres": 1|2|3|4,           // double vitrage, état menuiseries
+  "note_chauffage": 1|2|3|4,          // type+état chauffage
+  "dpe_classe": "A"|"B"|"C"|"D"|"E"|"F"|"G",  // si classe explicitement mentionnée
+  "orientations": ["S","SE","O"...],  // orientations mentionnées (N, NE, E, SE, S, SO, O, NO)
+  "points_forts": ["...", "..."],     // arguments commerciaux
+  "points_faibles": ["...", "..."],   // axes à mentionner pour la vente
+  "travaux_a_prevoir": "résumé",      // courte phrase sur les travaux nécessaires
+  "ajust_environnement": -12|-9|-6|-3|0  // % décote nuisances (route, voie ferrée, industrie)
+}
+
+Si une info n'est pas claire dans le texte, n'inclus PAS la clé.''';
+
+    try {
+      final resp = await http
+          .post(
+            Uri.parse('https://api.anthropic.com/v1/messages'),
+            headers: {
+              'x-api-key': AppSettings.instance.anthropicKey,
+              'anthropic-version': '2023-06-01',
+              'content-type': 'application/json',
+            },
+            body: jsonEncode({
+              'model': 'claude-sonnet-4-6',
+              'max_tokens': 1024,
+              'system': prompt,
+              'messages': [{'role': 'user', 'content': text}],
+            }),
+          )
+          .timeout(const Duration(seconds: 25));
+
+      if (resp.statusCode != 200) {
+        debugPrint('[Voice] extractBien error ${resp.statusCode}: ${resp.body}');
+        return null;
+      }
+
+      final body = jsonDecode(resp.body) as Map<String, dynamic>;
+      final raw = (body['content'] as List).first['text'] as String;
+      // Tolérance markdown : retire ```json ... ``` si présent
+      final clean = raw.replaceAll(RegExp(r'^```(?:json)?\s*|\s*```$', multiLine: true), '').trim();
+      final j = jsonDecode(clean) as Map<String, dynamic>;
+
+      return BienExtraction(
+        vueDegagee: j['vue_degagee'] as bool?,
+        etatGeneral: _intRange(j['etat_general'], 1, 4),
+        noteCuisine: _intRange(j['note_cuisine'], 1, 4),
+        noteSol: _intRange(j['note_sol'], 1, 4),
+        noteSdb: _intRange(j['note_sdb'], 1, 4),
+        noteFenetres: _intRange(j['note_fenetres'], 1, 4),
+        noteChauffage: _intRange(j['note_chauffage'], 1, 4),
+        dpeClasse: (j['dpe_classe'] as String?)?.toUpperCase(),
+        orientations: _toStrList(j['orientations']),
+        pointsForts: _toStrList(j['points_forts']),
+        pointsFaibles: _toStrList(j['points_faibles']),
+        travauxAPrevoir: j['travaux_a_prevoir']?.toString(),
+        ajustEnvironnement: (j['ajust_environnement'] as num?)?.toDouble(),
+      );
+    } catch (e) {
+      debugPrint('[Voice] extractBien exception: $e');
+      return null;
+    }
+  }
+
+  int? _intRange(dynamic v, int min, int max) {
+    if (v == null) return null;
+    final n = v is int ? v : int.tryParse(v.toString());
+    if (n == null) return null;
+    return n.clamp(min, max);
+  }
+}
+
+/// Extraction structurée des champs du BIEN depuis une note libre.
+class BienExtraction {
+  final bool? vueDegagee;
+  final int? etatGeneral;
+  final int? noteCuisine;
+  final int? noteSol;
+  final int? noteSdb;
+  final int? noteFenetres;
+  final int? noteChauffage;
+  final String? dpeClasse;
+  final List<String> orientations;
+  final List<String> pointsForts;
+  final List<String> pointsFaibles;
+  final String? travauxAPrevoir;
+  final double? ajustEnvironnement;
+
+  const BienExtraction({
+    this.vueDegagee,
+    this.etatGeneral,
+    this.noteCuisine,
+    this.noteSol,
+    this.noteSdb,
+    this.noteFenetres,
+    this.noteChauffage,
+    this.dpeClasse,
+    this.orientations = const [],
+    this.pointsForts = const [],
+    this.pointsFaibles = const [],
+    this.travauxAPrevoir,
+    this.ajustEnvironnement,
+  });
+
+  /// Vrai si l'extraction contient au moins une donnée utilisable
+  bool get hasData =>
+      vueDegagee != null ||
+      etatGeneral != null ||
+      noteCuisine != null ||
+      noteSol != null ||
+      noteSdb != null ||
+      noteFenetres != null ||
+      noteChauffage != null ||
+      dpeClasse != null ||
+      orientations.isNotEmpty ||
+      pointsForts.isNotEmpty ||
+      pointsFaibles.isNotEmpty ||
+      (travauxAPrevoir?.isNotEmpty ?? false) ||
+      ajustEnvironnement != null;
+
+  /// Liste des champs détectés pour preview dans l'UI
+  List<String> get detectedFields {
+    final list = <String>[];
+    if (vueDegagee == true) list.add('Vue dégagée');
+    if (etatGeneral != null) list.add('État général : $etatGeneral/4');
+    if (noteCuisine != null) list.add('Cuisine : $noteCuisine/4');
+    if (noteSol != null) list.add('Sol : $noteSol/4');
+    if (noteSdb != null) list.add('SDB : $noteSdb/4');
+    if (noteFenetres != null) list.add('Fenêtres : $noteFenetres/4');
+    if (noteChauffage != null) list.add('Chauffage : $noteChauffage/4');
+    if (dpeClasse != null) list.add('DPE : $dpeClasse');
+    if (orientations.isNotEmpty) list.add('Orientation : ${orientations.join("/")}');
+    if (ajustEnvironnement != null) list.add('Nuisances : ${ajustEnvironnement!.toInt()}%');
+    if (pointsForts.isNotEmpty) list.add('${pointsForts.length} point(s) fort(s)');
+    if (pointsFaibles.isNotEmpty) list.add('${pointsFaibles.length} point(s) faible(s)');
+    if (travauxAPrevoir?.isNotEmpty ?? false) list.add('Travaux à prévoir');
+    return list;
   }
 }

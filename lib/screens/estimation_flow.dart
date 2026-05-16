@@ -11,6 +11,7 @@ import 'section5_screen.dart';
 import 'section6_screen.dart';
 import 'section7_screen.dart';
 import 'note_vocale_screen.dart';
+import '../services/voice_service.dart';
 
 class EstimationFlow extends StatefulWidget {
   final Estimation? existing;
@@ -51,6 +52,35 @@ class _EstimationFlowState extends State<EstimationFlow> {
     await _db.saveEstimation(_e);
   }
 
+  /// Applique une extraction IA des champs du bien (depuis note vocale).
+  /// N'écrase QUE les champs détectés, conserve les valeurs déjà saisies pour le reste.
+  Future<void> _applyBienExtraction(BienExtraction x) async {
+    var u = _e;
+    if (x.dpeClasse != null) u = u.copyWith(dpeClasse: x.dpeClasse);
+    if (x.noteCuisine != null) u = u.copyWith(noteCuisine: x.noteCuisine);
+    if (x.noteSol != null) u = u.copyWith(noteSol: x.noteSol);
+    if (x.noteSdb != null) u = u.copyWith(noteSdb: x.noteSdb);
+    if (x.noteFenetres != null) u = u.copyWith(noteFenetres: x.noteFenetres);
+    if (x.noteChauffage != null) u = u.copyWith(noteChauffage: x.noteChauffage);
+    if (x.etatGeneral != null) u = u.copyWith(noteEtatPrestation: x.etatGeneral);
+    if (x.orientations.isNotEmpty) u = u.copyWith(orientations: x.orientations);
+    if (x.ajustEnvironnement != null) u = u.copyWith(ajustEnvironnement: x.ajustEnvironnement);
+    // Vue dégagée : pas de champ booléen direct, mais on peut indiquer un ajust positif
+    if (x.vueDegagee == true && u.ajustVue == 0) {
+      u = u.copyWith(ajustVue: 5.0); // +5% par défaut, l'utilisateur peut ajuster
+    }
+    await _onChanged(u);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Champs appliqués : ${x.detectedFields.length}'),
+          backgroundColor: const Color(0xFF1976D2),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
   void _next() {
     if (_step < 6) setState(() => _step++);
   }
@@ -73,7 +103,11 @@ class _EstimationFlowState extends State<EstimationFlow> {
       floatingActionButton: _MicFab(
         hasNote: _e.notesVendeur != null,
         onTap: () async {
-          final note = await showNoteVocaleSheet(context, _e.notesVendeur);
+          final note = await showNoteVocaleSheet(
+            context,
+            _e.notesVendeur,
+            onApplyBien: _applyBienExtraction,
+          );
           if (note != null) await _onChanged(_e.copyWith(notesVendeur: note));
         },
       ),

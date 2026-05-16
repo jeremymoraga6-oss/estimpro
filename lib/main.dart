@@ -4,10 +4,13 @@ import 'theme.dart';
 import 'screens/home_screen.dart';
 import 'services/crash_reporter.dart';
 import 'services/dvf_cache.dart';
+import 'services/app_settings.dart';
 
 void main() {
-  CrashReporter.install(() {
+  CrashReporter.install(() async {
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    // Charge les settings (clé API, etc.) avant de lancer l'app
+    await AppSettings.instance.load();
     // Cleanup cache DVF en arrière-plan (fichiers > 90j supprimés)
     DvfCache().cleanup();
     runApp(const EstimProApp());

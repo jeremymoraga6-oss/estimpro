@@ -5,12 +5,13 @@ import '../services/voice_service.dart';
 import '../theme.dart';
 
 Future<VendeurNote?> showNoteVocaleSheet(
-    BuildContext context, VendeurNote? existing) {
+    BuildContext context, VendeurNote? existing,
+    {ValueChanged<BienExtraction>? onApplyBien}) {
   return showModalBottomSheet<VendeurNote>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => _NoteVocaleSheet(existing: existing),
+    builder: (_) => _NoteVocaleSheet(existing: existing, onApplyBien: onApplyBien),
   );
 }
 
@@ -18,7 +19,8 @@ enum _State { idle, recording, processing, done }
 
 class _NoteVocaleSheet extends StatefulWidget {
   final VendeurNote? existing;
-  const _NoteVocaleSheet({this.existing});
+  final ValueChanged<BienExtraction>? onApplyBien;
+  const _NoteVocaleSheet({this.existing, this.onApplyBien});
 
   @override
   State<_NoteVocaleSheet> createState() => _NoteVocaleSheetState();
@@ -31,6 +33,8 @@ class _NoteVocaleSheetState extends State<_NoteVocaleSheet>
   String _transcript = '';
   String _error = '';
   VendeurNote? _note;
+  BienExtraction? _bienExtraction;
+  bool _extractingBien = false;
   late AnimationController _pulseCtrl;
   late Animation<double> _pulse;
   final _stopwatch = Stopwatch();
@@ -98,6 +102,18 @@ class _NoteVocaleSheetState extends State<_NoteVocaleSheet>
       _note = note;
       _state = _State.done;
     });
+
+    // Extraction des champs du bien en parallèle (best-effort, optionnel)
+    if (widget.onApplyBien != null && text.isNotEmpty) {
+      setState(() => _extractingBien = true);
+      final extraction = await _voice.extractBienFields(text);
+      if (mounted) {
+        setState(() {
+          _bienExtraction = (extraction?.hasData ?? false) ? extraction : null;
+          _extractingBien = false;
+        });
+      }
+    }
   }
 
   @override
@@ -315,6 +331,68 @@ class _NoteVocaleSheetState extends State<_NoteVocaleSheet>
                   fontStyle: FontStyle.italic)),
         ),
         const SizedBox(height: 16),
+      ],
+
+      // Extraction des caractéristiques du bien (IA)
+      if (widget.onApplyBien != null) ...[
+        if (_extractingBien)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+                color: const Color(0xFFE3F2FD),
+                borderRadius: BorderRadius.circular(10)),
+            child: const Row(children: [
+              SizedBox(width: 14, height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF1976D2))),
+              SizedBox(width: 10),
+              Text('Analyse des caractéristiques du bien…',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF1976D2), fontWeight: FontWeight.w600)),
+            ]),
+          )
+        else if (_bienExtraction != null) ...[
+          _SectionLabel('Champs du bien détectés'),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE3F2FD),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF1976D2).withOpacity(0.25)),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Row(children: [
+                Icon(Icons.auto_awesome_rounded, size: 16, color: Color(0xFF1976D2)),
+                SizedBox(width: 6),
+                Text('Détecté par IA', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF1976D2))),
+              ]),
+              const SizedBox(height: 8),
+              Wrap(spacing: 6, runSpacing: 6, children: _bienExtraction!.detectedFields
+                  .map((f) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6)),
+                      child: Text(f, style: const TextStyle(fontSize: 11, color: kCharcoal))))
+                  .toList()),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    widget.onApplyBien!(_bienExtraction!);
+                    Navigator.pop(context, _note);
+                  },
+                  icon: const Icon(Icons.check_rounded, size: 18),
+                  label: const Text('Appliquer aux champs du bien'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1976D2),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                ),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 16),
+        ],
       ],
 
       if (!n.hasStructuredData)
