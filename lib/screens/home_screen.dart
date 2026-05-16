@@ -150,7 +150,7 @@ class _HomeTab extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(color: kGreen.withOpacity(0.2), borderRadius: BorderRadius.circular(4)),
-                            child: const Text('v1.1.1', style: TextStyle(color: Color(0xFFB2DFDB), fontSize: 9, fontWeight: FontWeight.w600)),
+                            child: const Text('v1.1.2', style: TextStyle(color: Color(0xFFB2DFDB), fontSize: 9, fontWeight: FontWeight.w600)),
                           ),
                         ]),
                       ]),

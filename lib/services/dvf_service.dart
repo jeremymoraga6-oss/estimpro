@@ -283,8 +283,13 @@ class DvfService {
   }) async {
     final url = '$_base/$year/communes/$dep/$codeInsee.csv';
     try {
+      // User-Agent explicite : certains opérateurs (Orange, SFR) ou CDN
+      // (Cloudflare devant files.data.gouv.fr) bloquent les requêtes sans UA.
       final resp = await http
-          .get(Uri.parse(url))
+          .get(Uri.parse(url), headers: {
+            'User-Agent': 'EstimPro/1.1 (Faucigny Immobilier; +https://github.com/jeremymoraga6-oss/estimpro)',
+            'Accept': 'text/csv,*/*',
+          })
           .timeout(const Duration(seconds: 15));
       if (resp.statusCode == 404) {
         // Année pas encore publiée — pas une erreur
