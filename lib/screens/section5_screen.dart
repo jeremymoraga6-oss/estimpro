@@ -169,26 +169,11 @@ class _Section5ScreenState extends State<Section5Screen> {
                     const Text('Données officielles notaires', style: TextStyle(fontSize: 11, color: kGrey)),
                   ]),
                 ]),
-                Row(children: [
-                  GestureDetector(
-                    onTap: _loading ? null : () => _loadDvf(),
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(color: const Color(0xFFF7F9F7), borderRadius: BorderRadius.circular(8)),
-                      child: Icon(
-                        _loading ? Icons.hourglass_empty_rounded : Icons.refresh_rounded,
-                        size: 16,
-                        color: _loading ? kLightGrey : kGreen,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                    child: const Text('SOURCE OFFICIELLE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: kGreen, letterSpacing: 0.8)),
-                  ),
-                ]),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                  child: const Text('SOURCE OFFICIELLE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: kGreen, letterSpacing: 0.8)),
+                ),
               ]),
               const SizedBox(height: 12),
 
@@ -245,26 +230,11 @@ class _Section5ScreenState extends State<Section5Screen> {
                 child: Column(children: [
                   const Icon(Icons.search_off_rounded, color: kLightGrey, size: 36),
                   const SizedBox(height: 10),
-                  const Text('Aucune vente trouvée après toutes les relaxations.',
-                      style: TextStyle(fontSize: 13, color: kGrey), textAlign: TextAlign.center),
+                  const Text('Aucune vente trouvée dans ce secteur.', style: TextStyle(fontSize: 13, color: kGrey), textAlign: TextAlign.center),
                   const SizedBox(height: 4),
-                  Text('Code INSEE : ${_result!.codeInsee} · ${_result!.nombreBrut} transactions brutes téléchargées',
-                      style: const TextStyle(fontSize: 11, color: kLightGrey)),
+                  Text('Code INSEE utilisé : ${_result!.codeInsee}', style: const TextStyle(fontSize: 11, color: kLightGrey)),
                   const SizedBox(height: 4),
-                  Text(
-                    _result!.nombreBrut == 0
-                        ? 'files.data.gouv.fr n\'a publié aucune donnée pour cette commune dans les 3 dernières années.'
-                        : 'Les ${_result!.nombreBrut} transactions DVF disponibles sont toutes filtrées par les critères.',
-                    style: const TextStyle(fontSize: 11, color: kLightGrey, fontStyle: FontStyle.italic),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton.icon(
-                    onPressed: () => _loadDvf(),
-                    icon: const Icon(Icons.cloud_download_rounded, size: 16),
-                    label: const Text('Forcer le re-téléchargement'),
-                    style: TextButton.styleFrom(foregroundColor: kGreen),
-                  ),
+                  const Text('Essayez d\'élargir la recherche.', style: TextStyle(fontSize: 11, color: kLightGrey, fontStyle: FontStyle.italic)),
                 ]),
               )
             else if (_filtered.isNotEmpty) ...[

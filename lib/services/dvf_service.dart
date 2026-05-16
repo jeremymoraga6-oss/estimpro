@@ -203,15 +203,17 @@ class DvfService {
       if (r.error != null) errors.add(r.error!);
     }
 
-    if (allRows.isEmpty &&
-        errors.isNotEmpty &&
-        errors.length == tasks.length) {
+    // Si aucune transaction ET au moins une erreur → on remonte l'erreur.
+    // (Avant : on n'affichait l'erreur que si TOUS échouaient, mais l'année 2026
+    //  retourne souvent 404 sans erreur, ce qui masquait les vrais problèmes
+    //  réseau sur 2024-2025.)
+    if (allRows.isEmpty && errors.isNotEmpty) {
       return DvfFetchResult(
         transactions: [],
         codeInsee: codeInsee,
         urlUtilisee: firstUrl,
         nombreBrut: 0,
-        erreur: errors.first,
+        erreur: '${errors.length} échec${errors.length > 1 ? "s" : ""} réseau : ${errors.first}',
       );
     }
 
