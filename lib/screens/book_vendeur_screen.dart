@@ -25,12 +25,6 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
     _controller = PdfViewerController();
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
   Future<File> _writeTempPdf() async {
     final bytes = await rootBundle.load('assets/docs/book_vendeur.pdf');
     final tmp = await getTemporaryDirectory();
