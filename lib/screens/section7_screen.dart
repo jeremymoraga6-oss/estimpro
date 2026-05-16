@@ -8,6 +8,7 @@ import '../widgets/shared.dart';
 import '../widgets/app_header.dart';
 import '../services/pdf_service.dart';
 import '../services/zip_service.dart';
+import 'annonce_ia_screen.dart';
 
 const _maxPhotos = 10;
 
@@ -232,6 +233,43 @@ class _Section7ScreenState extends State<Section7Screen> {
               const CardTitleRow(icon: Icons.picture_as_pdf_outlined, label: 'Aperçu du rapport'),
               _PdfPreview(estimation: _e),
             ])),
+
+            // Annonce IA
+            GestureDetector(
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => AnnonceIaScreen(estimation: _e))),
+              child: Container(
+                margin: const EdgeInsets.only(top: 4),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1976D2), Color(0xFF1565C0)],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 6, offset: Offset(0, 2))],
+                ),
+                child: Row(children: [
+                  Container(
+                    width: 42, height: 42,
+                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.18), borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Générer l\'annonce par IA',
+                          style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+                      SizedBox(height: 2),
+                      Text('Titre + accroche + description prête à publier sur les portails',
+                          style: TextStyle(color: Color(0xFFD1E4F7), fontSize: 11)),
+                    ]),
+                  ),
+                  const Icon(Icons.chevron_right, color: Colors.white, size: 20),
+                ]),
+              ),
+            ),
 
             const SizedBox(height: 16),
           ]),
