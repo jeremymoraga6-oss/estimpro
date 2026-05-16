@@ -215,8 +215,8 @@ Format de sortie : JSON STRICT (rien d'autre, pas de markdown), structure :
     buf.writeln('## Type & surface');
     buf.writeln('- Type : ${e.typeId}');
     buf.writeln('- Surface habitable : ${e.surfaceHabitable} m²');
-    if (e.nbPieces > 0) buf.writeln('- Nombre de pièces : ${e.nbPieces}');
-    if (e.nbChambres > 0) buf.writeln('- Nombre de chambres : ${e.nbChambres}');
+    if (e.pieces > 0) buf.writeln('- Nombre de pièces : ${e.pieces}');
+    if (e.chambres > 0) buf.writeln('- Nombre de chambres : ${e.chambres}');
     if (e.surfaceTerrain > 0) buf.writeln('- Surface terrain : ${e.surfaceTerrain} m²');
     if (e.surfaceBalcon > 0) buf.writeln('- Balcon : ${e.surfaceBalcon} m²');
     if (e.surfaceTerrasse > 0) buf.writeln('- Terrasse : ${e.surfaceTerrasse} m²');
@@ -236,7 +236,6 @@ Format de sortie : JSON STRICT (rien d'autre, pas de markdown), structure :
     // Diagnostics
     buf.writeln('## Diagnostics');
     buf.writeln('- Classe DPE : ${e.dpeClasse}');
-    if (e.dpeGes.isNotEmpty) buf.writeln('- Classe GES : ${e.dpeGes}');
     buf.writeln();
 
     // Prestations
