@@ -1,7 +1,7 @@
 name: estimpro
 description: Estimation immobilière terrain — Faucigny Immobilier by Efficity
 publish_to: 'none'
-version: 1.1.2+12
+version: 1.2.0+13
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
