@@ -175,22 +175,24 @@ class DvfService {
       debugPrint('[DVF] rayon ${radiusKm}km → ${communeCodes.length} communes');
     }
 
-    // Couvre la fenêtre 3 ans + buffer (le filtre de date final s'occupe du reste)
+    // Couvre une fenêtre de 5 ans (l'API Etalab a parfois 6-12 mois de retard
+    // sur les dernières ventes, donc on remonte plus loin pour avoir du volume)
     final now = DateTime.now();
-    final years = [now.year, now.year - 1, now.year - 2, now.year - 3];
+    final years = [
+      now.year, now.year - 1, now.year - 2, now.year - 3, now.year - 4,
+    ];
 
     debugPrint('[DVF] INSEE=$codeInsee dep=$dep years=$years communes=${communeCodes.length}');
 
     // Construit l'URL d'exemple pour le debug
     final firstUrl = '$_base/${years.first}/communes/$dep/$codeInsee.csv';
 
-    // Fetch all (commune × year) pairs in parallel
+    // L'API dvf-api.data.gouv.fr renvoie toutes les années pour une commune
+    // d'un coup (pas de filtre année côté API). On fait donc 1 seul appel
+    // par commune, et le cutoff date filtre les transactions trop anciennes.
     final tasks = <Future<_YearResult>>[];
     for (final c in communeCodes) {
-      final cdep = _depFromInsee(c);
-      for (final y in years) {
-        tasks.add(_fetchYear(year: y, dep: cdep, codeInsee: c));
-      }
+      tasks.add(_fetchYear(year: 0, dep: _depFromInsee(c), codeInsee: c));
     }
     final results = await Future.wait(tasks);
 
@@ -222,7 +224,8 @@ class DvfService {
         .toList();
 
     // Filtre 2 — date < 3 ans
-    final cutoff = DateTime.now().subtract(const Duration(days: 3 * 365));
+    // Fenêtre 5 ans : couvre 2022-2026 en mai 2026.
+    final cutoff = DateTime.now().subtract(const Duration(days: 5 * 365));
     filtered = filtered.where((tx) {
       if (tx.dateMutation.isEmpty) return true;
       try {
@@ -285,9 +288,9 @@ class DvfService {
     // par un bucket S3 OVH avec problèmes de permissions intermittentes.
     final txs = <DvfTransaction>[];
     try {
-      // Pagination 20 résultats/page → on récupère jusqu'à 500 résultats max
-      // (25 pages) pour une année donnée d'une commune.
-      for (int page = 1; page <= 25; page++) {
+      // Pagination 20 résultats/page → on récupère jusqu'à 1000 résultats max
+      // (50 pages) pour couvrir toutes les années même sur grosses communes.
+      for (int page = 1; page <= 50; page++) {
         final url = 'https://dvf-api.data.gouv.fr/dvf?com=$codeInsee&page=$page';
         final resp = await http
             .get(Uri.parse(url))
@@ -304,8 +307,8 @@ class DvfService {
         for (final r in data) {
           final m = r as Map<String, dynamic>;
           final date = (m['date_mutation'] as String?) ?? '';
-          // Filtre par année (l'API renvoie tout, on filtre côté client)
-          if (date.length >= 4 && date.substring(0, 4) != year.toString()) continue;
+          // Filtre année uniquement si year > 0 (sentinel 0 = toutes années)
+          if (year > 0 && date.length >= 4 && date.substring(0, 4) != year.toString()) continue;
           // Filtre nature : on ne garde que les ventes
           final nature = (m['nature_mutation'] as String?) ?? '';
           if (!nature.toLowerCase().contains('vente')) continue;
