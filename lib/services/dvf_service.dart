@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'geo_service.dart';
@@ -204,17 +203,15 @@ class DvfService {
       if (r.error != null) errors.add(r.error!);
     }
 
-    // Si aucune transaction ET au moins une erreur → on remonte l'erreur.
-    // (Avant : on n'affichait l'erreur que si TOUS échouaient, mais l'année 2026
-    //  retourne souvent 404 sans erreur, ce qui masquait les vrais problèmes
-    //  réseau sur 2024-2025.)
-    if (allRows.isEmpty && errors.isNotEmpty) {
+    if (allRows.isEmpty &&
+        errors.isNotEmpty &&
+        errors.length == tasks.length) {
       return DvfFetchResult(
         transactions: [],
         codeInsee: codeInsee,
         urlUtilisee: firstUrl,
         nombreBrut: 0,
-        erreur: '${errors.length} échec${errors.length > 1 ? "s" : ""} réseau : ${errors.first}',
+        erreur: errors.first,
       );
     }
 
@@ -282,80 +279,27 @@ class DvfService {
     required String dep,
     required String codeInsee,
   }) async {
-    // Tentative 1 : Etalab files.data.gouv.fr (source officielle CSV)
     final url = '$_base/$year/communes/$dep/$codeInsee.csv';
     try {
       final resp = await http
-          .get(Uri.parse(url), headers: {
-            'User-Agent': 'EstimPro/1.1 (Faucigny Immobilier; +https://github.com/jeremymoraga6-oss/estimpro)',
-            'Accept': 'text/csv,*/*',
-          })
+          .get(Uri.parse(url))
           .timeout(const Duration(seconds: 15));
       if (resp.statusCode == 404) {
-        debugPrint('[DVF] $year etalab : 404 (pas encore publié)');
+        // Année pas encore publiée — pas une erreur
+        debugPrint('[DVF] $year : 404 (pas encore publié)');
         return _YearResult.empty();
       }
-      if (resp.statusCode == 200 && resp.body.length > 200) {
-        final rows = _parseCsv(resp.body);
-        final txs = rows.map(DvfTransaction.fromCsvRow).toList();
-        debugPrint('[DVF] $year etalab : ${txs.length} ventes');
-        return _YearResult(transactions: txs, count: txs.length);
+      if (resp.statusCode != 200) {
+        return _YearResult(error: 'HTTP ${resp.statusCode} sur $year');
       }
-      debugPrint('[DVF] $year etalab HTTP ${resp.statusCode}, fallback cquest');
+      final rows = _parseCsv(resp.body);
+      final txs = rows.map(DvfTransaction.fromCsvRow).toList();
+      debugPrint('[DVF] $year : ${txs.length} ventes');
+      return _YearResult(transactions: txs, count: txs.length);
     } catch (e) {
-      debugPrint('[DVF] $year etalab exception : $e, fallback cquest');
-    }
-
-    // Tentative 2 (fallback) : api.cquest.org — proxy communautaire DVF
-    // Quand files.data.gouv.fr est bloqué côté CDN (host_not_allowed).
-    try {
-      final cquestUrl = 'https://api.cquest.org/dvf'
-          '?code_commune=$codeInsee'
-          '&nature_mutation=Vente'
-          '&_size=1000';
-      final resp = await http
-          .get(Uri.parse(cquestUrl), headers: {
-            'User-Agent': 'EstimPro/1.1 (Faucigny Immobilier)',
-            'Accept': 'application/json',
-          })
-          .timeout(const Duration(seconds: 20));
-      if (resp.statusCode == 200) {
-        final body = jsonDecode(resp.body) as Map<String, dynamic>;
-        final resultats = (body['resultats'] as List?) ?? [];
-        final txs = <DvfTransaction>[];
-        for (final r in resultats) {
-          final m = r as Map<String, dynamic>;
-          final date = (m['date_mutation'] as String?) ?? '';
-          // Filtre par année côté client
-          if (date.length >= 4 && date.substring(0, 4) != year.toString()) continue;
-          txs.add(DvfTransaction(
-            dateMutation: date,
-            valeurFonciere: _numToDouble(m['valeur_fonciere']),
-            adresse: [m['adresse_numero'], m['adresse_nom_voie']]
-                .where((v) => v != null && v.toString().isNotEmpty)
-                .join(' '),
-            codeCommune: (m['code_commune'] as String?) ?? '',
-            nomCommune: (m['nom_commune'] as String?) ?? '',
-            typeLocal: (m['type_local'] as String?) ?? '',
-            surfaceReelleBati: _numToDouble(m['surface_reelle_bati']),
-            latitude: _numToDouble(m['latitude']),
-            longitude: _numToDouble(m['longitude']),
-          ));
-        }
-        debugPrint('[DVF] $year cquest : ${txs.length} ventes');
-        return _YearResult(transactions: txs, count: txs.length);
-      }
-      return _YearResult(error: 'Etalab + cquest échec (HTTP ${resp.statusCode})');
-    } catch (e) {
-      debugPrint('[DVF] $year cquest exception : $e');
+      debugPrint('[DVF] $year exception : $e');
       return _YearResult(error: e.toString());
     }
-  }
-
-  static double _numToDouble(dynamic v) {
-    if (v == null) return 0;
-    if (v is num) return v.toDouble();
-    return double.tryParse(v.toString().replaceAll(',', '.')) ?? 0;
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────

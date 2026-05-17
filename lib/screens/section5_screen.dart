@@ -11,7 +11,6 @@ import '../services/georisques_service.dart';
 import '../services/base_locale_service.dart';
 import '../services/pricehubble_parser.dart';
 import '../services/concurrence_service.dart';
-import '../widgets/dvf_map_widget.dart';
 
 class Section5Screen extends StatefulWidget {
   final Estimation estimation;
@@ -29,7 +28,6 @@ class _Section5ScreenState extends State<Section5Screen> {
   DvfFetchResult? _result;
   bool _loading = false;
   bool _loadingRisques = false;
-  bool _showMap = false; // toggle Liste / Carte
   List<ReferenceLocale> _localRefs = [];
   // null = tous, 'Maison', 'Appartement'
   String? _filterType;
@@ -60,7 +58,7 @@ class _Section5ScreenState extends State<Section5Screen> {
       latitude: _e.latitude,
       longitude: _e.longitude,
     );
-    if (mounted) setState(() { _result = r; _loading = false; });
+    setState(() { _result = r; _loading = false; });
   }
 
   void _setRadius(double km) {
@@ -92,34 +90,6 @@ class _Section5ScreenState extends State<Section5Screen> {
 
   double get _min => _e.comparables.isEmpty ? 0 : _e.comparables.map<double>((c) => (c['prixM2'] as num?)?.toDouble() ?? 0).reduce((a, b) => a < b ? a : b);
   double get _max => _e.comparables.isEmpty ? 0 : _e.comparables.map<double>((c) => (c['prixM2'] as num?)?.toDouble() ?? 0).reduce((a, b) => a > b ? a : b);
-
-  Widget _toggleBtn(String label, IconData icon, bool active, VoidCallback onTap) =>
-      Expanded(
-        child: GestureDetector(
-          onTap: onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: active ? Colors.white : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: active
-                  ? const [BoxShadow(color: Color(0x14000000), blurRadius: 3, offset: Offset(0, 1))]
-                  : null,
-            ),
-            alignment: Alignment.center,
-            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(icon, size: 14, color: active ? kGreen : kGrey),
-              const SizedBox(width: 6),
-              Text(label,
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: active ? kCharcoal : kGrey)),
-            ]),
-          ),
-        ),
-      );
 
   bool _isSelected(DvfTransaction tx) => _e.comparables.any((c) => c['addr'] == tx.toComparable()['addr'] && c['date'] == tx.toComparable()['date']);
 
@@ -250,35 +220,12 @@ class _Section5ScreenState extends State<Section5Screen> {
                       style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kGreen)),
                 ]),
               ),
-              // Toggle Liste / Carte
-              Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0F0F0),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(children: [
-                  _toggleBtn('Liste', Icons.format_list_bulleted_rounded, !_showMap, () => setState(() => _showMap = false)),
-                  _toggleBtn('Carte', Icons.map_rounded, _showMap, () => setState(() => _showMap = true)),
-                ]),
-              ),
-              if (_showMap)
-                DvfMapWidget(
-                  transactions: _filtered,
-                  centerLat: _e.latitude,
-                  centerLon: _e.longitude,
-                  adresseCentre: _e.adresseComplete,
-                  prixMoyen: _e.prixMoyen,
-                )
-              else ...[
-                _MarketStatsCard(transactions: _filtered),
-                ..._filtered.map((tx) => _DvfCard(
-                  tx: tx,
-                  selected: _isSelected(tx),
-                  onTap: () => _toggle(tx),
-                )),
-              ],
+              _MarketStatsCard(transactions: _filtered),
+              ..._filtered.map((tx) => _DvfCard(
+                tx: tx,
+                selected: _isSelected(tx),
+                onTap: () => _toggle(tx),
+              )),
             ],
 
             // Manual add
