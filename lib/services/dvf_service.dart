@@ -280,43 +280,35 @@ class DvfService {
     required String dep,
     required String codeInsee,
   }) async {
-    final url = '$_base/$year/communes/$dep/$codeInsee.csv';
+    // Source officielle Etalab via dvf-api.data.gouv.fr — API JSON utilisée
+    // par app.dvf.etalab.gouv.fr. Plus fiable que files.data.gouv.fr qui passe
+    // par un bucket S3 OVH avec problèmes de permissions intermittentes.
+    final txs = <DvfTransaction>[];
     try {
-      final resp = await http
-          .get(Uri.parse(url))
-          .timeout(const Duration(seconds: 15));
-      if (resp.statusCode == 404) {
-        // Année pas encore publiée — pas une erreur
-        debugPrint('[DVF] $year : 404 (pas encore publié)');
-        return _YearResult.empty();
-      }
-      if (resp.statusCode == 200 && resp.body.length > 200) {
-        final rows = _parseCsv(resp.body);
-        final txs = rows.map(DvfTransaction.fromCsvRow).toList();
-        debugPrint('[DVF] $year : ${txs.length} ventes (etalab)');
-        return _YearResult(transactions: txs, count: txs.length);
-      }
-      debugPrint('[DVF] $year etalab HTTP ${resp.statusCode} → fallback cquest');
-    } catch (e) {
-      debugPrint('[DVF] $year etalab exception : $e → fallback cquest');
-    }
-
-    // Fallback : api.cquest.org (proxy communautaire, infrastructure différente).
-    // Activé uniquement si Etalab files.data.gouv.fr est inaccessible.
-    try {
-      final cquestUrl = 'https://api.cquest.org/dvf'
-          '?code_commune=$codeInsee&nature_mutation=Vente&_size=1000';
-      final resp = await http
-          .get(Uri.parse(cquestUrl))
-          .timeout(const Duration(seconds: 20));
-      if (resp.statusCode == 200) {
+      // Pagination 20 résultats/page → on récupère jusqu'à 500 résultats max
+      // (25 pages) pour une année donnée d'une commune.
+      for (int page = 1; page <= 25; page++) {
+        final url = 'https://dvf-api.data.gouv.fr/dvf?com=$codeInsee&page=$page';
+        final resp = await http
+            .get(Uri.parse(url))
+            .timeout(const Duration(seconds: 15));
+        if (resp.statusCode != 200) {
+          if (page == 1) {
+            return _YearResult(error: 'HTTP ${resp.statusCode} sur $year');
+          }
+          break; // arrêt si fin de pagination (404 typique)
+        }
         final body = jsonDecode(resp.body) as Map<String, dynamic>;
-        final resultats = (body['resultats'] as List?) ?? [];
-        final txs = <DvfTransaction>[];
-        for (final r in resultats) {
+        final data = (body['data'] as List?) ?? [];
+        if (data.isEmpty) break;
+        for (final r in data) {
           final m = r as Map<String, dynamic>;
           final date = (m['date_mutation'] as String?) ?? '';
+          // Filtre par année (l'API renvoie tout, on filtre côté client)
           if (date.length >= 4 && date.substring(0, 4) != year.toString()) continue;
+          // Filtre nature : on ne garde que les ventes
+          final nature = (m['nature_mutation'] as String?) ?? '';
+          if (!nature.toLowerCase().contains('vente')) continue;
           txs.add(DvfTransaction(
             dateMutation: date,
             valeurFonciere: _numAsDouble(m['valeur_fonciere']),
@@ -331,12 +323,12 @@ class DvfService {
             longitude: _numAsDouble(m['longitude']),
           ));
         }
-        debugPrint('[DVF] $year cquest : ${txs.length} ventes');
-        return _YearResult(transactions: txs, count: txs.length);
+        if (data.length < 20) break; // dernière page
       }
-      return _YearResult(error: 'Etalab + cquest échec');
+      debugPrint('[DVF] $year etalab API : ${txs.length} ventes');
+      return _YearResult(transactions: txs, count: txs.length);
     } catch (e) {
-      debugPrint('[DVF] $year cquest exception : $e');
+      debugPrint('[DVF] $year etalab API exception : $e');
       return _YearResult(error: e.toString());
     }
   }
