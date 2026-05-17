@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'geo_service.dart';
@@ -289,17 +290,61 @@ class DvfService {
         debugPrint('[DVF] $year : 404 (pas encore publié)');
         return _YearResult.empty();
       }
-      if (resp.statusCode != 200) {
-        return _YearResult(error: 'HTTP ${resp.statusCode} sur $year');
+      if (resp.statusCode == 200 && resp.body.length > 200) {
+        final rows = _parseCsv(resp.body);
+        final txs = rows.map(DvfTransaction.fromCsvRow).toList();
+        debugPrint('[DVF] $year : ${txs.length} ventes (etalab)');
+        return _YearResult(transactions: txs, count: txs.length);
       }
-      final rows = _parseCsv(resp.body);
-      final txs = rows.map(DvfTransaction.fromCsvRow).toList();
-      debugPrint('[DVF] $year : ${txs.length} ventes');
-      return _YearResult(transactions: txs, count: txs.length);
+      debugPrint('[DVF] $year etalab HTTP ${resp.statusCode} → fallback cquest');
     } catch (e) {
-      debugPrint('[DVF] $year exception : $e');
+      debugPrint('[DVF] $year etalab exception : $e → fallback cquest');
+    }
+
+    // Fallback : api.cquest.org (proxy communautaire, infrastructure différente).
+    // Activé uniquement si Etalab files.data.gouv.fr est inaccessible.
+    try {
+      final cquestUrl = 'https://api.cquest.org/dvf'
+          '?code_commune=$codeInsee&nature_mutation=Vente&_size=1000';
+      final resp = await http
+          .get(Uri.parse(cquestUrl))
+          .timeout(const Duration(seconds: 20));
+      if (resp.statusCode == 200) {
+        final body = jsonDecode(resp.body) as Map<String, dynamic>;
+        final resultats = (body['resultats'] as List?) ?? [];
+        final txs = <DvfTransaction>[];
+        for (final r in resultats) {
+          final m = r as Map<String, dynamic>;
+          final date = (m['date_mutation'] as String?) ?? '';
+          if (date.length >= 4 && date.substring(0, 4) != year.toString()) continue;
+          txs.add(DvfTransaction(
+            dateMutation: date,
+            valeurFonciere: _numAsDouble(m['valeur_fonciere']),
+            adresse: [m['adresse_numero'], m['adresse_nom_voie']]
+                .where((v) => v != null && v.toString().isNotEmpty)
+                .join(' '),
+            codeCommune: (m['code_commune'] as String?) ?? codeInsee,
+            nomCommune: (m['nom_commune'] as String?) ?? '',
+            typeLocal: (m['type_local'] as String?) ?? '',
+            surfaceReelleBati: _numAsDouble(m['surface_reelle_bati']),
+            latitude: _numAsDouble(m['latitude']),
+            longitude: _numAsDouble(m['longitude']),
+          ));
+        }
+        debugPrint('[DVF] $year cquest : ${txs.length} ventes');
+        return _YearResult(transactions: txs, count: txs.length);
+      }
+      return _YearResult(error: 'Etalab + cquest échec');
+    } catch (e) {
+      debugPrint('[DVF] $year cquest exception : $e');
       return _YearResult(error: e.toString());
     }
+  }
+
+  static double _numAsDouble(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString().replaceAll(',', '.')) ?? 0;
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────
