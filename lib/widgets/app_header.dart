@@ -48,23 +48,33 @@ class AppHeader extends StatelessWidget {
             Row(
               children: List.generate(totalSteps, (i) {
                 final isCompleted = i < step - 1;
-                final isCurrent = i == step - 1;
                 return Expanded(
                   child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
                     onTap: isCompleted && onStepTap != null ? () => onStepTap!(i + 1) : null,
-                    child: Container(
-                      height: isCurrent ? 6 : 4,
-                      margin: EdgeInsets.only(right: i < totalSteps - 1 ? 3 : 0),
-                      decoration: BoxDecoration(
-                        color: i < step ? kGreen : const Color(0xFF4A5568),
-                        borderRadius: BorderRadius.circular(3),
+                    child: Padding(
+                      padding: EdgeInsets.only(right: i < totalSteps - 1 ? 3 : 0),
+                      child: Column(
+                        children: [
+                          Container(
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: i < step ? kGreen : const Color(0xFF4A5568),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          if (isCompleted && onStepTap != null)
+                            const SizedBox(height: 4),
+                          if (isCompleted && onStepTap != null)
+                            Icon(Icons.keyboard_arrow_up, size: 10, color: kGreen.withValues(alpha: 0.7)),
+                        ],
                       ),
                     ),
                   ),
                 );
               }),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Center(
               child: Text('Étape $step sur $totalSteps',
                   style: const TextStyle(fontSize: 11, color: Color(0xFFA0AEC0))),
