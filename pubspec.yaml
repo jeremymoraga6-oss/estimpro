@@ -19,7 +19,7 @@ dependencies:
   open_file: ^3.5.7
   record: ^6.2.0
   speech_to_text: ^7.3.0
-  archive: ^3.6.1
+  archive: ^4.0.7
   file_picker: ^8.0.7
   pdfrx: ^2.4.1
   google_mlkit_text_recognition: ^0.13.0
