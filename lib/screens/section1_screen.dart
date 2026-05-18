@@ -123,9 +123,12 @@ class _Section1ScreenState extends State<Section1Screen> {
                             border: Border.all(color: sel ? kGreen : kBorderColor, width: sel ? 0 : 1.5),
                           ),
                           alignment: Alignment.center,
-                          child: Text(_typeLabels[i],
-                              style: TextStyle(fontSize: 12, fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                                  color: sel ? Colors.white : kGrey)),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(_typeLabels[i],
+                                style: TextStyle(fontSize: 12, fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                                    color: sel ? Colors.white : kGrey)),
+                          ),
                         ),
                       ),
                     );
