@@ -42,7 +42,8 @@ class Section2Screen extends StatefulWidget {
   final ValueChanged<Estimation> onChanged;
   final VoidCallback onNext;
   final VoidCallback onPrev;
-  const Section2Screen({super.key, required this.estimation, required this.onChanged, required this.onNext, required this.onPrev});
+  final ValueChanged<int>? onStepTap;
+  const Section2Screen({super.key, required this.estimation, required this.onChanged, required this.onNext, required this.onPrev, this.onStepTap});
 
   @override
   State<Section2Screen> createState() => _Section2ScreenState();
@@ -81,7 +82,7 @@ class _Section2ScreenState extends State<Section2Screen> {
   @override
   Widget build(BuildContext context) {
     return Column(children: [
-      AppHeader(title: 'Description du bien', reference: _e.reference, step: 2, totalSteps: 7, onBack: widget.onPrev),
+      AppHeader(title: 'Description du bien', reference: _e.reference, step: 2, totalSteps: 7, onBack: widget.onPrev, onStepTap: widget.onStepTap),
       Expanded(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),

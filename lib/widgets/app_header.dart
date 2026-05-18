@@ -7,6 +7,8 @@ class AppHeader extends StatelessWidget {
   final int step;
   final int totalSteps;
   final VoidCallback onBack;
+  final ValueChanged<int>? onStepTap;
+
   const AppHeader({
     super.key,
     required this.title,
@@ -14,6 +16,7 @@ class AppHeader extends StatelessWidget {
     required this.step,
     required this.totalSteps,
     required this.onBack,
+    this.onStepTap,
   });
 
   @override
@@ -43,16 +46,23 @@ class AppHeader extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Row(
-              children: List.generate(totalSteps, (i) => Expanded(
-                child: Container(
-                  height: 4,
-                  margin: EdgeInsets.only(right: i < totalSteps - 1 ? 3 : 0),
-                  decoration: BoxDecoration(
-                    color: i < step ? kGreen : const Color(0xFF4A5568),
-                    borderRadius: BorderRadius.circular(2),
+              children: List.generate(totalSteps, (i) {
+                final isCompleted = i < step - 1;
+                final isCurrent = i == step - 1;
+                return Expanded(
+                  child: GestureDetector(
+                    onTap: isCompleted && onStepTap != null ? () => onStepTap!(i + 1) : null,
+                    child: Container(
+                      height: isCurrent ? 6 : 4,
+                      margin: EdgeInsets.only(right: i < totalSteps - 1 ? 3 : 0),
+                      decoration: BoxDecoration(
+                        color: i < step ? kGreen : const Color(0xFF4A5568),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
                   ),
-                ),
-              )),
+                );
+              }),
             ),
             const SizedBox(height: 6),
             Center(

@@ -80,6 +80,18 @@ Saint-Pierre-en-Faucigny — Haute-Savoie
     }
   }
 
+  void _goToPrev() {
+    if (_currentPage > 1) {
+      _controller.goToPage(pageNumber: _currentPage - 1);
+    }
+  }
+
+  void _goToNext() {
+    if (_currentPage < _totalPages) {
+      _controller.goToPage(pageNumber: _currentPage + 1);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -100,19 +112,67 @@ Saint-Pierre-en-Faucigny — Haute-Savoie
             ),
         ],
       ),
-      body: PdfViewer.asset(
-        'assets/docs/book_vendeur.pdf',
-        controller: _controller,
-        params: PdfViewerParams(
-          backgroundColor: const Color(0xFF1A1A2E),
-          margin: 8,
-          onPageChanged: (page) {
-            if (mounted) setState(() => _currentPage = page ?? 1);
-          },
-          onViewerReady: (document, controller) {
-            if (mounted) setState(() => _totalPages = document.pages.length);
-          },
-        ),
+      body: Stack(
+        children: [
+          PdfViewer.asset(
+            'assets/docs/book_vendeur.pdf',
+            controller: _controller,
+            params: PdfViewerParams(
+              backgroundColor: const Color(0xFF1A1A2E),
+              margin: 0,
+              scrollDirection: Axis.horizontal,
+              pageSnapping: true,
+              onPageChanged: (page) {
+                if (mounted) setState(() => _currentPage = page ?? 1);
+              },
+              onViewerReady: (document, controller) {
+                if (mounted) setState(() => _totalPages = document.pages.length);
+              },
+            ),
+          ),
+          // Flèche gauche
+          if (_currentPage > 1)
+            Positioned(
+              left: 8,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: GestureDetector(
+                  onTap: _goToPrev,
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.chevron_left_rounded, color: Colors.white, size: 28),
+                  ),
+                ),
+              ),
+            ),
+          // Flèche droite
+          if (_totalPages > 0 && _currentPage < _totalPages)
+            Positioned(
+              right: 8,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: GestureDetector(
+                  onTap: _goToNext,
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 28),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
       bottomNavigationBar: SafeArea(
         child: Container(

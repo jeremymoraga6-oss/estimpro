@@ -17,7 +17,8 @@ class Section7Screen extends StatefulWidget {
   final ValueChanged<Estimation> onChanged;
   final VoidCallback onPrev;
   final VoidCallback onFinish;
-  const Section7Screen({super.key, required this.estimation, required this.onChanged, required this.onPrev, required this.onFinish});
+  final ValueChanged<int>? onStepTap;
+  const Section7Screen({super.key, required this.estimation, required this.onChanged, required this.onPrev, required this.onFinish, this.onStepTap});
 
   @override
   State<Section7Screen> createState() => _Section7ScreenState();
@@ -99,7 +100,7 @@ class _Section7ScreenState extends State<Section7Screen> {
     ];
 
     return Column(children: [
-      AppHeader(title: 'Photos & PDF', reference: _e.reference, step: 7, totalSteps: 7, onBack: widget.onPrev),
+      AppHeader(title: 'Photos & PDF', reference: _e.reference, step: 7, totalSteps: 7, onBack: widget.onPrev, onStepTap: widget.onStepTap),
       Expanded(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),

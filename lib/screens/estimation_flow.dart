@@ -90,6 +90,10 @@ class _EstimationFlowState extends State<EstimationFlow> {
     else Navigator.pop(context);
   }
 
+  void _goToStep(int step) {
+    if (step >= 1 && step <= 7) setState(() => _step = step - 1);
+  }
+
   void _finish() {
     _db.saveEstimation(_e);
     Navigator.pop(context);
@@ -119,17 +123,17 @@ class _EstimationFlowState extends State<EstimationFlow> {
       case 0:
         return Section1Screen(estimation: _e, onChanged: _onChanged, onNext: _next);
       case 1:
-        return Section2Screen(estimation: _e, onChanged: _onChanged, onNext: _next, onPrev: _prev);
+        return Section2Screen(estimation: _e, onChanged: _onChanged, onNext: _next, onPrev: _prev, onStepTap: _goToStep);
       case 2:
-        return Section3Screen(estimation: _e, onChanged: _onChanged, onNext: _next, onPrev: _prev);
+        return Section3Screen(estimation: _e, onChanged: _onChanged, onNext: _next, onPrev: _prev, onStepTap: _goToStep);
       case 3:
-        return Section4Screen(estimation: _e, onChanged: _onChanged, onNext: _next, onPrev: _prev);
+        return Section4Screen(estimation: _e, onChanged: _onChanged, onNext: _next, onPrev: _prev, onStepTap: _goToStep);
       case 4:
-        return Section5Screen(estimation: _e, onChanged: _onChanged, onNext: _next, onPrev: _prev);
+        return Section5Screen(estimation: _e, onChanged: _onChanged, onNext: _next, onPrev: _prev, onStepTap: _goToStep);
       case 5:
-        return Section6Screen(estimation: _e, onChanged: _onChanged, onNext: _next, onPrev: _prev);
+        return Section6Screen(estimation: _e, onChanged: _onChanged, onNext: _next, onPrev: _prev, onStepTap: _goToStep);
       case 6:
-        return Section7Screen(estimation: _e, onChanged: _onChanged, onPrev: _prev, onFinish: _finish);
+        return Section7Screen(estimation: _e, onChanged: _onChanged, onPrev: _prev, onFinish: _finish, onStepTap: _goToStep);
       default:
         return Section1Screen(estimation: _e, onChanged: _onChanged, onNext: _next);
     }

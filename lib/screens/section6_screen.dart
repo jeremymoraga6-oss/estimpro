@@ -14,7 +14,8 @@ class Section6Screen extends StatefulWidget {
   final ValueChanged<Estimation> onChanged;
   final VoidCallback onNext;
   final VoidCallback onPrev;
-  const Section6Screen({super.key, required this.estimation, required this.onChanged, required this.onNext, required this.onPrev});
+  final ValueChanged<int>? onStepTap;
+  const Section6Screen({super.key, required this.estimation, required this.onChanged, required this.onNext, required this.onPrev, this.onStepTap});
 
   @override
   State<Section6Screen> createState() => _Section6ScreenState();
@@ -57,7 +58,7 @@ class _Section6ScreenState extends State<Section6Screen> {
     final high = _e.fourchetteHaute > 0 ? _e.fourchetteHaute : (rounded * 1.05 / 1000).round() * 1000.0;
 
     return Column(children: [
-      AppHeader(title: 'Estimation', reference: _e.reference, step: 6, totalSteps: 7, onBack: widget.onPrev),
+      AppHeader(title: 'Estimation', reference: _e.reference, step: 6, totalSteps: 7, onBack: widget.onPrev, onStepTap: widget.onStepTap),
       Expanded(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),

@@ -9,7 +9,8 @@ class Section4Screen extends StatefulWidget {
   final ValueChanged<Estimation> onChanged;
   final VoidCallback onNext;
   final VoidCallback onPrev;
-  const Section4Screen({super.key, required this.estimation, required this.onChanged, required this.onNext, required this.onPrev});
+  final ValueChanged<int>? onStepTap;
+  const Section4Screen({super.key, required this.estimation, required this.onChanged, required this.onNext, required this.onPrev, this.onStepTap});
 
   @override
   State<Section4Screen> createState() => _Section4ScreenState();
@@ -36,7 +37,7 @@ class _Section4ScreenState extends State<Section4Screen> {
   @override
   Widget build(BuildContext context) {
     return Column(children: [
-      AppHeader(title: 'État & équipements', reference: _e.reference, step: 4, totalSteps: 7, onBack: widget.onPrev),
+      AppHeader(title: 'État & équipements', reference: _e.reference, step: 4, totalSteps: 7, onBack: widget.onPrev, onStepTap: widget.onStepTap),
       Expanded(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
