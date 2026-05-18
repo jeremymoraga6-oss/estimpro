@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:path_provider/path_provider.dart';
@@ -170,6 +171,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
                 ),
               ]),
             ),
+            const SizedBox(height: 12),
+            _CarteDeVisiteCard(),
             const SizedBox(height: 12),
             _Section(title: 'Coordonnées', items: [
               _Item(Icons.phone_outlined, 'Téléphone', '06 68 03 64 03'),
@@ -369,6 +372,166 @@ class _ActionCard extends StatelessWidget {
   );
 }
 
+
+class _CarteDeVisiteCard extends StatefulWidget {
+  @override
+  State<_CarteDeVisiteCard> createState() => _CarteDeVisiteCardState();
+}
+
+class _CarteDeVisiteCardState extends State<_CarteDeVisiteCard> {
+  File? _cardImage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCard();
+  }
+
+  Future<String> get _cardPath async {
+    final dir = await getApplicationDocumentsDirectory();
+    return '${dir.path}/carte_de_visite.jpg';
+  }
+
+  Future<void> _loadCard() async {
+    final path = await _cardPath;
+    final file = File(path);
+    if (await file.exists()) {
+      if (mounted) setState(() => _cardImage = file);
+    }
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: source, imageQuality: 90);
+    if (picked == null) return;
+    final dest = await _cardPath;
+    await File(picked.path).copy(dest);
+    if (mounted) setState(() => _cardImage = File(dest));
+  }
+
+  void _showOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const SizedBox(height: 8),
+          Container(width: 40, height: 4, decoration: BoxDecoration(color: kLightGrey, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 16),
+          ListTile(
+            leading: const Icon(Icons.camera_alt_rounded, color: kGreen),
+            title: const Text('Prendre une photo'),
+            onTap: () { Navigator.pop(context); _pickImage(ImageSource.camera); },
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_library_rounded, color: kGreen),
+            title: const Text('Choisir depuis la galerie'),
+            onTap: () { Navigator.pop(context); _pickImage(ImageSource.gallery); },
+          ),
+          if (_cardImage != null) ...[
+            ListTile(
+              leading: const Icon(Icons.share_rounded, color: kGreen),
+              title: const Text('Partager'),
+              onTap: () { Navigator.pop(context); Share.shareXFiles([XFile(_cardImage!.path)], subject: 'Carte de visite — Jérémy Moraga'); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline_rounded, color: kRed),
+              title: const Text('Supprimer', style: TextStyle(color: kRed)),
+              onTap: () async {
+                Navigator.pop(context);
+                await _cardImage!.delete();
+                if (mounted) setState(() => _cardImage = null);
+              },
+            ),
+          ],
+          const SizedBox(height: 8),
+        ]),
+      ),
+    );
+  }
+
+  void _showFullScreen() {
+    if (_cardImage == null) return;
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          title: const Text('Carte de visite'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.share_rounded),
+              onPressed: () => Share.shareXFiles([XFile(_cardImage!.path)], subject: 'Carte de visite — Jérémy Moraga'),
+            ),
+          ],
+        ),
+        body: Center(
+          child: InteractiveViewer(
+            child: Image.file(_cardImage!, fit: BoxFit.contain),
+          ),
+        ),
+      ),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Padding(
+        padding: const EdgeInsets.only(left: 4, bottom: 8),
+        child: Text('CARTE DE VISITE', style: kSectionLabel),
+      ),
+      GestureDetector(
+        onTap: _cardImage != null ? _showFullScreen : _showOptions,
+        onLongPress: _showOptions,
+        child: Container(
+          width: double.infinity,
+          decoration: kCardDecoration(),
+          clipBehavior: Clip.antiAlias,
+          child: _cardImage != null
+              ? Stack(children: [
+                  Image.file(_cardImage!, width: double.infinity, fit: BoxFit.contain),
+                  Positioned(
+                    bottom: 10, right: 10,
+                    child: GestureDetector(
+                      onTap: _showOptions,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                        child: const Icon(Icons.edit_rounded, color: Colors.white, size: 18),
+                      ),
+                    ),
+                  ),
+                ])
+              : Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 28),
+                  child: Column(children: [
+                    const Icon(Icons.badge_outlined, size: 40, color: kLightGrey),
+                    const SizedBox(height: 12),
+                    const Text('Ajouter votre carte de visite',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kCharcoal)),
+                    const SizedBox(height: 4),
+                    const Text('Photo de votre carte physique',
+                        style: TextStyle(fontSize: 12, color: kGrey)),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: _showOptions,
+                      icon: const Icon(Icons.add_a_photo_rounded, size: 16),
+                      label: const Text('Ajouter', style: TextStyle(fontWeight: FontWeight.w700)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: kGreen, foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ]),
+                ),
+        ),
+      ),
+    ]);
+  }
+}
 
 class _ApiKeyCard extends StatefulWidget {
   final VoidCallback onChanged;
