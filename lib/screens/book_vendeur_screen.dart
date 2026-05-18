@@ -120,6 +120,8 @@ Saint-Pierre-en-Faucigny — Haute-Savoie
             params: PdfViewerParams(
               backgroundColor: const Color(0xFF1A1A2E),
               margin: 0,
+              scrollDirection: Axis.horizontal,
+              pageSnapping: true,
               onPageChanged: (page) {
                 if (mounted) setState(() => _currentPage = page ?? 1);
               },
