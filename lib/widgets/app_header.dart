@@ -47,27 +47,23 @@ class AppHeader extends StatelessWidget {
             const SizedBox(height: 12),
             Row(
               children: List.generate(totalSteps, (i) {
-                final isCompleted = i < step - 1;
+                final isCurrent = i == step - 1;
                 return Expanded(
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTap: isCompleted && onStepTap != null ? () => onStepTap!(i + 1) : null,
+                    onTap: !isCurrent && onStepTap != null ? () => onStepTap!(i + 1) : null,
                     child: Padding(
-                      padding: EdgeInsets.only(right: i < totalSteps - 1 ? 3 : 0),
-                      child: Column(
-                        children: [
-                          Container(
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: i < step ? kGreen : const Color(0xFF4A5568),
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                          if (isCompleted && onStepTap != null)
-                            const SizedBox(height: 4),
-                          if (isCompleted && onStepTap != null)
-                            Icon(Icons.keyboard_arrow_up, size: 10, color: kGreen.withValues(alpha: 0.7)),
-                        ],
+                      padding: EdgeInsets.only(
+                        right: i < totalSteps - 1 ? 3 : 0,
+                        top: 8,
+                        bottom: 8,
+                      ),
+                      child: Container(
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: i < step ? kGreen : const Color(0xFF4A5568),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
                   ),
