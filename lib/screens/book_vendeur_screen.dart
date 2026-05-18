@@ -206,7 +206,7 @@ class _PdfPageWidgetState extends State<_PdfPageWidget> {
     final pdfImage = await widget.page.render(
       width: targetW,
       height: targetH,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: const Color(0xFFFFFFFF),
     );
     if (pdfImage == null || !mounted) return;
 
