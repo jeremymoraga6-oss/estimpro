@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import '../theme.dart';
 import '../services/crash_reporter.dart';
 import '../services/app_settings.dart';
+import 'carte_de_visite_screen.dart';
 
 class ProfilScreen extends StatefulWidget {
   const ProfilScreen({super.key});
@@ -172,7 +173,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
               ]),
             ),
             const SizedBox(height: 12),
-            _CarteDeVisiteCard(),
+            _CarteDeVisiteCard(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CarteDeVisiteScreen()))),
             const SizedBox(height: 12),
             _Section(title: 'Coordonnées', items: [
               _Item(Icons.phone_outlined, 'Téléphone', '06 68 03 64 03'),
@@ -374,6 +375,8 @@ class _ActionCard extends StatelessWidget {
 
 
 class _CarteDeVisiteCard extends StatefulWidget {
+  final VoidCallback onTap;
+  const _CarteDeVisiteCard({required this.onTap});
   @override
   State<_CarteDeVisiteCard> createState() => _CarteDeVisiteCardState();
 }
@@ -483,7 +486,7 @@ class _CarteDeVisiteCardState extends State<_CarteDeVisiteCard> {
         child: Text('CARTE DE VISITE', style: kSectionLabel),
       ),
       GestureDetector(
-        onTap: _cardImage != null ? _showFullScreen : _showOptions,
+        onTap: widget.onTap,
         onLongPress: _showOptions,
         child: Container(
           width: double.infinity,
