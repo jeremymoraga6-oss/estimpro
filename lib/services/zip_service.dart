@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:archive/archive.dart';
+import 'package:archive/archive_io.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/estimation.dart';
@@ -11,27 +11,23 @@ class ZipService {
 
     final pdfFile = await PdfService().generateFile(e);
 
-    final archive = Archive();
+    final encoder = ZipFileEncoder();
+    final zipPath = '${dir.path}/${e.reference}_dossier.zip';
+    encoder.create(zipPath);
 
-    // Ajoute le PDF
-    final pdfBytes = await pdfFile.readAsBytes();
-    archive.addFile(ArchiveFile('${e.reference}.pdf', pdfBytes.length, pdfBytes));
+    encoder.addFile(pdfFile, '${e.reference}.pdf');
 
-    // Ajoute les photos existantes
     int photoIdx = 1;
     for (final path in e.photosPaths) {
       final file = File(path);
       if (await file.exists()) {
         final ext = path.contains('.') ? path.split('.').last : 'jpg';
-        final bytes = await file.readAsBytes();
-        archive.addFile(ArchiveFile('photos/photo_$photoIdx.$ext', bytes.length, bytes));
+        encoder.addFile(file, 'photos/photo_$photoIdx.$ext');
         photoIdx++;
       }
     }
 
-    final zipBytes = ZipEncoder().encode(archive);
-    final zipPath = '${dir.path}/${e.reference}_dossier.zip';
-    await File(zipPath).writeAsBytes(zipBytes!);
+    encoder.close();
 
     await Share.shareXFiles(
       [XFile(zipPath, mimeType: 'application/zip')],

@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -14,15 +17,34 @@ class BookVendeurScreen extends StatefulWidget {
 }
 
 class _BookVendeurScreenState extends State<BookVendeurScreen> {
-  late final PdfViewerController _controller;
-  int _currentPage = 1;
+  PdfDocument? _document;
+  int _currentPage = 0;
   int _totalPages = 0;
   bool _sharing = false;
+  late final PageController _pageController;
 
   @override
   void initState() {
     super.initState();
-    _controller = PdfViewerController();
+    _pageController = PageController();
+    _loadDocument();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _document?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadDocument() async {
+    final doc = await PdfDocument.openAsset('assets/docs/book_vendeur.pdf');
+    if (mounted) {
+      setState(() {
+        _document = doc;
+        _totalPages = doc.pages.length;
+      });
+    }
   }
 
   Future<File> _writeTempPdf() async {
@@ -80,18 +102,6 @@ Saint-Pierre-en-Faucigny — Haute-Savoie
     }
   }
 
-  void _goToPrev() {
-    if (_currentPage > 1) {
-      _controller.goToPage(pageNumber: _currentPage - 1);
-    }
-  }
-
-  void _goToNext() {
-    if (_currentPage < _totalPages) {
-      _controller.goToPage(pageNumber: _currentPage + 1);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -106,74 +116,22 @@ Saint-Pierre-en-Faucigny — Haute-Savoie
             Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text('$_currentPage / $_totalPages',
+                child: Text('${_currentPage + 1} / $_totalPages',
                     style: const TextStyle(color: Color(0xFFB2BEC3), fontSize: 13)),
               ),
             ),
         ],
       ),
-      body: Stack(
-        children: [
-          PdfViewer.asset(
-            'assets/docs/book_vendeur.pdf',
-            controller: _controller,
-            params: PdfViewerParams(
-              backgroundColor: const Color(0xFF1A1A2E),
-              margin: 0,
-              scrollDirection: Axis.horizontal,
-              pageSnapping: true,
-              onPageChanged: (page) {
-                if (mounted) setState(() => _currentPage = page ?? 1);
-              },
-              onViewerReady: (document, controller) {
-                if (mounted) setState(() => _totalPages = document.pages.length);
-              },
-            ),
-          ),
-          // Flèche gauche
-          if (_currentPage > 1)
-            Positioned(
-              left: 8,
-              top: 0,
-              bottom: 0,
-              child: Center(
-                child: GestureDetector(
-                  onTap: _goToPrev,
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.45),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.chevron_left_rounded, color: Colors.white, size: 28),
-                  ),
-                ),
+      body: _document == null
+          ? const Center(child: CircularProgressIndicator(color: kGreen))
+          : PageView.builder(
+              controller: _pageController,
+              itemCount: _totalPages,
+              onPageChanged: (p) => setState(() => _currentPage = p),
+              itemBuilder: (context, index) => _PdfPageWidget(
+                page: _document!.pages[index],
               ),
             ),
-          // Flèche droite
-          if (_totalPages > 0 && _currentPage < _totalPages)
-            Positioned(
-              right: 8,
-              top: 0,
-              bottom: 0,
-              child: Center(
-                child: GestureDetector(
-                  onTap: _goToNext,
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.45),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 28),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
       bottomNavigationBar: SafeArea(
         child: Container(
           padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
@@ -217,6 +175,63 @@ Saint-Pierre-en-Faucigny — Haute-Savoie
             ),
           ]),
         ),
+      ),
+    );
+  }
+}
+
+class _PdfPageWidget extends StatefulWidget {
+  final PdfPage page;
+  const _PdfPageWidget({required this.page});
+
+  @override
+  State<_PdfPageWidget> createState() => _PdfPageWidgetState();
+}
+
+class _PdfPageWidgetState extends State<_PdfPageWidget> {
+  ui.Image? _image;
+
+  @override
+  void initState() {
+    super.initState();
+    _render();
+  }
+
+  Future<void> _render() async {
+    final screenWidth = ui.window.physicalSize.width;
+    final dpr = ui.window.devicePixelRatio;
+    final targetW = screenWidth > 0 ? screenWidth.toInt() : (375 * dpr).toInt();
+    final targetH = (targetW * widget.page.height / widget.page.width).toInt();
+
+    final pdfImage = await widget.page.render(
+      width: targetW,
+      height: targetH,
+      backgroundColor: '#FFFFFF',
+    );
+    if (pdfImage == null || !mounted) return;
+
+    final completer = Completer<ui.Image>();
+    ui.decodeImageFromPixels(
+      Uint8List.fromList(pdfImage.pixels),
+      pdfImage.width,
+      pdfImage.height,
+      ui.PixelFormat.rgba8888,
+      (img) => completer.complete(img),
+    );
+    final image = await completer.future;
+    if (mounted) setState(() => _image = image);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_image == null) {
+      return const Center(child: CircularProgressIndicator(color: kGreen));
+    }
+    return InteractiveViewer(
+      minScale: 1.0,
+      maxScale: 4.0,
+      child: Center(
+        child: RawImage(image: _image, fit: BoxFit.contain),
       ),
     );
   }
