@@ -22,7 +22,7 @@ class AppHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         color: kCharcoal,
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -44,38 +44,45 @@ class AppHeader extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(totalSteps, (i) {
                 final isCurrent = i == step - 1;
-                return Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: !isCurrent && onStepTap != null ? () => onStepTap!(i + 1) : null,
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        right: i < totalSteps - 1 ? 3 : 0,
-                        top: 8,
-                        bottom: 8,
-                      ),
-                      child: Container(
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: i < step ? kGreen : const Color(0xFF4A5568),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
+                final isDone = i < step - 1;
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: !isCurrent && onStepTap != null ? () => onStepTap!(i + 1) : null,
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    decoration: BoxDecoration(
+                      color: isCurrent
+                          ? kGreen
+                          : isDone
+                              ? kGreen.withValues(alpha: 0.25)
+                              : const Color(0xFF4A5568),
+                      shape: BoxShape.circle,
+                      border: isCurrent
+                          ? Border.all(color: Colors.white, width: 2)
+                          : null,
                     ),
+                    alignment: Alignment.center,
+                    child: isDone
+                        ? const Icon(Icons.check_rounded, color: kGreen, size: 16)
+                        : Text(
+                            '${i + 1}',
+                            style: TextStyle(
+                              color: isCurrent ? Colors.white : const Color(0xFF90A4AE),
+                              fontSize: 12,
+                              fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w600,
+                            ),
+                          ),
                   ),
                 );
               }),
             ),
-            const SizedBox(height: 4),
-            Center(
-              child: Text('Étape $step sur $totalSteps',
-                  style: const TextStyle(fontSize: 11, color: Color(0xFFA0AEC0))),
-            ),
-            const SizedBox(height: 10),
           ],
         ),
       );
