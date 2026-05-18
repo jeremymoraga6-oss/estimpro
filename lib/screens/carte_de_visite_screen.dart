@@ -196,10 +196,7 @@ class _CardWidget extends StatelessWidget {
                   clipBehavior: Clip.antiAlias,
                   child: photo != null
                       ? Image.file(photo!, fit: BoxFit.cover)
-                      : Container(
-                          color: const Color(0xFFE8F5E9),
-                          child: const Icon(Icons.person_rounded, size: 60, color: Color(0xFF7CB342)),
-                        ),
+                      : Image.asset('assets/images/profil_jeremy.jpg', fit: BoxFit.cover),
                 ),
               ),
             ),
