@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme.dart';
 
 class CarteDeVisiteScreen extends StatefulWidget {
@@ -217,9 +218,9 @@ class _CardWidget extends StatelessWidget {
             const SizedBox(height: 20),
 
             // Téléphone
-            _InfoRow(icon: Icons.phone_rounded, text: '06 68 03 64 03', bold: true),
+            _InfoRow(icon: Icons.phone_rounded, text: '06 68 03 64 03', bold: true, url: 'tel:+33668036403'),
             const SizedBox(height: 8),
-            _InfoRow(icon: Icons.email_rounded, text: 'jmoraga@efficity.com'),
+            _InfoRow(icon: Icons.email_rounded, text: 'jmoraga@efficity.com', url: 'mailto:jmoraga@efficity.com'),
             const SizedBox(height: 20),
 
             // Réseaux sociaux
@@ -285,21 +286,33 @@ class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String text;
   final bool bold;
-  const _InfoRow({required this.icon, required this.text, this.bold = false});
+  final String? url;
+  const _InfoRow({required this.icon, required this.text, this.bold = false, this.url});
 
   @override
-  Widget build(BuildContext context) => Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 16, color: const Color(0xFF7CB342)),
-          const SizedBox(width: 8),
-          Text(text, style: TextStyle(
-            fontSize: bold ? 17 : 14,
-            fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
-            color: const Color(0xFF2D3436),
-          )),
-        ],
+  Widget build(BuildContext context) {
+    Widget row = Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, size: 16, color: const Color(0xFF7CB342)),
+        const SizedBox(width: 8),
+        Text(text, style: TextStyle(
+          fontSize: bold ? 17 : 14,
+          fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
+          color: const Color(0xFF2D3436),
+          decoration: url != null ? TextDecoration.underline : null,
+          decorationColor: const Color(0xFF7CB342),
+        )),
+      ],
+    );
+    if (url != null) {
+      return GestureDetector(
+        onTap: () => launchUrl(Uri.parse(url!)),
+        child: row,
       );
+    }
+    return row;
+  }
 }
 
 class _SocialBadge extends StatelessWidget {
