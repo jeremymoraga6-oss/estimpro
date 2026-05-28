@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
@@ -30,8 +31,37 @@ class PdfService {
     } catch (_) {}
   }
 
+  /// Compresse une photo pour l'intégration PDF (max 800px, PNG).
+  /// Évite le crash OOM sur les photos haute résolution (12 MP = 8 Mo).
+  Future<Uint8List?> _compressPhoto(String path) async {
+    try {
+      final bytes = await File(path).readAsBytes();
+      final codec = await ui.instantiateImageCodec(bytes, targetWidth: 800);
+      final frame = await codec.getNextFrame();
+      final data = await frame.image.toByteData(format: ui.ImageByteFormat.png);
+      frame.image.dispose();
+      codec.dispose();
+      return data?.buffer.asUint8List();
+    } catch (e) {
+      debugPrint('[PdfService] Compression photo échouée : $e');
+      return null;
+    }
+  }
+
+  /// Pré-charge et compresse toutes les photos (max 10).
+  Future<List<Uint8List>> _preparePhotos(List<String> paths) async {
+    final limited = paths.take(10).toList();
+    final result = <Uint8List>[];
+    for (final p in limited) {
+      final bytes = await _compressPhoto(p);
+      if (bytes != null) result.add(bytes);
+    }
+    return result;
+  }
+
   Future<File> generateFile(Estimation e) async {
     await _loadAssets();
+    final photoBytes = await _preparePhotos(e.photosPaths);
     final doc = pw.Document();
     final price = e.prixFinal > 0 ? e.prixFinal : e.prixCalcule;
 
@@ -73,9 +103,9 @@ class PdfService {
           pw.SizedBox(height: 20),
           _conclusionSection(e),
         ],
-        if (e.photosPaths.isNotEmpty) ...[
+        if (photoBytes.isNotEmpty) ...[
           pw.SizedBox(height: 20),
-          _photosSection(e),
+          _photosSection(photoBytes),
         ],
         if (e.notesVendeur != null) ...[
           pw.SizedBox(height: 20),
@@ -92,6 +122,7 @@ class PdfService {
 
   Future<File> generate(Estimation e) async {
     await _loadAssets();
+    final photoBytes = await _preparePhotos(e.photosPaths);
     final doc = pw.Document();
     final price = e.prixFinal > 0 ? e.prixFinal : e.prixCalcule;
 
@@ -133,9 +164,9 @@ class PdfService {
           pw.SizedBox(height: 20),
           _conclusionSection(e),
         ],
-        if (e.photosPaths.isNotEmpty) ...[
+        if (photoBytes.isNotEmpty) ...[
           pw.SizedBox(height: 20),
-          _photosSection(e),
+          _photosSection(photoBytes),
         ],
         if (e.notesVendeur != null) ...[
           pw.SizedBox(height: 20),
@@ -936,19 +967,17 @@ class PdfService {
     return _card('NOTES VENDEUR', rows);
   }
 
-  pw.Widget _photosSection(Estimation e) {
+  /// Reçoit des bytes pré-compressés (800px max) — évite le crash OOM.
+  pw.Widget _photosSection(List<Uint8List> compressedBytes) {
     final images = <pw.Widget>[];
-    for (final path in e.photosPaths) {
-      try {
-        final bytes = File(path).readAsBytesSync();
-        images.add(pw.Expanded(
-          child: pw.Container(
-            margin: const pw.EdgeInsets.all(3),
-            child: pw.Image(pw.MemoryImage(bytes),
-                fit: pw.BoxFit.cover, height: 160),
-          ),
-        ));
-      } catch (_) {}
+    for (final bytes in compressedBytes) {
+      images.add(pw.Expanded(
+        child: pw.Container(
+          margin: const pw.EdgeInsets.all(3),
+          child: pw.Image(pw.MemoryImage(bytes),
+              fit: pw.BoxFit.cover, height: 160),
+        ),
+      ));
     }
     if (images.isEmpty) return pw.SizedBox();
 

@@ -21,6 +21,7 @@ class _Section1ScreenState extends State<Section1Screen> {
   late Estimation _e;
   late TextEditingController _nomCtrl, _telCtrl, _emailCtrl;
   late TextEditingController _prixAchatCtrl, _anneeAchatCtrl;
+  late TextEditingController _notesCtrl;
 
   final _types = ['maison', 'appartement', 'chalet', 'terrain'];
   final _typeLabels = ['Maison', 'Appartement', 'Chalet', 'Terrain'];
@@ -35,21 +36,33 @@ class _Section1ScreenState extends State<Section1Screen> {
     _emailCtrl = TextEditingController(text: _e.proprietaireEmail);
     _prixAchatCtrl = TextEditingController(text: _e.prixAchat > 0 ? _e.prixAchat.toString() : '');
     _anneeAchatCtrl = TextEditingController(text: _e.anneeAchat > 0 ? _e.anneeAchat.toString() : '');
+    _notesCtrl = TextEditingController(
+      text: (_e.notes['section1']?['general'] as String?) ?? '',
+    );
   }
 
   @override
   void dispose() {
     _nomCtrl.dispose(); _telCtrl.dispose(); _emailCtrl.dispose();
     _prixAchatCtrl.dispose(); _anneeAchatCtrl.dispose();
+    _notesCtrl.dispose();
     super.dispose();
   }
 
   void _save() {
+    // Fusionne les notes générales dans la map notes existante
+    final notesMap = Map<String, Map<String, dynamic>>.from(_e.notes);
+    final s1 = Map<String, dynamic>.from(notesMap['section1'] ?? {});
+    s1['general'] = _notesCtrl.text;
+    notesMap['section1'] = s1;
+
     final updated = _e.copyWith(
       proprietaireNom: _nomCtrl.text,
       proprietaireTel: _telCtrl.text,
       proprietaireEmail: _emailCtrl.text,
+      notes: notesMap,
     );
+    setState(() => _e = updated);
     widget.onChanged(updated);
   }
 
@@ -166,13 +179,16 @@ class _Section1ScreenState extends State<Section1Screen> {
                 const SizedBox(height: 12),
                 const FieldLabel('Notes générales'),
                 TextField(
+                  controller: _notesCtrl,
                   maxLines: 3,
+                  onChanged: (_) => _save(),
                   decoration: InputDecoration(
                     hintText: 'Observations...', hintStyle: const TextStyle(color: kLightGrey, fontSize: 13),
                     contentPadding: const EdgeInsets.all(12),
                     filled: true, fillColor: Colors.white,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
                     enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kGreen, width: 2)),
                   ),
                   style: const TextStyle(fontSize: 13, color: kCharcoal),
                 ),
