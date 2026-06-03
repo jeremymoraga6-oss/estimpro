@@ -242,7 +242,7 @@ class PdfService {
               gradient: pw.LinearGradient(
                 begin: pw.Alignment.topCenter,
                 end: pw.Alignment.bottomCenter,
-                colors: [PdfColor.fromInt(0xE0000000), PdfColors.transparent],
+                colors: [PdfColor.fromInt(0xE0000000), PdfColor.fromInt(0x00000000)],
               ),
             ),
           ),
@@ -257,7 +257,7 @@ class PdfService {
               gradient: pw.LinearGradient(
                 begin: pw.Alignment.bottomCenter,
                 end: pw.Alignment.topCenter,
-                colors: [PdfColor.fromInt(0xF5000000), PdfColors.transparent],
+                colors: [PdfColor.fromInt(0xF5000000), PdfColor.fromInt(0x00000000)],
               ),
             ),
           ),
