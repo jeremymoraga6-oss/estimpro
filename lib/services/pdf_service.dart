@@ -326,9 +326,13 @@ class PdfService {
                           color: PdfColor.fromInt(0xCCFFFFFF))),
                 pw.SizedBox(height: 12),
                 pw.Text(
-                  '$typeLabel · ${e.surfaceHabitable} m²'
-                  '${e.pieces > 0 ? ' · ${e.pieces} pièce${e.pieces > 1 ? 's' : ''}' : ''}'
-                  '${e.surfaceTerrain > 0 ? ' · Terrain ${e.surfaceTerrain} m²' : ''}',
+                  [
+                    '$typeLabel · ${e.surfaceHabitable} m²',
+                    if (e.pieces > 0)
+                      ' · ${e.pieces} pièce${e.pieces > 1 ? 's' : ''}',
+                    if (e.surfaceTerrain > 0)
+                      ' · Terrain ${e.surfaceTerrain} m²',
+                  ].join(),
                   style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold,
                       color: PdfColors.white),
                 ),
