@@ -198,20 +198,33 @@ class _Section6ScreenState extends State<Section6Screen> {
 
             // Ajustements
             SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const CardTitleRow(icon: Icons.tune_rounded, label: 'Coefficients d\'ajustement'),
-              const Text('Glissez pour ajuster · Impact calculé en temps réel',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF95A5A6), fontStyle: FontStyle.italic)),
+              const CardTitleRow(icon: Icons.tune_rounded, label: 'Ajustements du prix'),
+              const Text(
+                'Chaque critère ajuste le prix de base à la hausse ou à la baisse. '
+                'L\'impact en euros est recalculé en direct.',
+                style: TextStyle(fontSize: 11, color: Color(0xFF7F8C8D), height: 1.35),
+              ),
+              const SizedBox(height: 8),
+              // Légende couleurs
+              Row(children: [
+                _AdjLegend(color: kGreen, label: 'Plus-value (+)'),
+                const SizedBox(width: 14),
+                _AdjLegend(color: kRed, label: 'Décote (−)'),
+              ]),
               const SizedBox(height: 14),
 
-              _AdjRow(label: 'Vue dégagée', val: _e.ajustVue, min: 0, max: 8,
+              _AdjRow(label: 'Vue dégagée', val: _e.ajustVue, min: 0, max: 8, base: base,
+                  note: 'Vue montagne, lac ou panorama valorisant',
                   onChanged: (v) => _update(_e.copyWith(ajustVue: v))),
-              _AdjRow(label: 'Rénové / Bon état', val: _e.ajustEtat, min: -5, max: 8,
+              _AdjRow(label: 'Rénové / Bon état', val: _e.ajustEtat, min: -5, max: 8, base: base,
+                  note: 'Travaux récents (+) ou rafraîchissement à prévoir (−)',
                   onChanged: (v) => _update(_e.copyWith(ajustEtat: v))),
               _AdjRow(
                 label: 'Performance énergétique (DPE ${_e.dpeClasse})',
                 val: _e.ajustDpe,
                 min: -8,
                 max: 3,
+                base: base,
                 note: 'DPE ${_e.dpeClasse} · ${_e.ajustDpe < 0 ? 'décote' : _e.ajustDpe > 0 ? 'bonus' : 'neutre'}',
                 recommended: _e.recommendedAjustDpe,
                 onChanged: (v) => _update(_e.copyWith(ajustDpe: v)),
@@ -222,6 +235,7 @@ class _Section6ScreenState extends State<Section6Screen> {
                 val: _e.ajustExposition,
                 min: -5,
                 max: 3,
+                base: base,
                 note: _e.ajustExposition < -2 ? 'exposition défavorable' : _e.ajustExposition > 1 ? 'exposition favorable' : 'exposition neutre',
                 recommended: _e.recommendedAjustExposition,
                 onChanged: (v) => _update(_e.copyWith(ajustExposition: v)),
@@ -232,6 +246,7 @@ class _Section6ScreenState extends State<Section6Screen> {
                 val: _e.ajustEnvironnement,
                 min: -12,
                 max: 0,
+                base: base,
                 note: _e.ajustEnvironnement <= -9
                     ? 'nuisances sévères (route < 50m ou double source)'
                     : _e.ajustEnvironnement <= -6
@@ -248,6 +263,7 @@ class _Section6ScreenState extends State<Section6Screen> {
                 val: _e.ajustConjoncture,
                 min: -8,
                 max: 2,
+                base: base,
                 note: _e.ajustConjoncture <= -5
                     ? 'marché acheteur — forte pression à la baisse'
                     : _e.ajustConjoncture <= -2
@@ -631,6 +647,19 @@ class _PriceDetailRow extends StatelessWidget {
       );
 }
 
+/// Petite légende colorée (point + texte) sous le titre des ajustements.
+class _AdjLegend extends StatelessWidget {
+  final Color color;
+  final String label;
+  const _AdjLegend({required this.color, required this.label});
+  @override
+  Widget build(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(width: 9, height: 9, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 5),
+        Text(label, style: const TextStyle(fontSize: 10.5, color: Color(0xFF7F8C8D), fontWeight: FontWeight.w600)),
+      ]);
+}
+
 class _AdjRow extends StatelessWidget {
   final String label;
   final double val;
@@ -638,47 +667,81 @@ class _AdjRow extends StatelessWidget {
   final double max;
   final String? note;
   final double? recommended;
+  final double base; // prix de base, pour afficher l'impact en €
   final VoidCallback? onReset;
   final ValueChanged<double> onChanged;
-  const _AdjRow({required this.label, required this.val, required this.min, required this.max, this.note, this.recommended, this.onReset, required this.onChanged});
+  const _AdjRow({required this.label, required this.val, required this.min, required this.max, this.note, this.recommended, this.base = 0, this.onReset, required this.onChanged});
+
+  static String _fmtEuro(double n) {
+    final s = n.abs().round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
+    return '$s €';
+  }
 
   @override
   Widget build(BuildContext context) {
     final pct = val.round();
-    final impactStr = pct >= 0 ? '+$pct%' : '$pct%';
+    final impactStr = pct >= 0 ? '+$pct %' : '$pct %';
     final color = pct > 0 ? kGreen : pct < 0 ? kRed : const Color(0xFF95A5A6);
+    final euro = base * val / 100;
+    final euroStr = euro == 0 ? null : '${euro > 0 ? '+' : '−'}${_fmtEuro(euro)}';
     final showResetHint = recommended != null && (val - recommended!).abs() > 0.4;
     final recPct = recommended?.round() ?? 0;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAFBFA),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFECEFEC)),
+      ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kCharcoal)),
-          Row(mainAxisSize: MainAxisSize.min, children: [
-            if (showResetHint && onReset != null)
-              GestureDetector(
-                onTap: onReset,
-                child: Container(
-                  margin: const EdgeInsets.only(right: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: kAmber.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: kAmber.withOpacity(0.4)),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.auto_fix_high_rounded, size: 10, color: kAmber),
-                    const SizedBox(width: 3),
-                    Text(
-                      'Calibré : ${recPct >= 0 ? '+' : ''}$recPct%',
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: kAmber),
-                    ),
-                  ]),
-                ),
-              ),
-            Text(impactStr, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
-          ]),
+        // Titre + badge (% et € côte à côte)
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+            child: Text(label,
+                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: kCharcoal)),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.10),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text(impactStr, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: color)),
+              if (euroStr != null)
+                Text(euroStr, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: color)),
+            ]),
+          ),
         ]),
+        // Note descriptive sur toute la largeur
+        if (note != null) ...[
+          const SizedBox(height: 3),
+          Text(note!, style: const TextStyle(fontSize: 10.5, color: Color(0xFF95A5A6))),
+        ],
+        // Valeur conseillée (cliquable)
+        if (showResetHint && onReset != null) ...[
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: onReset,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: kAmber.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: kAmber.withOpacity(0.4)),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.auto_fix_high_rounded, size: 11, color: kAmber),
+                const SizedBox(width: 4),
+                Text('Conseillé : ${recPct >= 0 ? '+' : ''}$recPct % — appuyer pour appliquer',
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: kAmber)),
+              ]),
+            ),
+          ),
+        ],
         SliderTheme(
           data: SliderThemeData(
             activeTrackColor: kGreen,
@@ -691,11 +754,16 @@ class _AdjRow extends StatelessWidget {
           child: Slider(value: val.clamp(min, max), min: min, max: max, divisions: ((max - min) * 2).round(),
               onChanged: onChanged),
         ),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(min >= 0 ? '+${min.round()}%' : '${min.round()}%', style: const TextStyle(fontSize: 10, color: kLightGrey)),
-          if (note != null) Text(note!, style: const TextStyle(fontSize: 10, color: kLightGrey, fontStyle: FontStyle.italic)),
-          Text(max >= 0 ? '+${max.round()}%' : '${max.round()}%', style: const TextStyle(fontSize: 10, color: kLightGrey)),
-        ]),
+        // Bornes min / max
+        Padding(
+          padding: const EdgeInsets.only(top: 2, bottom: 2),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text(min >= 0 ? '+${min.round()} %' : '${min.round()} %',
+                style: const TextStyle(fontSize: 9.5, color: kLightGrey)),
+            Text(max >= 0 ? '+${max.round()} %' : '${max.round()} %',
+                style: const TextStyle(fontSize: 9.5, color: kLightGrey)),
+          ]),
+        ),
       ]),
     );
   }
