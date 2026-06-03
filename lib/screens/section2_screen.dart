@@ -155,6 +155,13 @@ class _Section2ScreenState extends State<Section2Screen> {
                 const SizedBox(width: 10),
                 Expanded(child: StepperField(label: 'Chambres', value: _e.chambres, onChange: (v) => _update(_e.copyWith(chambres: v)))),
               ]),
+              const SizedBox(height: 12),
+
+              // Détail des surfaces par pièce
+              _PiecesSurfacesWidget(
+                pieces: _e.piecesSurfaces,
+                onChanged: (list) => _update(_e.copyWith(piecesSurfaces: list)),
+              ),
 
               MesNotes(sectionKey: 'section2', initialData: _e.notes['section2'] ?? {}, onChanged: (data) {
                 final n = Map<String, Map<String, dynamic>>.from(_e.notes); n['section2'] = data;
@@ -580,6 +587,301 @@ class _TerrainConstructibleWidgetState extends State<_TerrainConstructibleWidget
       ]),
     );
   }
+}
+
+// ── Détail surfaces par pièce ────────────────────────────────────────────────
+
+class _PiecesSurfacesWidget extends StatefulWidget {
+  final List<Map<String, dynamic>> pieces;
+  final ValueChanged<List<Map<String, dynamic>>> onChanged;
+  const _PiecesSurfacesWidget({required this.pieces, required this.onChanged});
+
+  @override
+  State<_PiecesSurfacesWidget> createState() => _PiecesSurfacesWidgetState();
+}
+
+class _PiecesSurfacesWidgetState extends State<_PiecesSurfacesWidget> {
+  bool _open = false;
+
+  static const _suggestions = [
+    'Séjour', 'Cuisine', 'Chambre 1', 'Chambre 2', 'Chambre 3',
+    'Salle de bain', 'WC', 'Entrée', 'Couloir', 'Bureau',
+    'Dressing', 'Buanderie', 'Garage', 'Cave',
+  ];
+
+  List<Map<String, dynamic>> get _list => List<Map<String, dynamic>>.from(widget.pieces);
+
+  void _add() {
+    final list = _list;
+    list.add({'nom': '', 'surface': 0.0});
+    widget.onChanged(list);
+  }
+
+  void _remove(int i) {
+    final list = _list;
+    list.removeAt(i);
+    widget.onChanged(list);
+  }
+
+  void _updateNom(int i, String nom) {
+    final list = _list;
+    list[i] = {'nom': nom, 'surface': list[i]['surface'] ?? 0.0};
+    widget.onChanged(list);
+  }
+
+  void _updateSurface(int i, double surface) {
+    final list = _list;
+    list[i] = {'nom': list[i]['nom'] ?? '', 'surface': surface};
+    widget.onChanged(list);
+  }
+
+  double get _total => widget.pieces.fold(0.0, (s, p) => s + ((p['surface'] as num?)?.toDouble() ?? 0.0));
+
+  @override
+  Widget build(BuildContext context) {
+    final total = _total;
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE0E0E0), width: 1.5),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(children: [
+        // Header toggle
+        GestureDetector(
+          onTap: () => setState(() => _open = !_open),
+          child: Container(
+            color: const Color(0xFFF7FAF7),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Row(children: [
+                const Icon(Icons.grid_view_rounded, size: 16, color: kGreen),
+                const SizedBox(width: 8),
+                const Text('Détail des pièces', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal)),
+                if (widget.pieces.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(color: kGreen.withOpacity(0.12), borderRadius: BorderRadius.circular(20)),
+                    child: Text('${widget.pieces.length} pièces · ${total.toStringAsFixed(0)} m²',
+                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: kGreen)),
+                  ),
+                ],
+              ]),
+              Icon(_open ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: kLightGrey, size: 18),
+            ]),
+          ),
+        ),
+
+        if (_open) ...[
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+              // Suggestions rapides
+              if (widget.pieces.isEmpty)
+                Wrap(
+                  spacing: 6, runSpacing: 6,
+                  children: _suggestions.take(6).map((s) => GestureDetector(
+                    onTap: () {
+                      final list = _list;
+                      list.add({'nom': s, 'surface': 0.0});
+                      widget.onChanged(list);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: kGreen.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: kGreen.withOpacity(0.3)),
+                      ),
+                      child: Text('+ $s', style: const TextStyle(fontSize: 11, color: kGreen, fontWeight: FontWeight.w600)),
+                    ),
+                  )).toList(),
+                ),
+
+              if (widget.pieces.isNotEmpty) ...[
+                // Header colonnes
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 6),
+                  child: Row(children: [
+                    Expanded(flex: 5, child: Text('Pièce', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: kGrey))),
+                    SizedBox(width: 8),
+                    SizedBox(width: 80, child: Text('Surface', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: kGrey), textAlign: TextAlign.center)),
+                    SizedBox(width: 32),
+                  ]),
+                ),
+
+                // Lignes
+                ...List.generate(widget.pieces.length, (i) {
+                  final p = widget.pieces[i];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(children: [
+                      // Nom
+                      Expanded(
+                        flex: 5,
+                        child: _PieceTextField(
+                          initialValue: (p['nom'] as String?) ?? '',
+                          suggestions: _suggestions,
+                          onChanged: (v) => _updateNom(i, v),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Surface
+                      SizedBox(
+                        width: 80,
+                        child: _SurfaceSmallField(
+                          initialValue: (p['surface'] as num?)?.toDouble() ?? 0.0,
+                          onChanged: (v) => _updateSurface(i, v),
+                        ),
+                      ),
+                      // Supprimer
+                      SizedBox(
+                        width: 32,
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          iconSize: 16,
+                          icon: const Icon(Icons.close_rounded, color: kLightGrey),
+                          onPressed: () => _remove(i),
+                        ),
+                      ),
+                    ]),
+                  );
+                }),
+
+                // Total
+                if (total > 0)
+                  Container(
+                    margin: const EdgeInsets.only(top: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: kGreen.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: kGreen.withOpacity(0.2)),
+                    ),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      const Text('Total détaillé', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
+                      Text('${total.toStringAsFixed(1)} m²',
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: kGreen)),
+                    ]),
+                  ),
+              ],
+
+              // Bouton ajouter
+              const SizedBox(height: 10),
+              GestureDetector(
+                onTap: _add,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: kGreen.withOpacity(0.4), width: 1.5),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.add_rounded, size: 16, color: kGreen),
+                    SizedBox(width: 6),
+                    Text('Ajouter une pièce', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kGreen)),
+                  ]),
+                ),
+              ),
+            ]),
+          ),
+        ],
+      ]),
+    );
+  }
+}
+
+class _PieceTextField extends StatefulWidget {
+  final String initialValue;
+  final List<String> suggestions;
+  final ValueChanged<String> onChanged;
+  const _PieceTextField({required this.initialValue, required this.suggestions, required this.onChanged});
+
+  @override
+  State<_PieceTextField> createState() => _PieceTextFieldState();
+}
+
+class _PieceTextFieldState extends State<_PieceTextField> {
+  late TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.initialValue);
+  }
+
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) => Autocomplete<String>(
+    initialValue: TextEditingValue(text: widget.initialValue),
+    optionsBuilder: (v) => v.text.isEmpty ? const [] :
+        widget.suggestions.where((s) => s.toLowerCase().contains(v.text.toLowerCase())),
+    onSelected: (s) { _ctrl.text = s; widget.onChanged(s); },
+    fieldViewBuilder: (ctx, ctrl, focusNode, onSub) => TextField(
+      controller: ctrl,
+      focusNode: focusNode,
+      style: const TextStyle(fontSize: 13, color: kCharcoal),
+      decoration: InputDecoration(
+        hintText: 'Séjour, Chambre…',
+        hintStyle: const TextStyle(color: kLightGrey, fontSize: 12),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kGreen, width: 2)),
+      ),
+      onChanged: widget.onChanged,
+    ),
+  );
+}
+
+class _SurfaceSmallField extends StatefulWidget {
+  final double initialValue;
+  final ValueChanged<double> onChanged;
+  const _SurfaceSmallField({required this.initialValue, required this.onChanged});
+
+  @override
+  State<_SurfaceSmallField> createState() => _SurfaceSmallFieldState();
+}
+
+class _SurfaceSmallFieldState extends State<_SurfaceSmallField> {
+  late TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(
+      text: widget.initialValue > 0 ? widget.initialValue.toStringAsFixed(widget.initialValue == widget.initialValue.roundToDouble() ? 0 : 1) : '',
+    );
+  }
+
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) => TextField(
+    controller: _ctrl,
+    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+    textAlign: TextAlign.center,
+    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kCharcoal),
+    decoration: InputDecoration(
+      suffixText: 'm²',
+      suffixStyle: const TextStyle(fontSize: 10, color: kGrey),
+      hintText: '0',
+      hintStyle: const TextStyle(color: kLightGrey),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kGreen, width: 2)),
+    ),
+    onChanged: (v) => widget.onChanged(double.tryParse(v.replaceAll(',', '.')) ?? 0.0),
+  );
 }
 
 class _SurfaceField extends StatelessWidget {

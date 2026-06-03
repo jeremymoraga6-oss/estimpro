@@ -127,6 +127,9 @@ class Estimation {
   // Historique des modifications de prix (négociation)
   List<Map<String, dynamic>> historique;
 
+  // Détail surfaces par pièce [{nom: 'Séjour', surface: 30.0}, ...]
+  List<Map<String, dynamic>> piecesSurfaces;
+
   // Notes par section
   Map<String, Map<String, dynamic>> notes;
 
@@ -227,9 +230,11 @@ class Estimation {
     this.risques,
     this.notesVendeur,
     List<Map<String, dynamic>>? historique,
+    List<Map<String, dynamic>>? piecesSurfaces,
     Map<String, Map<String, dynamic>>? notes,
     Map<String, bool>? documentsChecked,
   })  : historique = historique ?? [],
+        piecesSurfaces = piecesSurfaces ?? [],
         orientations = orientations ?? ['S'],
         vues = vues ?? [],
         revetementsol = revetementsol ?? ['Parquet'],
@@ -504,6 +509,7 @@ class Estimation {
         'risques': risques != null ? jsonEncode(risques!.toMap()) : null,
         'notesVendeur': notesVendeur != null ? jsonEncode(notesVendeur!.toMap()) : null,
         'historique': jsonEncode(historique),
+        'piecesSurfaces': jsonEncode(piecesSurfaces),
         'notes': jsonEncode(notes),
       };
 
@@ -625,6 +631,10 @@ class Estimation {
           ? VendeurNote.fromMap(
               Map<String, dynamic>.from(jsonDecode(m['notesVendeur'] as String)))
           : null,
+      piecesSurfaces: m['piecesSurfaces'] != null
+          ? List<Map<String, dynamic>>.from(
+              (jsonDecode(m['piecesSurfaces']) as List).map((e) => Map<String, dynamic>.from(e)))
+          : [],
       historique: m['historique'] != null
           ? List<Map<String, dynamic>>.from(
               (jsonDecode(m['historique']) as List).map((e) => Map<String, dynamic>.from(e)))
@@ -732,6 +742,7 @@ class Estimation {
     VendeurNote? notesVendeur,
     bool clearNotesVendeur = false,
     List<Map<String, dynamic>>? historique,
+    List<Map<String, dynamic>>? piecesSurfaces,
     Map<String, Map<String, dynamic>>? notes,
   }) {
     final copy = Estimation(
@@ -829,6 +840,7 @@ class Estimation {
       risques: clearRisques ? null : (risques ?? this.risques),
       notesVendeur: clearNotesVendeur ? null : (notesVendeur ?? this.notesVendeur),
       historique: historique ?? List.from(this.historique),
+      piecesSurfaces: piecesSurfaces ?? List.from(this.piecesSurfaces),
       notes: notes ?? Map.from(this.notes),
     );
     return copy;

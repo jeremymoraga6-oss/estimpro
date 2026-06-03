@@ -562,19 +562,59 @@ class PdfService {
         _row('Date de visite', _fmtDate(e.dateVisite)),
       ]);
 
-  pw.Widget _descSection(Estimation e) => _card('DESCRIPTION DU BIEN', [
-        _row('Surface habitable', '${e.surfaceHabitable} m²'),
-        _row('Surface terrain', '${e.surfaceTerrain} m²'),
-        _row('Pièces', '${e.pieces}'),
-        _row('Chambres', '${e.chambres}'),
-        _row('Année construction', e.anneeConstruction),
-        _row('État général',
-            ['A rénover', 'Travaux', 'Bon état', 'Très bon', 'Neuf'][e.etatGeneral.clamp(0, 4)]),
-        _row('Orientation', e.orientations.join(', ')),
-        _row('Vue', e.vues.join(', ')),
-        _row('DPE', e.dpeClasse == 'NC' ? 'Non communiqué (!)' : 'Classe ${e.dpeClasse}'),
-        _row('Chauffage', e.chauffageType),
-      ]);
+  pw.Widget _descSection(Estimation e) {
+    final rows = <pw.Widget>[
+      _row('Surface habitable', '${e.surfaceHabitable} m²'),
+      _row('Surface terrain', '${e.surfaceTerrain} m²'),
+      _row('Pièces', '${e.pieces}'),
+      _row('Chambres', '${e.chambres}'),
+    ];
+
+    // Détail surfaces par pièce
+    if (e.piecesSurfaces.isNotEmpty) {
+      rows.add(pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(vertical: 6),
+        child: pw.Container(height: 0.5, color: PdfColors.grey200),
+      ));
+      rows.add(pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 4),
+        child: pw.Text('Détail par pièce',
+            style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
+      ));
+      for (final p in e.piecesSurfaces) {
+        final nom = (p['nom'] as String?) ?? '—';
+        final surf = (p['surface'] as num?)?.toDouble() ?? 0.0;
+        if (surf > 0 || nom.isNotEmpty) {
+          rows.add(_row(nom.isNotEmpty ? nom : '—', surf > 0 ? '${surf.toStringAsFixed(surf == surf.roundToDouble() ? 0 : 1)} m²' : '— m²'));
+        }
+      }
+      final total = e.piecesSurfaces.fold(0.0, (s, p) => s + ((p['surface'] as num?)?.toDouble() ?? 0.0));
+      if (total > 0) {
+        rows.add(pw.Padding(
+          padding: const pw.EdgeInsets.symmetric(vertical: 4),
+          child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+            pw.Text('Total détaillé', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _kGreen)),
+            pw.Text('${total.toStringAsFixed(1)} m²', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _kGreen)),
+          ]),
+        ));
+      }
+      rows.add(pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(vertical: 4),
+        child: pw.Container(height: 0.5, color: PdfColors.grey200),
+      ));
+    }
+
+    rows.addAll([
+      _row('Année construction', e.anneeConstruction),
+      _row('État général', ['A rénover', 'Travaux', 'Bon état', 'Très bon', 'Neuf'][e.etatGeneral.clamp(0, 4)]),
+      _row('Orientation', e.orientations.join(', ')),
+      _row('Vue', e.vues.join(', ')),
+      _row('DPE', e.dpeClasse == 'NC' ? 'Non communiqué (!)' : 'Classe ${e.dpeClasse}'),
+      _row('Chauffage', e.chauffageType),
+    ]);
+
+    return _card('DESCRIPTION DU BIEN', rows);
+  }
 
   pw.Widget _etatSection(Estimation e) {
     final rows = <pw.Widget>[
