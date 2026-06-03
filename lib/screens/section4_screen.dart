@@ -135,6 +135,51 @@ class _Section4ScreenState extends State<Section4Screen> {
                   onSelect: (v) => _update(_e.copyWith(isolation: v))),
             ])),
 
+            // Réseaux & équipements
+            SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const CardTitleRow(icon: Icons.cable_outlined, label: 'Réseaux & équipements'),
+
+              const FieldLabel('Assainissement'),
+              const SizedBox(height: 6),
+              PillSelector(
+                options: const ['Tout-à-l\'égout', 'Fosse septique', 'Micro-station'],
+                selected: _e.assainissement,
+                onSelect: (v) => _update(_e.copyWith(assainissement: _e.assainissement == v ? '' : v)),
+              ),
+              const SizedBox(height: 12),
+
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Row(children: const [
+                  Icon(Icons.wifi_outlined, size: 16, color: kGreen),
+                  SizedBox(width: 8),
+                  Text('Fibre optique', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal)),
+                ]),
+                Switch(
+                  value: _e.fibreOptique,
+                  activeColor: kGreen,
+                  onChanged: (v) => _update(_e.copyWith(fibreOptique: v)),
+                ),
+              ]),
+              const CardDivider(),
+
+              const FieldLabel('Équipements'),
+              const SizedBox(height: 6),
+              ChipGroup(
+                options: const [
+                  'Piscine', 'Garage', 'Box', 'Parking', 'Cave', 'Grenier',
+                  'Ascenseur', 'Interphone', 'Digicode', 'Alarme', 'Climatisation',
+                  'Cheminée', 'Poêle', 'Véranda', 'Portail élec.', 'Volets élec.',
+                  'Cuisine équipée', 'Dressing', 'Borne élec.', 'Panneaux solaires',
+                ],
+                selected: _e.equipements,
+                onToggle: (v) {
+                  final list = List<String>.from(_e.equipements);
+                  list.contains(v) ? list.remove(v) : list.add(v);
+                  _update(_e.copyWith(equipements: list));
+                },
+              ),
+            ])),
+
             // Diagnostics obligatoires
             _DiagnosticsCard(
               estimation: _e,

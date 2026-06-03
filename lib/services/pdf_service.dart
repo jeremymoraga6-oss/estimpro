@@ -759,18 +759,30 @@ class PdfService {
   pw.Widget _infoSection(Estimation e) => _card('INFORMATIONS GENERALES', [
         _row('Type', '${e.typeId[0].toUpperCase()}${e.typeId.substring(1)}'),
         _row('Motif', e.motif),
+        if (e.referenceCadastrale.isNotEmpty)
+          _row('Référence cadastrale', e.referenceCadastrale),
         _row('Propriétaire', e.proprietaireNom),
         _row('Téléphone', e.proprietaireTel),
         _row('Email', e.proprietaireEmail),
         _row('Date de visite', _fmtDate(e.dateVisite)),
+        _row('Mandat',
+            '${e.typeMandat} . ${e.dureeMandatMois} mois . honoraires ${e.honorairesACharge.toLowerCase()}'),
       ]);
 
   pw.Widget _descSection(Estimation e) {
     final rows = <pw.Widget>[
       _row('Surface habitable', '${e.surfaceHabitable} m²'),
-      _row('Surface terrain', '${e.surfaceTerrain} m²'),
+      if (e.typeId == 'appartement' && e.surfaceCarrez > 0)
+        _row('Surface loi Carrez', '${e.surfaceCarrez} m²'),
+      if (e.typeId != 'appartement')
+        _row('Surface terrain', '${e.surfaceTerrain} m²'),
       _row('Pièces', '${e.pieces}'),
       _row('Chambres', '${e.chambres}'),
+      if (e.nbSallesBain > 0) _row('Salles de bain', '${e.nbSallesBain}'),
+      if (e.nbSallesEau > 0) _row("Salles d'eau", '${e.nbSallesEau}'),
+      if (e.nbWc > 0) _row('WC', '${e.nbWc}'),
+      if (e.typeCuisine.isNotEmpty) _row('Cuisine', e.typeCuisine),
+      if (e.combles.isNotEmpty) _row('Combles', e.combles),
     ];
 
     // Détail surfaces par pièce
@@ -833,8 +845,13 @@ class PdfService {
       _row('Chauffage', '${e.chauffageType} . ${e.chauffageEtat} . ${e.anneeChaudiere}'),
       _row('Electricite', e.electricite),
       _row('Isolation', e.isolation),
+      if (e.assainissement.isNotEmpty) _row('Assainissement', e.assainissement),
+      _row('Fibre optique', e.fibreOptique ? 'Oui' : 'Non'),
       _row('Occupation', e.libreOccupation ? 'Libre' : 'Loue'),
     ];
+    if (e.equipements.isNotEmpty) {
+      rows.add(_row('Équipements', e.equipements.join(', ')));
+    }
     if (!e.libreOccupation) {
       if (e.loyerMensuel > 0)
         rows.add(_row('Loyer mensuel',
@@ -864,6 +881,26 @@ class PdfService {
     final total =
         e.taxeFonciere + (e.typeId == 'appartement' ? e.chargesCopro : 0);
     if (total > 0) rows.add(_row('Total annuel', fmtTax(total), bold: true));
+
+    // Copropriété — informations ALUR
+    if (e.typeId == 'appartement' && e.enCopropriete) {
+      rows.add(pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(vertical: 6),
+        child: pw.Container(height: 0.5, color: PdfColors.grey200),
+      ));
+      rows.add(pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 4),
+        child: pw.Text('Copropriété (loi ALUR)',
+            style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
+      ));
+      if (e.syndicNom.isNotEmpty) rows.add(_row('Syndic', e.syndicNom));
+      if (e.nombreLots > 0) rows.add(_row('Nombre de lots', '${e.nombreLots}'));
+      if (e.tantiemes > 0) rows.add(_row('Tantièmes', '${e.tantiemes}'));
+      if (e.fondsTravaux > 0) rows.add(_row('Fonds de travaux', fmtTax(e.fondsTravaux)));
+      rows.add(_row('Procédures en cours',
+          e.coproProceduresEnCours ? 'Oui (!)' : 'Non',
+          bold: e.coproProceduresEnCours));
+    }
     return _card('CHARGES & IMPOTS ANNUELS', rows);
   }
 

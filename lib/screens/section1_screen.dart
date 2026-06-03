@@ -26,6 +26,8 @@ class _Section1ScreenState extends State<Section1Screen> {
   final _types = ['maison', 'appartement', 'chalet', 'terrain'];
   final _typeLabels = ['Maison', 'Appartement', 'Chalet', 'Terrain'];
   final _motifs = ['Vente', 'Succession', 'Divorce', 'Donation', 'Autre'];
+  final _typesMandat = ['Simple', 'Exclusif', 'Semi-exclusif'];
+  final _honoraires = ['Vendeur', 'Acquéreur'];
 
   @override
   void initState() {
@@ -287,6 +289,77 @@ class _Section1ScreenState extends State<Section1Screen> {
                     ),
                   ),
                 ]),
+              ])),
+
+              // Mandat
+              SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const CardTitleRow(icon: Icons.handshake_outlined, label: 'Mandat'),
+                const FieldLabel('Type de mandat'),
+                const SizedBox(height: 5),
+                Row(
+                  children: List.generate(_typesMandat.length, (i) {
+                    final sel = _e.typeMandat == _typesMandat[i];
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() { _e = _e.copyWith(typeMandat: _typesMandat[i]); _save(); }),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          margin: EdgeInsets.only(right: i < _typesMandat.length - 1 ? 7 : 0),
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: sel ? kGreen : Colors.white,
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: sel ? kGreen : kBorderColor, width: sel ? 0 : 1.5),
+                          ),
+                          alignment: Alignment.center,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(_typesMandat[i],
+                                style: TextStyle(fontSize: 12, fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                                    color: sel ? Colors.white : kGrey)),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+                const SizedBox(height: 14),
+                StepperField(
+                  label: 'Durée du mandat',
+                  value: _e.dureeMandatMois,
+                  unit: 'mois',
+                  onChange: (v) => setState(() { _e = _e.copyWith(dureeMandatMois: v < 1 ? 1 : v); _save(); }),
+                ),
+                const SizedBox(height: 14),
+                const FieldLabel('Honoraires à la charge de'),
+                const SizedBox(height: 5),
+                Row(
+                  children: List.generate(_honoraires.length, (i) {
+                    final sel = _e.honorairesACharge == _honoraires[i];
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() { _e = _e.copyWith(honorairesACharge: _honoraires[i]); _save(); }),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          margin: EdgeInsets.only(right: i < _honoraires.length - 1 ? 7 : 0),
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: sel ? kGreen : Colors.white,
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: sel ? kGreen : kBorderColor, width: sel ? 0 : 1.5),
+                          ),
+                          alignment: Alignment.center,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(_honoraires[i],
+                                style: TextStyle(fontSize: 12, fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                                    color: sel ? Colors.white : kGrey)),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
               ])),
 
               // Conseiller

@@ -63,6 +63,31 @@ class Estimation {
   int prixAchat;            // prix d'achat €
   int anneeAchat;           // année d'acquisition
 
+  // ── LOT 1 — Juridique & mandat ──────────────────────────────────
+  String referenceCadastrale; // section + parcelle (ex: "AB 123")
+  String typeMandat;          // 'Simple' | 'Exclusif' | 'Semi-exclusif'
+  int dureeMandatMois;        // durée du mandat en mois
+  String honorairesACharge;   // 'Vendeur' | 'Acquéreur'
+
+  // Copropriété (loi ALUR) — pertinent si lot de copropriété
+  bool enCopropriete;
+  String syndicNom;
+  int nombreLots;             // nombre de lots dans la copropriété
+  int tantiemes;              // quote-part en tantièmes/millièmes
+  int fondsTravaux;           // fonds de travaux ALUR (€)
+  bool coproProceduresEnCours; // procédure judiciaire / impayés en cours
+  int surfaceCarrez;          // surface loi Carrez (m²) — obligatoire copro
+
+  // ── LOT 2 — Détail technique & équipements ──────────────────────
+  int nbSallesBain;           // nombre de salles de bain (avec baignoire)
+  int nbSallesEau;            // nombre de salles d'eau (douche)
+  int nbWc;                   // nombre de WC
+  String typeCuisine;         // '' | 'Équipée' | 'Aménagée' | 'Ouverte' | 'Séparée'
+  String combles;             // '' | 'Aménagés' | 'Aménageables' | 'Perdus' | 'Aucun'
+  String assainissement;      // '' | 'Collectif' | 'Individuel conforme' | 'Individuel non conforme'
+  bool fibreOptique;          // éligibilité / raccordement fibre
+  List<String> equipements;   // climatisation, cheminée, photovoltaïque, borne VE…
+
   // Diagnostics obligatoires (statut: 'valide'|'a_refaire'|'absent'|'nc', date: 'YYYY')
   Map<String, Map<String, String>> diagnostics;
 
@@ -187,6 +212,25 @@ class Estimation {
     this.residencePrincipale = true,
     this.prixAchat = 0,
     this.anneeAchat = 0,
+    this.referenceCadastrale = '',
+    this.typeMandat = 'Simple',
+    this.dureeMandatMois = 3,
+    this.honorairesACharge = 'Vendeur',
+    this.enCopropriete = false,
+    this.syndicNom = '',
+    this.nombreLots = 0,
+    this.tantiemes = 0,
+    this.fondsTravaux = 0,
+    this.coproProceduresEnCours = false,
+    this.surfaceCarrez = 0,
+    this.nbSallesBain = 0,
+    this.nbSallesEau = 0,
+    this.nbWc = 0,
+    this.typeCuisine = '',
+    this.combles = '',
+    this.assainissement = '',
+    this.fibreOptique = false,
+    List<String>? equipements,
     Map<String, Map<String, String>>? diagnostics,
     this.facade = 'Bon',
     this.toiture = 'Bon',
@@ -234,6 +278,7 @@ class Estimation {
     Map<String, Map<String, dynamic>>? notes,
     Map<String, bool>? documentsChecked,
   })  : historique = historique ?? [],
+        equipements = equipements ?? [],
         piecesSurfaces = piecesSurfaces ?? [],
         orientations = orientations ?? ['S'],
         vues = vues ?? [],
@@ -465,6 +510,25 @@ class Estimation {
         'residencePrincipale': residencePrincipale ? 1 : 0,
         'prixAchat': prixAchat,
         'anneeAchat': anneeAchat,
+        'referenceCadastrale': referenceCadastrale,
+        'typeMandat': typeMandat,
+        'dureeMandatMois': dureeMandatMois,
+        'honorairesACharge': honorairesACharge,
+        'enCopropriete': enCopropriete ? 1 : 0,
+        'syndicNom': syndicNom,
+        'nombreLots': nombreLots,
+        'tantiemes': tantiemes,
+        'fondsTravaux': fondsTravaux,
+        'coproProceduresEnCours': coproProceduresEnCours ? 1 : 0,
+        'surfaceCarrez': surfaceCarrez,
+        'nbSallesBain': nbSallesBain,
+        'nbSallesEau': nbSallesEau,
+        'nbWc': nbWc,
+        'typeCuisine': typeCuisine,
+        'combles': combles,
+        'assainissement': assainissement,
+        'fibreOptique': fibreOptique ? 1 : 0,
+        'equipements': jsonEncode(equipements),
         'diagnostics': jsonEncode(diagnostics),
         'documentsChecked': jsonEncode(documentsChecked),
         'facade': facade,
@@ -572,6 +636,25 @@ class Estimation {
       residencePrincipale: (m['residencePrincipale'] as int? ?? 1) == 1,
       prixAchat: m['prixAchat'] as int? ?? 0,
       anneeAchat: m['anneeAchat'] as int? ?? 0,
+      referenceCadastrale: m['referenceCadastrale'] as String? ?? '',
+      typeMandat: m['typeMandat'] as String? ?? 'Simple',
+      dureeMandatMois: m['dureeMandatMois'] as int? ?? 3,
+      honorairesACharge: m['honorairesACharge'] as String? ?? 'Vendeur',
+      enCopropriete: (m['enCopropriete'] as int? ?? 0) == 1,
+      syndicNom: m['syndicNom'] as String? ?? '',
+      nombreLots: m['nombreLots'] as int? ?? 0,
+      tantiemes: m['tantiemes'] as int? ?? 0,
+      fondsTravaux: m['fondsTravaux'] as int? ?? 0,
+      coproProceduresEnCours: (m['coproProceduresEnCours'] as int? ?? 0) == 1,
+      surfaceCarrez: m['surfaceCarrez'] as int? ?? 0,
+      nbSallesBain: m['nbSallesBain'] as int? ?? 0,
+      nbSallesEau: m['nbSallesEau'] as int? ?? 0,
+      nbWc: m['nbWc'] as int? ?? 0,
+      typeCuisine: m['typeCuisine'] as String? ?? '',
+      combles: m['combles'] as String? ?? '',
+      assainissement: m['assainissement'] as String? ?? '',
+      fibreOptique: (m['fibreOptique'] as int? ?? 0) == 1,
+      equipements: decodeStrList(m['equipements']),
       diagnostics: m['diagnostics'] != null
           ? Map<String, Map<String, String>>.from(
               (jsonDecode(m['diagnostics']) as Map).map(
@@ -696,6 +779,25 @@ class Estimation {
     bool? residencePrincipale,
     int? prixAchat,
     int? anneeAchat,
+    String? referenceCadastrale,
+    String? typeMandat,
+    int? dureeMandatMois,
+    String? honorairesACharge,
+    bool? enCopropriete,
+    String? syndicNom,
+    int? nombreLots,
+    int? tantiemes,
+    int? fondsTravaux,
+    bool? coproProceduresEnCours,
+    int? surfaceCarrez,
+    int? nbSallesBain,
+    int? nbSallesEau,
+    int? nbWc,
+    String? typeCuisine,
+    String? combles,
+    String? assainissement,
+    bool? fibreOptique,
+    List<String>? equipements,
     Map<String, Map<String, String>>? diagnostics,
     Map<String, bool>? documentsChecked,
     String? facade,
@@ -796,6 +898,25 @@ class Estimation {
       residencePrincipale: residencePrincipale ?? this.residencePrincipale,
       prixAchat: prixAchat ?? this.prixAchat,
       anneeAchat: anneeAchat ?? this.anneeAchat,
+      referenceCadastrale: referenceCadastrale ?? this.referenceCadastrale,
+      typeMandat: typeMandat ?? this.typeMandat,
+      dureeMandatMois: dureeMandatMois ?? this.dureeMandatMois,
+      honorairesACharge: honorairesACharge ?? this.honorairesACharge,
+      enCopropriete: enCopropriete ?? this.enCopropriete,
+      syndicNom: syndicNom ?? this.syndicNom,
+      nombreLots: nombreLots ?? this.nombreLots,
+      tantiemes: tantiemes ?? this.tantiemes,
+      fondsTravaux: fondsTravaux ?? this.fondsTravaux,
+      coproProceduresEnCours: coproProceduresEnCours ?? this.coproProceduresEnCours,
+      surfaceCarrez: surfaceCarrez ?? this.surfaceCarrez,
+      nbSallesBain: nbSallesBain ?? this.nbSallesBain,
+      nbSallesEau: nbSallesEau ?? this.nbSallesEau,
+      nbWc: nbWc ?? this.nbWc,
+      typeCuisine: typeCuisine ?? this.typeCuisine,
+      combles: combles ?? this.combles,
+      assainissement: assainissement ?? this.assainissement,
+      fibreOptique: fibreOptique ?? this.fibreOptique,
+      equipements: equipements ?? List.from(this.equipements),
       diagnostics: diagnostics ?? Map.from(this.diagnostics),
       documentsChecked: documentsChecked ?? Map.from(this.documentsChecked),
       facade: facade ?? this.facade,

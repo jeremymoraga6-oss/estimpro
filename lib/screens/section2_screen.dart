@@ -56,12 +56,20 @@ class _Section2ScreenState extends State<Section2Screen> {
   late TextEditingController _balconCtrl;
   late TextEditingController _caveCtrl;
   late TextEditingController _terrasseCtrl;
+  late TextEditingController _carrezCtrl;
+  late TextEditingController _cadastreCtrl;
+  late TextEditingController _syndicCtrl;
+  late TextEditingController _nbLotsCtrl;
+  late TextEditingController _tantiemesCtrl;
+  late TextEditingController _fondsCtrl;
 
   final _annees = ['Avant 1900', '1900-1950', '1950-1980', '1980-2000', '2000-2010', '2010-2020', 'Après 2020'];
   final _chauffages = ['Gaz naturel', 'Électrique', 'Pompe à chaleur', 'Fioul', 'Bois / Pellets', 'Géothermie'];
   final _vueOptions = ['Montagne', 'Dégagée', 'Jardin', 'Rue', 'Cour'];
   final _solOptions = ['Parquet', 'Carrelage', 'Tomettes', 'Béton ciré', 'Moquette'];
   final _orientations = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO', 'Traversant'];
+  final _typesCuisine = ['Non précisé', 'Indépendante', 'Ouverte', 'Américaine', 'Kitchenette'];
+  final _comblesOptions = ['Non précisé', 'Aucun', 'Aménagés', 'Aménageables', 'Non aménageables'];
 
   @override
   void initState() {
@@ -72,10 +80,20 @@ class _Section2ScreenState extends State<Section2Screen> {
     _balconCtrl = TextEditingController(text: _e.surfaceBalcon > 0 ? _e.surfaceBalcon.toString() : '');
     _caveCtrl = TextEditingController(text: _e.surfaceCave > 0 ? _e.surfaceCave.toString() : '');
     _terrasseCtrl = TextEditingController(text: _e.surfaceTerrasse > 0 ? _e.surfaceTerrasse.toString() : '');
+    _carrezCtrl = TextEditingController(text: _e.surfaceCarrez > 0 ? _e.surfaceCarrez.toString() : '');
+    _cadastreCtrl = TextEditingController(text: _e.referenceCadastrale);
+    _syndicCtrl = TextEditingController(text: _e.syndicNom);
+    _nbLotsCtrl = TextEditingController(text: _e.nombreLots > 0 ? _e.nombreLots.toString() : '');
+    _tantiemesCtrl = TextEditingController(text: _e.tantiemes > 0 ? _e.tantiemes.toString() : '');
+    _fondsCtrl = TextEditingController(text: _e.fondsTravaux > 0 ? _e.fondsTravaux.toString() : '');
   }
 
   @override
-  void dispose() { _surfCtrl.dispose(); _terrCtrl.dispose(); _balconCtrl.dispose(); _caveCtrl.dispose(); _terrasseCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _surfCtrl.dispose(); _terrCtrl.dispose(); _balconCtrl.dispose(); _caveCtrl.dispose(); _terrasseCtrl.dispose();
+    _carrezCtrl.dispose(); _cadastreCtrl.dispose(); _syndicCtrl.dispose(); _nbLotsCtrl.dispose(); _tantiemesCtrl.dispose(); _fondsCtrl.dispose();
+    super.dispose();
+  }
 
   void _update(Estimation e) { setState(() => _e = e); widget.onChanged(e); }
 
@@ -209,6 +227,107 @@ class _Section2ScreenState extends State<Section2Screen> {
                   );
                 }).toList(),
               ),
+            ])),
+
+            // Détail technique
+            SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const CardTitleRow(icon: Icons.bathtub_outlined, label: 'Détail technique'),
+              Row(children: [
+                Expanded(child: StepperField(label: 'Salles de bain', value: _e.nbSallesBain, onChange: (v) => _update(_e.copyWith(nbSallesBain: v < 0 ? 0 : v)))),
+                const SizedBox(width: 10),
+                Expanded(child: StepperField(label: "Salles d'eau", value: _e.nbSallesEau, onChange: (v) => _update(_e.copyWith(nbSallesEau: v < 0 ? 0 : v)))),
+              ]),
+              const SizedBox(height: 12),
+              Row(children: [
+                Expanded(child: StepperField(label: 'WC', value: _e.nbWc, onChange: (v) => _update(_e.copyWith(nbWc: v < 0 ? 0 : v)))),
+                const SizedBox(width: 10),
+                const Expanded(child: SizedBox()),
+              ]),
+              const CardDivider(),
+              DropdownField(label: 'Type de cuisine', value: _e.typeCuisine.isEmpty ? 'Non précisé' : _e.typeCuisine, items: _typesCuisine,
+                  onChanged: (v) => _update(_e.copyWith(typeCuisine: v == 'Non précisé' ? '' : v))),
+              const SizedBox(height: 12),
+              DropdownField(label: 'Combles', value: _e.combles.isEmpty ? 'Non précisé' : _e.combles, items: _comblesOptions,
+                  onChanged: (v) => _update(_e.copyWith(combles: v == 'Non précisé' ? '' : v))),
+            ])),
+
+            // Informations juridiques / cadastre / copropriété
+            SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const CardTitleRow(icon: Icons.gavel_outlined, label: 'Informations juridiques'),
+              const FieldLabel('Référence cadastrale'),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _cadastreCtrl,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kCharcoal),
+                decoration: InputDecoration(
+                  hintText: 'ex: AB 0123',
+                  hintStyle: const TextStyle(color: kLightGrey),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kGreen, width: 2)),
+                ),
+                onChanged: (v) => _update(_e.copyWith(referenceCadastrale: v)),
+              ),
+              if (_e.typeId == 'appartement') ...[
+                const SizedBox(height: 12),
+                _SurfaceField(
+                  label: 'Surface loi Carrez',
+                  controller: _carrezCtrl,
+                  hint: 'ex: 72',
+                  onChanged: (v) => _update(_e.copyWith(surfaceCarrez: v)),
+                ),
+                const CardDivider(),
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  const Expanded(child: Text('Bien en copropriété', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal))),
+                  Switch(
+                    value: _e.enCopropriete,
+                    activeColor: kGreen,
+                    onChanged: (v) => _update(_e.copyWith(enCopropriete: v)),
+                  ),
+                ]),
+                if (_e.enCopropriete) ...[
+                  const SizedBox(height: 4),
+                  const Text('Informations ALUR (obligatoires en copropriété)',
+                      style: TextStyle(fontSize: 11, color: kGrey, fontStyle: FontStyle.italic)),
+                  const SizedBox(height: 10),
+                  const FieldLabel('Syndic'),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: _syndicCtrl,
+                    style: const TextStyle(fontSize: 14, color: kCharcoal),
+                    decoration: InputDecoration(
+                      hintText: 'Nom du syndic',
+                      hintStyle: const TextStyle(color: kLightGrey),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kGreen, width: 2)),
+                    ),
+                    onChanged: (v) => _update(_e.copyWith(syndicNom: v)),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(child: _NumField(label: 'Nombre de lots', controller: _nbLotsCtrl,
+                        onChanged: (v) => _update(_e.copyWith(nombreLots: v)))),
+                    const SizedBox(width: 10),
+                    Expanded(child: _NumField(label: 'Tantièmes', controller: _tantiemesCtrl,
+                        onChanged: (v) => _update(_e.copyWith(tantiemes: v)))),
+                  ]),
+                  const SizedBox(height: 12),
+                  _NumField(label: 'Fonds de travaux (€)', controller: _fondsCtrl, suffix: '€',
+                      onChanged: (v) => _update(_e.copyWith(fondsTravaux: v))),
+                  const SizedBox(height: 12),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    const Expanded(child: Text('Procédures en cours', style: TextStyle(fontSize: 13, color: kCharcoal))),
+                    Switch(
+                      value: _e.coproProceduresEnCours,
+                      activeColor: kRed,
+                      onChanged: (v) => _update(_e.copyWith(coproProceduresEnCours: v)),
+                    ),
+                  ]),
+                ],
+              ],
             ])),
 
             // Qualité des prestations
@@ -902,6 +1021,36 @@ class _SurfaceSmallFieldState extends State<_SurfaceSmallField> {
     ),
     onChanged: (v) => widget.onChanged(double.tryParse(v.replaceAll(',', '.')) ?? 0.0),
   );
+}
+
+class _NumField extends StatelessWidget {
+  final String label;
+  final TextEditingController controller;
+  final ValueChanged<int> onChanged;
+  final String? suffix;
+  const _NumField({required this.label, required this.controller, required this.onChanged, this.suffix});
+
+  @override
+  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    FieldLabel(label),
+    const SizedBox(height: 6),
+    TextField(
+      controller: controller,
+      keyboardType: TextInputType.number,
+      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kCharcoal),
+      decoration: InputDecoration(
+        suffixText: suffix,
+        suffixStyle: const TextStyle(fontSize: 12, color: kGrey),
+        hintText: '0',
+        hintStyle: const TextStyle(color: kLightGrey),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kGreen, width: 2)),
+      ),
+      onChanged: (v) => onChanged(int.tryParse(v.replaceAll(' ', '')) ?? 0),
+    ),
+  ]);
 }
 
 class _SurfaceField extends StatelessWidget {
