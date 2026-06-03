@@ -235,8 +235,9 @@ class PdfService {
 
         // ── Dégradé supérieur (logo lisible) ─────────────────
         pw.Positioned(
-          top: 0, left: 0, right: 0, height: 120,
+          top: 0, left: 0, right: 0,
           child: pw.Container(
+            height: 120,
             decoration: const pw.BoxDecoration(
               gradient: pw.LinearGradient(
                 begin: pw.Alignment.topCenter,
@@ -249,8 +250,9 @@ class PdfService {
 
         // ── Dégradé inférieur (texte + prix lisibles) ─────────
         pw.Positioned(
-          bottom: 0, left: 0, right: 0, height: 390,
+          bottom: 0, left: 0, right: 0,
           child: pw.Container(
+            height: 390,
             decoration: const pw.BoxDecoration(
               gradient: pw.LinearGradient(
                 begin: pw.Alignment.bottomCenter,
