@@ -681,27 +681,44 @@ class _PiecesSurfacesWidgetState extends State<_PiecesSurfacesWidget> {
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-              // Suggestions rapides
-              if (widget.pieces.isEmpty)
-                Wrap(
-                  spacing: 6, runSpacing: 6,
-                  children: _suggestions.take(6).map((s) => GestureDetector(
-                    onTap: () {
-                      final list = _list;
-                      list.add({'nom': s, 'surface': 0.0});
-                      widget.onChanged(list);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: kGreen.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: kGreen.withOpacity(0.3)),
-                      ),
-                      child: Text('+ $s', style: const TextStyle(fontSize: 11, color: kGreen, fontWeight: FontWeight.w600)),
+              // Ajout rapide : chips des pièces non encore ajoutées
+              Builder(builder: (_) {
+                final used = widget.pieces
+                    .map((p) => ((p['nom'] as String?) ?? '').trim().toLowerCase())
+                    .toSet();
+                final available =
+                    _suggestions.where((s) => !used.contains(s.toLowerCase())).toList();
+                if (available.isEmpty) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 6),
+                      child: Text('Ajout rapide',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: kGrey)),
                     ),
-                  )).toList(),
-                ),
+                    Wrap(
+                      spacing: 6, runSpacing: 6,
+                      children: available.map((s) => GestureDetector(
+                        onTap: () {
+                          final list = _list;
+                          list.add({'nom': s, 'surface': 0.0});
+                          widget.onChanged(list);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: kGreen.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: kGreen.withOpacity(0.3)),
+                          ),
+                          child: Text('+ $s', style: const TextStyle(fontSize: 11, color: kGreen, fontWeight: FontWeight.w600)),
+                        ),
+                      )).toList(),
+                    ),
+                  ]),
+                );
+              }),
 
               if (widget.pieces.isNotEmpty) ...[
                 // Header colonnes
@@ -822,8 +839,9 @@ class _PieceTextFieldState extends State<_PieceTextField> {
   @override
   Widget build(BuildContext context) => Autocomplete<String>(
     initialValue: TextEditingValue(text: widget.initialValue),
-    optionsBuilder: (v) => v.text.isEmpty ? const [] :
-        widget.suggestions.where((s) => s.toLowerCase().contains(v.text.toLowerCase())),
+    optionsBuilder: (v) => v.text.isEmpty
+        ? widget.suggestions
+        : widget.suggestions.where((s) => s.toLowerCase().contains(v.text.toLowerCase())),
     onSelected: (s) { _ctrl.text = s; widget.onChanged(s); },
     fieldViewBuilder: (ctx, ctrl, focusNode, onSub) => TextField(
       controller: ctrl,
