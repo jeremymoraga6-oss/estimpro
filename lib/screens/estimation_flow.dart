@@ -69,6 +69,26 @@ class _EstimationFlowState extends State<EstimationFlow> {
     if (x.vueDegagee == true && u.ajustVue == 0) {
       u = u.copyWith(ajustVue: 5.0); // +5% par défaut, l'utilisateur peut ajuster
     }
+    // Dictée pièce par pièce : fusionne avec les pièces déjà saisies
+    // (met à jour la surface si la pièce existe déjà, ajoute sinon).
+    if (x.piecesSurfaces.isNotEmpty) {
+      final merged = List<Map<String, dynamic>>.from(u.piecesSurfaces);
+      for (final p in x.piecesSurfaces) {
+        final nom = (p['nom'] ?? '').toString().trim();
+        if (nom.isEmpty) continue;
+        final idx = merged.indexWhere(
+          (m) => (m['nom'] ?? '').toString().trim().toLowerCase() == nom.toLowerCase(),
+        );
+        if (idx >= 0) {
+          if (p['surface'] != null) {
+            merged[idx] = {...merged[idx], 'surface': p['surface']};
+          }
+        } else {
+          merged.add({'nom': nom, if (p['surface'] != null) 'surface': p['surface']});
+        }
+      }
+      u = u.copyWith(piecesSurfaces: merged);
+    }
     await _onChanged(u);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

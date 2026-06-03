@@ -10,6 +10,7 @@ import 'package:open_file/open_file.dart';
 import '../models/estimation.dart';
 import '../models/vendeur_note.dart';
 import 'georisques_service.dart';
+import 'static_map_service.dart';
 import '../screens/section6_screen.dart' show requiredDocs;
 
 const _kGreen      = PdfColor.fromInt(0xFF4CAF50);
@@ -59,9 +60,58 @@ class PdfService {
     return result;
   }
 
+  /// Construit l'image PNG de la carte des comparables DVF (bien + ventes).
+  /// Retourne null si le bien n'est pas géolocalisé ou si la carte échoue.
+  Future<Uint8List?> _prepareMarketMap(Estimation e) async {
+    if (e.latitude == 0 || e.longitude == 0) return null;
+    if (e.comparables.isEmpty) return null;
+
+    final prixMoyen = e.prixMoyen;
+    int colorForRatio(double prixM2) {
+      if (prixMoyen <= 0) return 0xFFF39C12;
+      final r = prixM2 / prixMoyen;
+      if (r < 0.85) return 0xFF27AE60; // vert — sous le marché
+      if (r < 1.0) return 0xFFF39C12;  // orange — proche
+      if (r < 1.15) return 0xFFE67E22; // orange foncé
+      return 0xFFC0392B;               // rouge — au-dessus
+    }
+
+    final points = <MapPoint>[
+      MapPoint(
+        lat: e.latitude,
+        lon: e.longitude,
+        color: 0xFF4CAF50,
+        isCenter: true,
+      ),
+    ];
+    int n = 0;
+    for (final c in e.comparables) {
+      final lat = (c['lat'] as num?)?.toDouble();
+      final lon = (c['lon'] as num?)?.toDouble();
+      if (lat == null || lon == null || lat == 0 || lon == 0) continue;
+      n++;
+      points.add(MapPoint(
+        lat: lat,
+        lon: lon,
+        color: colorForRatio((c['prixM2'] as num?)?.toDouble() ?? 0),
+        label: '$n',
+      ));
+    }
+    // Pas de comparable géolocalisé → la carte n'a pas d'intérêt.
+    if (points.length < 2) return null;
+
+    try {
+      return await const StaticMapService().generate(points);
+    } catch (e) {
+      debugPrint('[PdfService] carte comparables échouée : $e');
+      return null;
+    }
+  }
+
   Future<File> generateFile(Estimation e) async {
     await _loadAssets();
     final photoBytes = await _preparePhotos(e.photosPaths);
+    final mapBytes = await _prepareMarketMap(e);
     final doc = pw.Document();
     final price = e.prixFinal > 0 ? e.prixFinal : e.prixCalcule;
 
@@ -84,7 +134,7 @@ class PdfService {
         pw.SizedBox(height: 20),
         _diagnosticsSection(e),
         pw.SizedBox(height: 20),
-        _marcheSection(e),
+        _marcheSection(e, mapBytes),
         pw.SizedBox(height: 20),
         _prestationsSection(e),
         pw.SizedBox(height: 20),
@@ -123,6 +173,7 @@ class PdfService {
   Future<File> generate(Estimation e) async {
     await _loadAssets();
     final photoBytes = await _preparePhotos(e.photosPaths);
+    final mapBytes = await _prepareMarketMap(e);
     final doc = pw.Document();
     final price = e.prixFinal > 0 ? e.prixFinal : e.prixCalcule;
 
@@ -145,7 +196,7 @@ class PdfService {
         pw.SizedBox(height: 20),
         _diagnosticsSection(e),
         pw.SizedBox(height: 20),
-        _marcheSection(e),
+        _marcheSection(e, mapBytes),
         pw.SizedBox(height: 20),
         _prestationsSection(e),
         pw.SizedBox(height: 20),
@@ -851,7 +902,7 @@ class PdfService {
     return _card('DIAGNOSTICS', rows);
   }
 
-  pw.Widget _marcheSection(Estimation e) {
+  pw.Widget _marcheSection(Estimation e, [Uint8List? mapBytes]) {
     final fmt =
         (double v) => '${v.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} EUR';
     final fmtM2 = (double v) => '${v.round()} EUR/m²';
@@ -978,6 +1029,46 @@ class PdfService {
       rows.add(pw.SizedBox(height: 10));
     }
 
+    // Carte des ventes comparables (assemblage OSM + marqueurs).
+    if (mapBytes != null) {
+      rows.add(pw.SizedBox(height: 4));
+      rows.add(pw.SizedBox(
+        width: double.infinity,
+        height: 240,
+        child: pw.ClipRRect(
+          horizontalRadius: 6,
+          verticalRadius: 6,
+          child: pw.Image(
+            pw.MemoryImage(mapBytes),
+            fit: pw.BoxFit.cover,
+          ),
+        ),
+      ));
+      rows.add(pw.SizedBox(height: 5));
+      rows.add(pw.Row(children: [
+        _mapLegendDot(const PdfColor.fromInt(0xFF4CAF50)),
+        pw.SizedBox(width: 3),
+        pw.Text('Votre bien (\u2605)',
+            style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700)),
+        pw.SizedBox(width: 10),
+        _mapLegendDot(const PdfColor.fromInt(0xFF27AE60)),
+        pw.SizedBox(width: 3),
+        pw.Text('< marché',
+            style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700)),
+        pw.SizedBox(width: 8),
+        _mapLegendDot(const PdfColor.fromInt(0xFFF39C12)),
+        pw.SizedBox(width: 3),
+        pw.Text('proche marché',
+            style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700)),
+        pw.SizedBox(width: 8),
+        _mapLegendDot(const PdfColor.fromInt(0xFFC0392B)),
+        pw.SizedBox(width: 3),
+        pw.Text('> marché',
+            style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700)),
+      ]));
+      rows.add(pw.SizedBox(height: 10));
+    }
+
     rows.add(_row('Médiane DVF (${e.comparables.length} ventes)',
         fmtM2(e.prixMoyen),
         bold: true));
@@ -1007,6 +1098,12 @@ class PdfService {
 
     return _card('ANALYSE DU MARCHE — REFERENCES DVF', rows);
   }
+
+  pw.Widget _mapLegendDot(PdfColor color) => pw.Container(
+        width: 7,
+        height: 7,
+        decoration: pw.BoxDecoration(color: color, shape: pw.BoxShape.circle),
+      );
 
   pw.Widget _prestationsSection(Estimation e) {
     score(int n) => '$n/4';

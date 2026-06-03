@@ -52,6 +52,8 @@ class DvfTransaction {
         'date': _fmtDate(dateMutation),
         'prix': valeurFonciere,
         'prixM2': prixM2.roundToDouble(),
+        if (latitude != 0 && longitude != 0) 'lat': latitude,
+        if (latitude != 0 && longitude != 0) 'lon': longitude,
       };
 
   static String _fmtDate(String iso) {

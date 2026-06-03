@@ -178,8 +178,14 @@ Réponds en JSON strict (rien d'autre, pas de markdown), avec ces clés (toutes 
   "points_forts": ["...", "..."],     // arguments commerciaux
   "points_faibles": ["...", "..."],   // axes à mentionner pour la vente
   "travaux_a_prevoir": "résumé",      // courte phrase sur les travaux nécessaires
-  "ajust_environnement": -12|-9|-6|-3|0  // % décote nuisances (route, voie ferrée, industrie)
+  "ajust_environnement": -12|-9|-6|-3|0,  // % décote nuisances (route, voie ferrée, industrie)
+  "pieces_surfaces": [               // dictée pièce par pièce : une entrée par pièce mentionnée avec sa surface
+    {"nom": "Séjour", "surface": 28},
+    {"nom": "Cuisine", "surface": 12}
+  ]
 }
+
+Pour "pieces_surfaces" : capture chaque pièce nommée par l'agent avec sa surface en m² si elle est mentionnée (ex: "séjour de 28 mètres carrés", "chambre 1 de 14m²"). Mets "surface": null si la surface n'est pas précisée. N'invente jamais de surface. Utilise des noms de pièces clairs et capitalisés (Séjour, Cuisine, Chambre 1, Salle de bain, WC, Bureau, Dressing, Entrée, Garage…). Si aucune pièce n'est détaillée, n'inclus PAS la clé.
 
 Si une info n'est pas claire dans le texte, n'inclus PAS la clé.''';
 
@@ -226,6 +232,7 @@ Si une info n'est pas claire dans le texte, n'inclus PAS la clé.''';
         pointsFaibles: _toStrList(j['points_faibles']),
         travauxAPrevoir: j['travaux_a_prevoir']?.toString(),
         ajustEnvironnement: (j['ajust_environnement'] as num?)?.toDouble(),
+        piecesSurfaces: _toPieces(j['pieces_surfaces']),
       );
     } catch (e) {
       debugPrint('[Voice] extractBien exception: $e');
@@ -238,6 +245,26 @@ Si une info n'est pas claire dans le texte, n'inclus PAS la clé.''';
     final n = v is int ? v : int.tryParse(v.toString());
     if (n == null) return null;
     return n.clamp(min, max);
+  }
+
+  /// Parse la liste pièce par pièce : [{nom, surface}] en filtrant les entrées invalides.
+  List<Map<String, dynamic>> _toPieces(dynamic v) {
+    if (v is! List) return const [];
+    final out = <Map<String, dynamic>>[];
+    for (final item in v) {
+      if (item is! Map) continue;
+      final nom = item['nom']?.toString().trim();
+      if (nom == null || nom.isEmpty) continue;
+      final surfaceRaw = item['surface'];
+      double? surface;
+      if (surfaceRaw is num) {
+        surface = surfaceRaw.toDouble();
+      } else if (surfaceRaw != null) {
+        surface = double.tryParse(surfaceRaw.toString().replaceAll(',', '.'));
+      }
+      out.add({'nom': nom, if (surface != null && surface > 0) 'surface': surface});
+    }
+    return out;
   }
 }
 
@@ -257,6 +284,9 @@ class BienExtraction {
   final String? travauxAPrevoir;
   final double? ajustEnvironnement;
 
+  /// Dictée pièce par pièce : [{nom, surface?}]
+  final List<Map<String, dynamic>> piecesSurfaces;
+
   const BienExtraction({
     this.vueDegagee,
     this.etatGeneral,
@@ -271,6 +301,7 @@ class BienExtraction {
     this.pointsFaibles = const [],
     this.travauxAPrevoir,
     this.ajustEnvironnement,
+    this.piecesSurfaces = const [],
   });
 
   /// Vrai si l'extraction contient au moins une donnée utilisable
@@ -287,7 +318,8 @@ class BienExtraction {
       pointsForts.isNotEmpty ||
       pointsFaibles.isNotEmpty ||
       (travauxAPrevoir?.isNotEmpty ?? false) ||
-      ajustEnvironnement != null;
+      ajustEnvironnement != null ||
+      piecesSurfaces.isNotEmpty;
 
   /// Liste des champs détectés pour preview dans l'UI
   List<String> get detectedFields {
@@ -305,6 +337,11 @@ class BienExtraction {
     if (pointsForts.isNotEmpty) list.add('${pointsForts.length} point(s) fort(s)');
     if (pointsFaibles.isNotEmpty) list.add('${pointsFaibles.length} point(s) faible(s)');
     if (travauxAPrevoir?.isNotEmpty ?? false) list.add('Travaux à prévoir');
+    if (piecesSurfaces.isNotEmpty) {
+      final withSurface = piecesSurfaces.where((p) => p['surface'] != null).length;
+      list.add('${piecesSurfaces.length} pièce(s)'
+          '${withSurface > 0 ? ' · $withSurface avec surface' : ''}');
+    }
     return list;
   }
 }
