@@ -326,6 +326,7 @@ class _ScanDpeButtonState extends State<_ScanDpeButton> {
         source: src,
         maxWidth: 2000,
         imageQuality: 85,
+        preferredCameraDevice: CameraDevice.rear, // force caméra arrière pour lire l'étiquette DPE
       );
     } catch (e) {
       _showError('Impossible d\'accéder à la photo : $e');

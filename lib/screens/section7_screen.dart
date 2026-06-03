@@ -68,14 +68,70 @@ class _Section7ScreenState extends State<Section7Screen> {
 
   Future<void> _pickFromCamera() async {
     if (_e.photosPaths.length >= _maxPhotos) return;
-    final XFile? img = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+    final XFile? img = await _picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 85,
+      preferredCameraDevice: CameraDevice.rear, // force caméra arrière
+    );
     if (img == null) return;
-    // Copie dans cacheDir pour persistance dans la session
     final cacheDir = await getTemporaryDirectory();
     final dest = File('${cacheDir.path}/photo_${DateTime.now().millisecondsSinceEpoch}.jpg');
     await File(img.path).copy(dest.path);
     final paths = List<String>.from(_e.photosPaths)..add(dest.path);
     _update(_e.copyWith(photosPaths: paths));
+  }
+
+  Future<void> _pickFromGallery() async {
+    if (_e.photosPaths.length >= _maxPhotos) return;
+    final XFile? img = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 90, // galerie : qualité légèrement plus haute (pas de re-compression Android)
+    );
+    if (img == null) return;
+    final cacheDir = await getTemporaryDirectory();
+    final dest = File('${cacheDir.path}/photo_${DateTime.now().millisecondsSinceEpoch}.jpg');
+    await File(img.path).copy(dest.path);
+    final paths = List<String>.from(_e.photosPaths)..add(dest.path);
+    _update(_e.copyWith(photosPaths: paths));
+  }
+
+  void _showAddPhotoSheet() {
+    if (_e.photosPaths.length >= _maxPhotos) return;
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: 36, height: 4,
+            margin: const EdgeInsets.only(top: 10, bottom: 8),
+            decoration: BoxDecoration(color: const Color(0xFFDDDDDD), borderRadius: BorderRadius.circular(2)),
+          ),
+          ListTile(
+            leading: Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(color: kGreen.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.camera_alt_rounded, color: kGreen, size: 20),
+            ),
+            title: const Text('Prendre une photo', style: TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: const Text('Caméra arrière', style: TextStyle(fontSize: 12)),
+            onTap: () { Navigator.pop(ctx); _pickFromCamera(); },
+          ),
+          ListTile(
+            leading: Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(color: const Color(0xFF1565C0).withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.photo_library_rounded, color: Color(0xFF1565C0), size: 20),
+            ),
+            title: const Text('Importer depuis la galerie', style: TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: const Text('Photos, panoramas…', style: TextStyle(fontSize: 12)),
+            onTap: () { Navigator.pop(ctx); _pickFromGallery(); },
+          ),
+          const SizedBox(height: 8),
+        ]),
+      ),
+    );
   }
 
   Future<void> _deletePhoto(int index) async {
@@ -123,7 +179,7 @@ class _Section7ScreenState extends State<Section7Screen> {
                 itemBuilder: (ctx, i) {
                   if (i == _e.photosPaths.length) {
                     return GestureDetector(
-                      onTap: _pickFromCamera,
+                      onTap: _showAddPhotoSheet,
                       child: Container(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(10),
@@ -176,8 +232,8 @@ class _Section7ScreenState extends State<Section7Screen> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: _e.photosPaths.length < _maxPhotos ? _pickFromCamera : null,
-                  icon: const Icon(Icons.camera_alt_outlined, size: 16),
+                  onPressed: _e.photosPaths.length < _maxPhotos ? _showAddPhotoSheet : null,
+                  icon: const Icon(Icons.add_a_photo_outlined, size: 16),
                   label: Text(
                     _e.photosPaths.length < _maxPhotos ? 'Ajouter une photo' : 'Maximum atteint ($_maxPhotos photos)',
                     style: const TextStyle(fontSize: 13),
