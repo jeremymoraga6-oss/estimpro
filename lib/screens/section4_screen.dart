@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../theme.dart';
 import '../models/estimation.dart';
 import '../widgets/shared.dart';
 import '../widgets/app_header.dart';
+import '../services/materiaux_scan_service.dart';
+import '../services/app_settings.dart';
 
 class Section4Screen extends StatefulWidget {
   final Estimation estimation;
@@ -45,7 +48,17 @@ class _Section4ScreenState extends State<Section4Screen> {
 
             // Structure extérieure
             SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const CardTitleRow(icon: Icons.home_outlined, label: 'Structure extérieure'),
+              Row(children: [
+                const Expanded(child: CardTitleRow(icon: Icons.home_outlined, label: 'Structure extérieure')),
+                _ScanMateriauxButton(onDetected: (result) {
+                  var updated = _e;
+                  if (result.facade != null) updated = updated.copyWith(facade: result.facade);
+                  if (result.toiture != null) updated = updated.copyWith(toiture: result.toiture);
+                  if (result.menuiseriesType.isNotEmpty) updated = updated.copyWith(menuiseriesType: result.menuiseriesType);
+                  if (result.vitrage.isNotEmpty) updated = updated.copyWith(vitrage: result.vitrage);
+                  _update(updated);
+                }),
+              ]),
 
               const FieldLabel('Façade'),
               const SizedBox(height: 6),
@@ -158,6 +171,12 @@ class _Section4ScreenState extends State<Section4Screen> {
               ]),
             ),
 
+            // Documents de mise en vente
+            _DocumentsVenteCard(
+              estimation: _e,
+              onChanged: (docs) => _update(_e.copyWith(documentsChecked: docs)),
+            ),
+
             const SizedBox(height: 16),
           ]),
         ),
@@ -174,6 +193,507 @@ class _Section4ScreenState extends State<Section4Screen> {
   String _gesClass(String dpe) {
     const map = {'A': 'A', 'B': 'B', 'C': 'C', 'D': 'E', 'E': 'F', 'F': 'G', 'G': 'G'};
     return map[dpe] ?? 'E';
+  }
+}
+
+// ── Documents mise en vente ───────────────────────────────────────────────────
+
+/// Un document dans le dossier de vente.
+class _DocItem {
+  final String id;
+  final String label;
+  final String? note; // précision optionnelle affichée en italique
+  const _DocItem(this.id, this.label, {this.note});
+}
+
+/// Groupe de documents (ex: "Identité & propriété").
+class _DocGroup {
+  final String title;
+  final IconData icon;
+  final List<_DocItem> items;
+  const _DocGroup({required this.title, required this.icon, required this.items});
+}
+
+/// Calcule la liste des groupes de documents en fonction du bien.
+List<_DocGroup> _buildDocGroups(Estimation e) {
+  final annee = e.anneeConstruction;
+  final isAppart = e.typeId == 'appartement';
+  final isMaison = e.typeId == 'maison' || e.typeId == 'chalet';
+
+  // Dates utiles
+  const recents = ['2010-2020', 'Après 2020'];       // < ~15 ans → décennale possible
+  const apresPermis = ['1980-2000', '2000-2010', '2010-2020', 'Après 2020']; // permis de construire courant
+  const veryOld = ['Avant 1900', '1900-1950'];       // chaîne de propriété longue
+
+  final groups = <_DocGroup>[];
+
+  // ── 1. Identité & propriété ────────────────────────────────────────────────
+  final identite = <_DocItem>[
+    const _DocItem('titre_propriete', 'Titre de propriété', note: 'Acte notarié d\'achat'),
+    const _DocItem('identite', 'Pièce d\'identité du/des vendeur(s)'),
+    const _DocItem('situation_famille', 'Situation de famille',
+        note: 'Livret de famille, jugement de divorce si applicable'),
+    const _DocItem('taxe_fonciere', 'Dernier avis de taxe foncière'),
+  ];
+  if (veryOld.contains(annee)) {
+    identite.add(const _DocItem('chaine_propriete',
+        'Chaîne de propriété (30 ans)', note: 'Actes antérieurs — bien avant 1950'));
+  }
+  identite.add(const _DocItem('credit_hypothecaire',
+      'Capital restant dû / mainlevée', note: 'Si crédit immobilier en cours'));
+
+  groups.add(_DocGroup(
+    title: 'Identité & propriété',
+    icon: Icons.badge_outlined,
+    items: identite,
+  ));
+
+  // ── 2. Urbanisme & construction (maison / chalet) ─────────────────────────
+  if (isMaison) {
+    final urba = <_DocItem>[];
+    if (apresPermis.contains(annee)) {
+      urba.add(const _DocItem('permis_construire', 'Permis de construire'));
+      urba.add(const _DocItem('certificat_conformite',
+          'Certificat de conformité / DAACT', note: 'Déclaration attestant l\'achèvement'));
+    }
+    if (recents.contains(annee)) {
+      urba.add(const _DocItem('decennale',
+          'Garantie décennale des constructeurs', note: 'Construction < 10 ans'));
+    }
+    urba.add(const _DocItem('plan_masse', 'Plan de masse / plan côté'));
+    urba.add(const _DocItem('factures_travaux',
+        'Factures & garanties des travaux importants', note: 'Si rénovation ou extension'));
+    urba.add(const _DocItem('certificat_urbanisme',
+        'Certificat d\'urbanisme', note: 'Optionnel, facilite la vente'));
+
+    if (urba.isNotEmpty) {
+      groups.add(_DocGroup(
+        title: 'Urbanisme & construction',
+        icon: Icons.construction_outlined,
+        items: urba,
+      ));
+    }
+  }
+
+  // ── 3. Copropriété (appartement) ──────────────────────────────────────────
+  if (isAppart) {
+    groups.add(_DocGroup(
+      title: 'Copropriété',
+      icon: Icons.apartment_outlined,
+      items: const [
+        _DocItem('reglement_copro',
+            'Règlement de copropriété', note: 'Et état descriptif de division'),
+        _DocItem('pv_ag', '3 derniers PV d\'assemblée générale'),
+        _DocItem('carnet_entretien', 'Carnet d\'entretien de l\'immeuble'),
+        _DocItem('fiche_synthetique', 'Fiche synthétique de copropriété'),
+        _DocItem('releve_charges',
+            'Relevés de charges (2 dernières années)'),
+        _DocItem('pre_etat_date',
+            'Pré-état daté du syndic', note: 'Art. 20 loi 10 juillet 1965'),
+      ],
+    ));
+  }
+
+  // ── 4. Technique & diagnostics ────────────────────────────────────────────
+  // Ancienneté — mêmes seuils légaux que la section Diagnostics
+  const avantAmiante = ['Avant 1900', '1900-1950', '1950-1980', '1980-2000']; // permis avant juillet 1997
+  const avantPlomb   = ['Avant 1900', '1900-1950'];                            // avant 1949
+
+  final tech = <_DocItem>[
+    const _DocItem('dpe_doc', 'DPE — Diagnostic de Performance Énergétique'),
+    const _DocItem('erp_doc', 'ERP — État des Risques et Pollutions'),
+  ];
+
+  if (avantPlomb.contains(annee)) {
+    tech.add(const _DocItem('crep',
+        'CREP — Constat de Risque d\'Exposition au Plomb',
+        note: 'Obligatoire — construction avant 1949'));
+  }
+
+  if (avantAmiante.contains(annee)) {
+    tech.add(const _DocItem('amiante_doc',
+        'Diagnostic Amiante (DTA / État mentionnant l\'absence)',
+        note: 'Obligatoire — permis de construire avant juillet 1997'));
+  }
+
+  if (annee != 'Après 2020') {
+    tech.add(const _DocItem('elec_doc',
+        'Diagnostic électricité', note: 'Installation > 15 ans'));
+  }
+
+  if (e.chauffageType.toLowerCase().contains('gaz') ||
+      e.chauffageType.toLowerCase().contains('fioul')) {
+    tech.add(const _DocItem('gaz_doc',
+        'Diagnostic gaz', note: 'Installation > 15 ans'));
+  }
+
+  if (isMaison) {
+    tech.add(const _DocItem('assainissement_indiv',
+        'Rapport de contrôle assainissement', note: 'Assainissement non collectif'));
+  }
+
+  tech.add(const _DocItem('factures_energie',
+      'Factures d\'énergie récentes', note: 'Gaz, électricité — 12 derniers mois'));
+
+  groups.add(_DocGroup(
+    title: 'Technique & diagnostics',
+    icon: Icons.fact_check_outlined,
+    items: tech,
+  ));
+
+  return groups;
+}
+
+class _DocumentsVenteCard extends StatefulWidget {
+  final Estimation estimation;
+  final ValueChanged<Map<String, bool>> onChanged;
+  const _DocumentsVenteCard({required this.estimation, required this.onChanged});
+
+  @override
+  State<_DocumentsVenteCard> createState() => _DocumentsVenteCardState();
+}
+
+class _DocumentsVenteCardState extends State<_DocumentsVenteCard> {
+  bool _expanded = false;
+
+  void _toggle(String id, bool val) {
+    final updated = Map<String, bool>.from(widget.estimation.documentsChecked);
+    updated[id] = val;
+    widget.onChanged(updated);
+  }
+
+  bool _checked(String id) => widget.estimation.documentsChecked[id] ?? false;
+
+  @override
+  Widget build(BuildContext context) {
+    final groups = _buildDocGroups(widget.estimation);
+    final allItems = groups.expand((g) => g.items).toList();
+    final total = allItems.length;
+    final done = allItems.where((d) => _checked(d.id)).length;
+    final pct = total == 0 ? 1.0 : done / total;
+
+    final Color progressColor;
+    if (pct >= 1.0) {
+      progressColor = kGreen;
+    } else if (pct >= 0.5) {
+      progressColor = const Color(0xFFF09000);
+    } else {
+      progressColor = kRed;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: kBorderColor, width: 1.5),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+        // Header — toujours visible
+        InkWell(
+          onTap: () => setState(() => _expanded = !_expanded),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16),
+              bottom: Radius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+            child: Row(children: [
+              const Icon(Icons.folder_open_outlined, size: 18, color: kGreen),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Documents de mise en vente', style: kCardTitle),
+                  const SizedBox(height: 6),
+                  Row(children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: pct,
+                          minHeight: 5,
+                          backgroundColor: const Color(0xFFEEEEEE),
+                          valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text('$done / $total',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+                            color: progressColor)),
+                  ]),
+                ]),
+              ),
+              const SizedBox(width: 8),
+              Icon(_expanded ? Icons.expand_less : Icons.expand_more,
+                  size: 20, color: kGrey),
+            ]),
+          ),
+        ),
+
+        // Corps — dépliable
+        if (_expanded) ...[
+          const Divider(height: 1, color: kBorderColor),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              for (final group in groups) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(0, 12, 0, 6),
+                  child: Text(group.title.toUpperCase(),
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
+                          color: kLightGrey, letterSpacing: 0.8)),
+                ),
+                for (int i = 0; i < group.items.length; i++) ...[
+                  if (i > 0) const Divider(height: 1, indent: 36, color: kBorderColor),
+                  _DocRow(
+                    item: group.items[i],
+                    checked: _checked(group.items[i].id),
+                    onToggle: (v) => _toggle(group.items[i].id, v),
+                  ),
+                ],
+              ],
+            ]),
+          ),
+        ],
+      ]),
+    );
+  }
+}
+
+class _DocRow extends StatelessWidget {
+  final _DocItem item;
+  final bool checked;
+  final ValueChanged<bool> onToggle;
+  const _DocRow({required this.item, required this.checked, required this.onToggle});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => onToggle(!checked),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              color: checked ? kGreen : Colors.white,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: checked ? kGreen : kLightGrey,
+                width: 1.5,
+              ),
+            ),
+            child: checked
+                ? const Icon(Icons.check, size: 14, color: Colors.white)
+                : null,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(item.label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: checked ? kGrey : kCharcoal,
+                    decoration: checked ? TextDecoration.lineThrough : null,
+                    decorationColor: kGrey,
+                  )),
+              if (item.note != null) ...[
+                const SizedBox(height: 2),
+                Text(item.note!,
+                    style: const TextStyle(fontSize: 11, color: kLightGrey,
+                        fontStyle: FontStyle.italic)),
+              ],
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+// ── Scanner matériaux ──────────────────────────────────────────────────────────
+
+class _ScanMateriauxButton extends StatefulWidget {
+  final ValueChanged<MateriauxResult> onDetected;
+  const _ScanMateriauxButton({required this.onDetected});
+  @override
+  State<_ScanMateriauxButton> createState() => _ScanMateriauxButtonState();
+}
+
+class _ScanMateriauxButtonState extends State<_ScanMateriauxButton> {
+  bool _loading = false;
+
+  Future<void> _scan(ImageSource src) async {
+    Navigator.pop(context);
+
+    if (!AppSettings.instance.hasAnthropicKey) {
+      _showError('Clé API Anthropic manquante. Configure-la dans Profil → IA.');
+      return;
+    }
+
+    final picker = ImagePicker();
+    final XFile? file;
+    try {
+      file = await picker.pickImage(
+        source: src,
+        maxWidth: 1600,
+        imageQuality: 85,
+        preferredCameraDevice: CameraDevice.rear,
+      );
+    } catch (e) {
+      _showError('Impossible d\'accéder à la photo : $e');
+      return;
+    }
+    if (file == null) return;
+
+    setState(() => _loading = true);
+    final result = await MateriauxScanService().analyzeImage(file.path);
+    if (!mounted) return;
+    setState(() => _loading = false);
+
+    if (!result.hasData) {
+      _showError('Matériaux non détectés. Essaie avec une photo de la façade plus nette et bien cadrée.');
+      return;
+    }
+    _showConfirm(result);
+  }
+
+  void _showError(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: kRed),
+    );
+  }
+
+  void _showConfirm(MateriauxResult r) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.auto_awesome, size: 20, color: kGreen),
+          SizedBox(width: 8),
+          Text('Matériaux détectés', style: TextStyle(fontSize: 16)),
+        ]),
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Les champs cochés seront appliqués :',
+                style: TextStyle(fontSize: 11, color: kGrey)),
+            const SizedBox(height: 10),
+            if (r.facade != null) ...[
+              _resultRow('Façade — état', r.facade!),
+              if (r.facadeMatiere != null)
+                _resultRow('Façade — matériau', r.facadeMatiere!, secondary: true),
+            ],
+            if (r.toiture != null) ...[
+              _resultRow('Toiture — état', r.toiture!),
+              if (r.toitureMatiere != null)
+                _resultRow('Toiture — matériau', r.toitureMatiere!, secondary: true),
+            ],
+            if (r.menuiseriesType.isNotEmpty)
+              _resultRow('Menuiseries', r.menuiseriesType.join(', ')),
+            if (r.vitrage.isNotEmpty)
+              _resultRow('Vitrage estimé', r.vitrage.join(', ')),
+          ]),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: kGreen),
+            onPressed: () {
+              widget.onDetected(r);
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Matériaux appliqués ✓')),
+              );
+            },
+            child: const Text('Appliquer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _resultRow(String label, String value, {bool secondary = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(children: [
+        Expanded(
+          child: Text(label,
+              style: TextStyle(
+                  fontSize: secondary ? 11 : 12,
+                  color: secondary ? kLightGrey : kGrey,
+                  fontStyle: secondary ? FontStyle.italic : FontStyle.normal)),
+        ),
+        Text(value,
+            style: TextStyle(
+                fontSize: secondary ? 11 : 13,
+                fontWeight: secondary ? FontWeight.w500 : FontWeight.w700,
+                color: secondary ? kLightGrey : kCharcoal)),
+      ]),
+    );
+  }
+
+  void _showPicker() {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            leading: const Icon(Icons.camera_alt_outlined, color: kGreen),
+            title: const Text('Photographier la façade'),
+            subtitle: const Text('Cadre la maison en entier si possible'),
+            onTap: () => _scan(ImageSource.camera),
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_library_outlined, color: kGreen),
+            title: const Text('Choisir depuis la galerie'),
+            onTap: () => _scan(ImageSource.gallery),
+          ),
+          ListTile(
+            leading: const Icon(Icons.close, color: kGrey),
+            title: const Text('Annuler'),
+            onTap: () => Navigator.pop(ctx),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: _loading ? null : _showPicker,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: kGreen.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: kGreen.withOpacity(0.3)),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          if (_loading)
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2, color: kGreen),
+            )
+          else
+            const Icon(Icons.photo_camera_outlined, size: 14, color: kGreen),
+          const SizedBox(width: 6),
+          Text(
+            _loading ? 'Analyse…' : 'Scanner façade',
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kGreen),
+          ),
+        ]),
+      ),
+    );
   }
 }
 
