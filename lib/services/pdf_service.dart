@@ -65,7 +65,7 @@ class PdfService {
     final doc = pw.Document();
     final price = e.prixFinal > 0 ? e.prixFinal : e.prixCalcule;
 
-    doc.addPage(_buildCoverPage(e, price));
+    doc.addPage(_buildCoverPage(e, price, photoBytes));
     doc.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
       margin: const pw.EdgeInsets.all(32),
@@ -126,7 +126,7 @@ class PdfService {
     final doc = pw.Document();
     final price = e.prixFinal > 0 ? e.prixFinal : e.prixCalcule;
 
-    doc.addPage(_buildCoverPage(e, price));
+    doc.addPage(_buildCoverPage(e, price, photoBytes));
     doc.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
       margin: const pw.EdgeInsets.all(32),
@@ -205,223 +205,369 @@ class PdfService {
 
   // ── Page de garde ───────────────────────────────────────────────────────────
 
-  pw.Page _buildCoverPage(Estimation e, double price) {
+  pw.Page _buildCoverPage(Estimation e, double price, List<Uint8List> photoBytes) {
     final low  = e.fourchetteBasse > 0 ? e.fourchetteBasse : price * 0.95;
     final high = e.fourchetteHaute > 0 ? e.fourchetteHaute : price * 1.05;
     final typeLabel = e.typeId.isNotEmpty
         ? '${e.typeId[0].toUpperCase()}${e.typeId.substring(1)}'
         : 'Bien';
-
     return pw.Page(
       pageFormat: PdfPageFormat.a4,
       margin: pw.EdgeInsets.zero,
-      build: (ctx) => pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-        children: [
-          // ── Bandeau vert supérieur ──────────────────────────────────
-          pw.Container(
-            color: _kGreen,
-            padding: const pw.EdgeInsets.fromLTRB(44, 36, 44, 30),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
+      build: (ctx) => photoBytes.isNotEmpty
+          ? _buildPhotoCover(e, price, low, high, typeLabel, photoBytes.first)
+          : _buildDefaultCover(e, price, low, high, typeLabel),
+    );
+  }
+
+  // Couverture avec grande photo plein fond + overlay dégradé (style SMILE)
+  pw.Widget _buildPhotoCover(
+    Estimation e, double price, double low, double high,
+    String typeLabel, Uint8List photoData,
+  ) {
+    return pw.Stack(
+      children: [
+        // ── Photo plein écran ─────────────────────────────────
+        pw.Positioned(
+          top: 0, bottom: 0, left: 0, right: 0,
+          child: pw.Image(pw.MemoryImage(photoData), fit: pw.BoxFit.cover),
+        ),
+
+        // ── Dégradé supérieur (logo lisible) ─────────────────
+        pw.Positioned(
+          top: 0, left: 0, right: 0, height: 120,
+          child: pw.Container(
+            decoration: const pw.BoxDecoration(
+              gradient: pw.LinearGradient(
+                begin: pw.Alignment.topCenter,
+                end: pw.Alignment.bottomCenter,
+                colors: [PdfColor.fromInt(0xE0000000), PdfColors.transparent],
+              ),
+            ),
+          ),
+        ),
+
+        // ── Dégradé inférieur (texte + prix lisibles) ─────────
+        pw.Positioned(
+          bottom: 0, left: 0, right: 0, height: 390,
+          child: pw.Container(
+            decoration: const pw.BoxDecoration(
+              gradient: pw.LinearGradient(
+                begin: pw.Alignment.bottomCenter,
+                end: pw.Alignment.topCenter,
+                colors: [PdfColor.fromInt(0xF5000000), PdfColors.transparent],
+              ),
+            ),
+          ),
+        ),
+
+        // ── Barre supérieure : logo + badge ───────────────────
+        pw.Positioned(
+          top: 0, left: 0, right: 0,
+          child: pw.Padding(
+            padding: const pw.EdgeInsets.fromLTRB(32, 26, 32, 0),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
               children: [
                 if (_logoImage != null)
                   pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                     decoration: pw.BoxDecoration(
-                      color: PdfColors.white,
-                      borderRadius: pw.BorderRadius.circular(8),
+                      color: PdfColor.fromInt(0x88000000),
+                      borderRadius: pw.BorderRadius.circular(6),
                     ),
-                    padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    child: pw.Image(_logoImage!, height: 55, fit: pw.BoxFit.contain),
+                    child: pw.Image(_logoImage!, height: 34, fit: pw.BoxFit.contain),
                   )
-                else ...[
-                  pw.Text('FAUCIGNY IMMOBILIER',
-                      style: pw.TextStyle(
-                          fontSize: 22,
-                          fontWeight: pw.FontWeight.bold,
-                          color: PdfColors.white,
-                          letterSpacing: 1.5)),
-                  pw.SizedBox(height: 3),
-                  pw.Text('by Efficity',
-                      style: const pw.TextStyle(fontSize: 12, color: PdfColors.white)),
-                ],
-                pw.SizedBox(height: 22),
-                pw.Container(height: 1, color: PdfColors.white),
-                pw.SizedBox(height: 14),
-                pw.Text('RAPPORT D\'ESTIMATION',
-                    style: pw.TextStyle(
-                        fontSize: 14,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.white,
-                        letterSpacing: 2.5)),
-                pw.Text('IMMOBILIERE',
-                    style: pw.TextStyle(
-                        fontSize: 14,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.white,
-                        letterSpacing: 2.5)),
+                else
+                  pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                    pw.Text('FAUCIGNY IMMOBILIER',
+                        style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.white, letterSpacing: 1.2)),
+                    pw.Text('by Efficity',
+                        style: const pw.TextStyle(fontSize: 8, color: PdfColors.white)),
+                  ]),
+                pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: pw.BoxDecoration(
+                    color: _kGreen,
+                    borderRadius: pw.BorderRadius.circular(4),
+                  ),
+                  child: pw.Text('AVIS DE VALEUR IMMOBILIÈRE',
+                      style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white, letterSpacing: 0.8)),
+                ),
               ],
             ),
           ),
+        ),
 
-          // ── Corps blanc ─────────────────────────────────────────────
-          pw.Expanded(
-            child: pw.Container(
-              color: PdfColors.white,
-              padding: const pw.EdgeInsets.fromLTRB(44, 36, 44, 28),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  // Adresse
-                  pw.Text('BIEN ESTIME',
-                      style: const pw.TextStyle(
-                          fontSize: 8,
-                          color: PdfColors.grey,
-                          letterSpacing: 1.2)),
-                  pw.SizedBox(height: 6),
-                  pw.Text(
-                    e.adresseComplete.isNotEmpty
-                        ? e.adresseComplete
-                        : 'Adresse non renseignée',
-                    style: pw.TextStyle(
-                        fontSize: 17,
-                        fontWeight: pw.FontWeight.bold,
-                        color: _kCharcoal),
+        // ── Contenu bas : client + bien + prix ────────────────
+        pw.Positioned(
+          bottom: 0, left: 0, right: 0,
+          child: pw.Padding(
+            padding: const pw.EdgeInsets.fromLTRB(36, 0, 36, 30),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text('À l\'attention de',
+                    style: const pw.TextStyle(fontSize: 8,
+                        color: PdfColor.fromInt(0xAAFFFFFF))),
+                pw.SizedBox(height: 2),
+                pw.Text(
+                  e.proprietaireNom.isNotEmpty ? e.proprietaireNom : 'Propriétaire',
+                  style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.white),
+                ),
+                pw.SizedBox(height: 3),
+                if (e.adresseComplete.isNotEmpty)
+                  pw.Text(e.adresseComplete,
+                      style: const pw.TextStyle(fontSize: 10,
+                          color: PdfColor.fromInt(0xCCFFFFFF))),
+                pw.SizedBox(height: 12),
+                pw.Text(
+                  '$typeLabel · ${e.surfaceHabitable} m²'
+                  '${e.pieces > 0 ? ' · ${e.pieces} pièce${e.pieces > 1 ? 's' : ''}' : ''}'
+                  '${e.surfaceTerrain > 0 ? ' · Terrain ${e.surfaceTerrain} m²' : ''}',
+                  style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.white),
+                ),
+                pw.SizedBox(height: 16),
+                // ── Encadré prix ──────────────────────────────
+                pw.Container(
+                  padding: const pw.EdgeInsets.fromLTRB(18, 14, 18, 14),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColor.fromInt(0xBB0D0D0D),
+                    border: pw.Border.all(
+                        color: PdfColor.fromInt(0x664CAF50), width: 1.5),
+                    borderRadius: pw.BorderRadius.circular(8),
                   ),
-                  pw.SizedBox(height: 5),
-                  pw.Text(
-                    '$typeLabel — ${e.surfaceHabitable} m² — ${e.pieces} pièce${e.pieces > 1 ? 's' : ''}',
-                    style: const pw.TextStyle(
-                        fontSize: 11, color: PdfColors.grey700),
+                  child: pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                        pw.Text('VALEUR ESTIMÉE (NET VENDEUR)',
+                            style: const pw.TextStyle(fontSize: 7,
+                                color: PdfColor.fromInt(0x99FFFFFF), letterSpacing: 0.8)),
+                        pw.SizedBox(height: 5),
+                        pw.Text(_fmtPrice(price),
+                            style: pw.TextStyle(fontSize: 30, fontWeight: pw.FontWeight.bold,
+                                color: _kGreen)),
+                        pw.SizedBox(height: 7),
+                        pw.Row(children: [
+                          pw.Text('Fourchette : ',
+                              style: const pw.TextStyle(fontSize: 9,
+                                  color: PdfColor.fromInt(0x88FFFFFF))),
+                          pw.Text('${_fmtPrice(low)}  —  ${_fmtPrice(high)}',
+                              style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold,
+                                  color: PdfColors.white)),
+                        ]),
+                        pw.SizedBox(height: 3),
+                        pw.Row(children: [
+                          pw.Text('Prix de mandat : ',
+                              style: const pw.TextStyle(fontSize: 9,
+                                  color: PdfColor.fromInt(0x88FFFFFF))),
+                          pw.Text(_fmtPrice(e.prixMandat),
+                              style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold,
+                                  color: PdfColors.white)),
+                        ]),
+                      ]),
+                      pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+                        pw.Text('${e.prixMoyen.round()}',
+                            style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold,
+                                color: _kGreen)),
+                        pw.Text('EUR / m²',
+                            style: const pw.TextStyle(fontSize: 8,
+                                color: PdfColor.fromInt(0x88FFFFFF))),
+                        pw.SizedBox(height: 10),
+                        pw.Text('Réf. ${e.reference}',
+                            style: const pw.TextStyle(fontSize: 8,
+                                color: PdfColor.fromInt(0x66FFFFFF))),
+                        pw.Text('Visite : ${_fmtDate(e.dateVisite)}',
+                            style: const pw.TextStyle(fontSize: 8,
+                                color: PdfColor.fromInt(0x66FFFFFF))),
+                      ]),
+                    ],
                   ),
-                  pw.SizedBox(height: 28),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
-                  // Encadré prix
-                  pw.Container(
-                    padding: const pw.EdgeInsets.all(20),
-                    decoration: pw.BoxDecoration(
-                      color: _kLightGreen,
-                      borderRadius: pw.BorderRadius.circular(8),
-                      border: pw.Border.all(color: _kGreen, width: 1.5),
-                    ),
+  // Couverture sans photo (design bandeau vert — inchangé)
+  pw.Widget _buildDefaultCover(
+    Estimation e, double price, double low, double high, String typeLabel,
+  ) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      children: [
+        // ── Bandeau vert supérieur ──────────────────────────────────
+        pw.Container(
+          color: _kGreen,
+          padding: const pw.EdgeInsets.fromLTRB(44, 36, 44, 30),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              if (_logoImage != null)
+                pw.Container(
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.white,
+                    borderRadius: pw.BorderRadius.circular(8),
+                  ),
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: pw.Image(_logoImage!, height: 55, fit: pw.BoxFit.contain),
+                )
+              else ...[
+                pw.Text('FAUCIGNY IMMOBILIER',
+                    style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.white, letterSpacing: 1.5)),
+                pw.SizedBox(height: 3),
+                pw.Text('by Efficity',
+                    style: const pw.TextStyle(fontSize: 12, color: PdfColors.white)),
+              ],
+              pw.SizedBox(height: 22),
+              pw.Container(height: 1, color: PdfColors.white),
+              pw.SizedBox(height: 14),
+              pw.Text('AVIS DE VALEUR',
+                  style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.white, letterSpacing: 2.5)),
+              pw.Text('IMMOBILIÈRE',
+                  style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.white, letterSpacing: 2.5)),
+            ],
+          ),
+        ),
+
+        // ── Corps blanc ─────────────────────────────────────────────
+        pw.Expanded(
+          child: pw.Container(
+            color: PdfColors.white,
+            padding: const pw.EdgeInsets.fromLTRB(44, 36, 44, 28),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text('À l\'attention de',
+                    style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey, letterSpacing: 1.2)),
+                pw.SizedBox(height: 4),
+                pw.Text(
+                  e.proprietaireNom.isNotEmpty ? e.proprietaireNom : 'Propriétaire',
+                  style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: _kCharcoal),
+                ),
+                pw.SizedBox(height: 6),
+                pw.Text(
+                  e.adresseComplete.isNotEmpty ? e.adresseComplete : 'Adresse non renseignée',
+                  style: pw.TextStyle(fontSize: 17, fontWeight: pw.FontWeight.bold, color: _kCharcoal),
+                ),
+                pw.SizedBox(height: 5),
+                pw.Text(
+                  '$typeLabel — ${e.surfaceHabitable} m² — ${e.pieces} pièce${e.pieces > 1 ? 's' : ''}',
+                  style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700),
+                ),
+                pw.SizedBox(height: 28),
+
+                // Encadré prix
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(20),
+                  decoration: pw.BoxDecoration(
+                    color: _kLightGreen,
+                    borderRadius: pw.BorderRadius.circular(8),
+                    border: pw.Border.all(color: _kGreen, width: 1.5),
+                  ),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('Valeur estimée (net vendeur)',
+                          style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+                      pw.SizedBox(height: 8),
+                      pw.Text(_fmtPrice(price),
+                          style: pw.TextStyle(fontSize: 34, fontWeight: pw.FontWeight.bold, color: _kGreen)),
+                      pw.SizedBox(height: 10),
+                      pw.Container(height: 0.5, color: const PdfColor.fromInt(0xFFB2DFDB)),
+                      pw.SizedBox(height: 10),
+                      pw.Row(children: [
+                        pw.Text('Fourchette :  ',
+                            style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+                        pw.Text('${_fmtPrice(low)}  —  ${_fmtPrice(high)}',
+                            style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: _kCharcoal)),
+                      ]),
+                      pw.SizedBox(height: 5),
+                      pw.Row(children: [
+                        pw.Text('Prix de mandat :  ',
+                            style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+                        pw.Text(_fmtPrice(e.prixMandat),
+                            style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: _kCharcoal)),
+                      ]),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(height: 24),
+
+                // Métriques clés
+                pw.Row(children: [
+                  _metricBox('${e.prixMoyen.round()} EUR/m2', 'Marché local'),
+                  pw.SizedBox(width: 8),
+                  _metricBox('${e.surfaceHabitable} m2', 'Surface hab.'),
+                  pw.SizedBox(width: 8),
+                  _metricBox(e.anneeConstruction.isNotEmpty ? e.anneeConstruction : 'N/A', 'Construction'),
+                  pw.SizedBox(width: 8),
+                  _metricBox('DPE ${e.dpeClasse}', 'Energie'),
+                ]),
+                pw.SizedBox(height: 28),
+
+                // Référence + dates
+                pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+                  _refBadge('Ref. ${e.reference}'),
+                  _refBadge('Visite : ${_fmtDate(e.dateVisite)}'),
+                  _refBadge('Validite : ${_fmtDate(e.validiteJusquau)}'),
+                ]),
+              ],
+            ),
+          ),
+        ),
+
+        // ── Bandeau footer sombre avec photo agence ─────────────────
+        pw.SizedBox(
+          height: 90,
+          child: pw.Container(
+            color: _kCharcoal,
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                pw.Expanded(
+                  child: pw.Padding(
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 44, vertical: 18),
                     child: pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      mainAxisAlignment: pw.MainAxisAlignment.center,
                       children: [
-                        pw.Text('Valeur estimée (net vendeur)',
-                            style: const pw.TextStyle(
-                                fontSize: 9, color: PdfColors.grey700)),
-                        pw.SizedBox(height: 8),
-                        pw.Text(_fmtPrice(price),
-                            style: pw.TextStyle(
-                                fontSize: 34,
-                                fontWeight: pw.FontWeight.bold,
-                                color: _kGreen)),
-                        pw.SizedBox(height: 10),
-                        pw.Container(
-                            height: 0.5, color: const PdfColor.fromInt(0xFFB2DFDB)),
-                        pw.SizedBox(height: 10),
-                        pw.Row(children: [
-                          pw.Text('Fourchette :  ',
-                              style: const pw.TextStyle(
-                                  fontSize: 9, color: PdfColors.grey700)),
-                          pw.Text(
-                              '${_fmtPrice(low)}  —  ${_fmtPrice(high)}',
-                              style: pw.TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: pw.FontWeight.bold,
-                                  color: _kCharcoal)),
-                        ]),
-                        pw.SizedBox(height: 5),
-                        pw.Row(children: [
-                          pw.Text('Prix de mandat :  ',
-                              style: const pw.TextStyle(
-                                  fontSize: 9, color: PdfColors.grey700)),
-                          pw.Text(_fmtPrice(e.prixMandat),
-                              style: pw.TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: pw.FontWeight.bold,
-                                  color: _kCharcoal)),
-                        ]),
+                        pw.Text('Jeremy Moraga',
+                            style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold,
+                                color: PdfColors.white)),
+                        pw.SizedBox(height: 3),
+                        pw.Text('Faucigny Immobilier — 06 68 03 64 03',
+                            style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey)),
+                        pw.SizedBox(height: 6),
+                        pw.Text('Document confidentiel',
+                            style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey)),
                       ],
                     ),
                   ),
-                  pw.SizedBox(height: 24),
-
-                  // Métriques clés
-                  pw.Row(children: [
-                    _metricBox('${e.prixMoyen.round()} EUR/m2', 'Marché local'),
-                    pw.SizedBox(width: 8),
-                    _metricBox('${e.surfaceHabitable} m2', 'Surface hab.'),
-                    pw.SizedBox(width: 8),
-                    _metricBox(
-                        e.anneeConstruction.isNotEmpty
-                            ? e.anneeConstruction
-                            : 'N/A',
-                        'Construction'),
-                    pw.SizedBox(width: 8),
-                    _metricBox('DPE ${e.dpeClasse}', 'Energie'),
-                  ]),
-                  pw.SizedBox(height: 28),
-
-                  // Référence + dates
-                  pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      _refBadge('Ref. ${e.reference}'),
-                      _refBadge('Visite : ${_fmtDate(e.dateVisite)}'),
-                      _refBadge('Validite : ${_fmtDate(e.validiteJusquau)}'),
-                    ],
+                ),
+                if (_agenceImage != null)
+                  pw.SizedBox(
+                    width: 200,
+                    child: pw.Image(_agenceImage!, fit: pw.BoxFit.cover),
                   ),
-                ],
-              ),
+              ],
             ),
           ),
-
-          // ── Bandeau footer sombre avec photo agence ─────────────────
-          pw.SizedBox(
-            height: 90,
-            child: pw.Container(
-              color: _kCharcoal,
-              child: pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                children: [
-                  pw.Expanded(
-                    child: pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(
-                          horizontal: 44, vertical: 18),
-                      child: pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        mainAxisAlignment: pw.MainAxisAlignment.center,
-                        children: [
-                          pw.Text('Jeremy Moraga',
-                              style: pw.TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: pw.FontWeight.bold,
-                                  color: PdfColors.white)),
-                          pw.SizedBox(height: 3),
-                          pw.Text(
-                              'Faucigny Immobilier — 06 68 03 64 03',
-                              style: const pw.TextStyle(
-                                  fontSize: 8, color: PdfColors.grey)),
-                          pw.SizedBox(height: 6),
-                          pw.Text('Document confidentiel',
-                              style: const pw.TextStyle(
-                                  fontSize: 7, color: PdfColors.grey)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  if (_agenceImage != null)
-                    pw.SizedBox(
-                      width: 200,
-                      child: pw.Image(_agenceImage!, fit: pw.BoxFit.cover),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -610,6 +756,11 @@ class PdfService {
       _row('Orientation', e.orientations.join(', ')),
       _row('Vue', e.vues.join(', ')),
       _row('DPE', e.dpeClasse == 'NC' ? 'Non communiqué (!)' : 'Classe ${e.dpeClasse}'),
+      if (e.dpeClasse != 'NC' && e.dpeClasse.isNotEmpty)
+        pw.Padding(
+          padding: const pw.EdgeInsets.symmetric(vertical: 8),
+          child: _dpeBarsSection(e.dpeClasse),
+        ),
       _row('Chauffage', e.chauffageType),
     ]);
 
@@ -1175,6 +1326,94 @@ class PdfService {
                   fontSize: 11, color: PdfColors.grey800)),
         ),
       ]);
+
+  // ── Barres DPE A→G (couleurs officielles 2021) ──────────────────────────────
+
+  pw.Widget _dpeBarsSection(String dpeClasse) {
+    const classes = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+    const dpeColors = [
+      PdfColor.fromInt(0xFF319F3E), // A — vert foncé
+      PdfColor.fromInt(0xFF57A500), // B — vert
+      PdfColor.fromInt(0xFF92BC3E), // C — vert clair
+      PdfColor.fromInt(0xFFEEC400), // D — jaune
+      PdfColor.fromInt(0xFFF09000), // E — orange
+      PdfColor.fromInt(0xFFD95500), // F — orange foncé
+      PdfColor.fromInt(0xFFD32000), // G — rouge
+    ];
+
+    final activeClass = dpeClasse.toUpperCase();
+    const minW = 48.0;
+    const maxW = 145.0;
+    const step = (maxW - minW) / 6;
+
+    final rows = <pw.Widget>[];
+    for (int i = 0; i < 7; i++) {
+      final cls = classes[i];
+      final isActive = cls == activeClass;
+      final barW = minW + i * step;
+      final color = dpeColors[i];
+
+      rows.add(pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 2),
+        child: pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            // Barre colorée avec lettre
+            pw.Container(
+              width: barW, height: isActive ? 16 : 13,
+              color: color,
+              padding: const pw.EdgeInsets.symmetric(horizontal: 5),
+              alignment: pw.Alignment.centerLeft,
+              child: pw.Text(cls,
+                  style: pw.TextStyle(
+                      fontSize: isActive ? 9 : 7,
+                      fontWeight: isActive ? pw.FontWeight.bold : pw.FontWeight.normal,
+                      color: PdfColors.white)),
+            ),
+            // Pointe de flèche pour la classe active
+            if (isActive)
+              pw.CustomPaint(
+                size: PdfPoint(9, 16),
+                painter: (canvas, size) {
+                  canvas
+                    ..setFillColor(color)
+                    ..moveTo(0, 0)
+                    ..lineTo(size.x, size.y / 2)
+                    ..lineTo(0, size.y)
+                    ..closePath()
+                    ..fillPath();
+                },
+              ),
+            // Libellé "Classe X" à droite de la flèche
+            if (isActive) ...[
+              pw.SizedBox(width: 5),
+              pw.Text('Classe $cls',
+                  style: pw.TextStyle(
+                      fontSize: 9, fontWeight: pw.FontWeight.bold, color: color)),
+            ],
+          ],
+        ),
+      ));
+    }
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Container(
+          padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          decoration: pw.BoxDecoration(
+            color: const PdfColor.fromInt(0xFFF0F4F0),
+            borderRadius: pw.BorderRadius.circular(4),
+          ),
+          child: pw.Text('PERFORMANCE ÉNERGÉTIQUE (DPE)',
+              style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.grey700, letterSpacing: 0.5)),
+        ),
+        pw.SizedBox(height: 6),
+        ...rows,
+      ],
+    );
+  }
 
   // ── Composants UI ───────────────────────────────────────────────────────────
 
