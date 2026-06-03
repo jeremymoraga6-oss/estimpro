@@ -25,6 +25,9 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
   bool _uiVisible = false;
   Timer? _hideTimer;
 
+  // Orientation forcée (landscape manuel)
+  bool _forceLandscape = false;
+
   @override
   void initState() {
     super.initState();
@@ -42,9 +45,16 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
 
   void _enterPresentation() {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    // Déverrouille toutes les orientations pour pouvoir tourner en paysage
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     setState(() {
       _presentation = true;
       _uiVisible = true;
+      _forceLandscape = false;
     });
     _scheduleHide();
   }
@@ -52,7 +62,17 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
   void _exitPresentation() {
     _hideTimer?.cancel();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    if (mounted) setState(() { _presentation = false; _uiVisible = false; });
+    // Reverrouille en portrait comme le reste de l'app
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    if (mounted) setState(() { _presentation = false; _uiVisible = false; _forceLandscape = false; });
+  }
+
+  void _toggleOrientation() {
+    setState(() => _forceLandscape = !_forceLandscape);
+    SystemChrome.setPreferredOrientations(_forceLandscape
+        ? [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]
+        : [DeviceOrientation.portraitUp, DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+    if (_uiVisible) _scheduleHide();
   }
 
   void _scheduleHide() {
@@ -151,6 +171,15 @@ Jérémy MORAGA — Faucigny Immobilier by Efficity''';
                     style: const TextStyle(color: Color(0xFFB2BEC3), fontSize: 13)),
               ),
             ),
+          // Bouton rotation
+          IconButton(
+            icon: const Icon(Icons.screen_rotation_rounded),
+            tooltip: 'Passer en paysage',
+            onPressed: () {
+              _enterPresentation();
+              Future.microtask(_toggleOrientation);
+            },
+          ),
           // Bouton mode présentation
           IconButton(
             icon: const Icon(Icons.present_to_all_rounded),
@@ -332,6 +361,22 @@ Jérémy MORAGA — Faucigny Immobilier by Efficity''';
                       style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
                 ),
               const SizedBox(width: 12),
+              // Bouton rotation paysage / portrait
+              GestureDetector(
+                onTap: _toggleOrientation,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: _forceLandscape ? kGreen.withOpacity(0.6) : Colors.white24,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    _forceLandscape ? Icons.stay_current_landscape_rounded : Icons.screen_rotation_rounded,
+                    color: Colors.white, size: 20,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
               // Bouton quitter
               GestureDetector(
                 onTap: _exitPresentation,
