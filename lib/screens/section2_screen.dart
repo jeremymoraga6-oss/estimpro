@@ -97,19 +97,20 @@ class _Section2ScreenState extends State<Section2Screen> {
                 controller: _surfCtrl,
                 onChanged: (v) => _update(_e.copyWith(surfaceHabitable: v)),
               ),
-              const SizedBox(height: 12),
-              _SurfaceField(
-                label: 'Surface terrain',
-                controller: _terrCtrl,
-                onChanged: (v) => _update(_e.copyWith(surfaceTerrain: v)),
-                hint: '0 si appartement',
-              ),
-              if (_e.typeId != 'appartement' && _e.surfaceTerrain > 500) ...[
-                const SizedBox(height: 10),
-                _TerrainConstructibleWidget(
-                  estimation: _e,
-                  onChanged: _update,
+              if (_e.typeId != 'appartement') ...[
+                const SizedBox(height: 12),
+                _SurfaceField(
+                  label: 'Surface terrain',
+                  controller: _terrCtrl,
+                  onChanged: (v) => _update(_e.copyWith(surfaceTerrain: v)),
                 ),
+                if (_e.surfaceTerrain > 500) ...[
+                  const SizedBox(height: 10),
+                  _TerrainConstructibleWidget(
+                    estimation: _e,
+                    onChanged: _update,
+                  ),
+                ],
               ],
               const CardDivider(),
 
