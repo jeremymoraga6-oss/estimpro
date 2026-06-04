@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -56,7 +57,46 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
       _uiVisible = true;
       _forceLandscape = false;
     });
+    // En mode présentation la mise en page devient horizontale (une page par
+    // écran) : on recadre sur la page courante après le relayout.
+    _snapToCurrentPage();
     _scheduleHide();
+  }
+
+  /// Recadre la vue sur la page courante (utile après changement de mise en
+  /// page ou d'orientation, pour afficher une page pleine à l'écran).
+  void _snapToCurrentPage() {
+    void go() {
+      if (!mounted || !_presentation) return;
+      try {
+        _controller.goToPage(pageNumber: _currentPage);
+      } catch (_) {/* le viewer n'est pas encore prêt */}
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => go());
+    // Filet de sécurité : le relayout pdfrx peut prendre une frame de plus.
+    Future.delayed(const Duration(milliseconds: 250), go);
+  }
+
+  /// Mise en page horizontale : pages alignées côte à côte, centrées
+  /// verticalement. Combinée à goToPage, chaque « suivant » fait défiler
+  /// d'une page pleine — idéal pour présenter le book au vendeur en paysage.
+  PdfPageLayout _presentationLayout(List<PdfPage> pages, PdfViewerParams params) {
+    final maxHeight = pages.fold<double>(0.0, (h, p) => math.max(h, p.height));
+    final layouts = <Rect>[];
+    double x = params.margin;
+    for (final page in pages) {
+      layouts.add(Rect.fromLTWH(
+        x,
+        (maxHeight - page.height) / 2 + params.margin,
+        page.width,
+        page.height,
+      ));
+      x += page.width + params.margin;
+    }
+    return PdfPageLayout(
+      pageLayouts: layouts,
+      documentSize: Size(x, maxHeight + params.margin * 2),
+    );
   }
 
   void _exitPresentation() {
@@ -72,6 +112,8 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
     SystemChrome.setPreferredOrientations(_forceLandscape
         ? [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]
         : [DeviceOrientation.portraitUp, DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+    // Après rotation, recadre sur la page courante (le viewport a changé).
+    _snapToCurrentPage();
     if (_uiVisible) _scheduleHide();
   }
 
@@ -436,6 +478,8 @@ Jérémy MORAGA — Faucigny Immobilier by Efficity''';
     params: PdfViewerParams(
       backgroundColor: _presentation ? Colors.black : const Color(0xFF1A1A2E),
       margin: _presentation ? 0 : 8,
+      // En présentation : une page par écran, défilement horizontal.
+      layoutPages: _presentation ? _presentationLayout : null,
       onPageChanged: (page) {
         if (mounted) setState(() => _currentPage = page ?? 1);
       },
