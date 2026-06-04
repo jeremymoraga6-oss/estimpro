@@ -275,14 +275,17 @@ Jérémy MORAGA — Faucigny Immobilier by Efficity''';
   }
 
   Widget _buildPresentation() {
-    final screenW = MediaQuery.of(context).size.width;
-
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(children: [
 
-        // PDF plein écran
-        _pdfViewer(),
+        // PDF plein écran — AbsorbPointer bloque les gestes internes de pdfrx
+        // (scroll, zoom) en mode présentation, sinon ils avalent tous les taps
+        // et les zones de navigation ne répondent jamais.
+        AbsorbPointer(
+          absorbing: true,
+          child: _pdfViewer(),
+        ),
 
         // Zones de tap : gauche = précédent, droite = suivant
         Positioned.fill(
@@ -329,22 +332,22 @@ Jérémy MORAGA — Faucigny Immobilier by Efficity''';
           ]),
         ),
 
-        // Indicateurs de navigation (flèches latérales discrètes)
+        // Flèches latérales — toujours un peu visibles pour guider l'utilisateur.
         if (_currentPage > 1)
           Positioned(
             left: 12, top: 0, bottom: 0,
             child: IgnorePointer(
               child: Center(
                 child: AnimatedOpacity(
-                  opacity: _uiVisible ? 0.6 : 0.0,
+                  opacity: _uiVisible ? 0.75 : 0.25,
                   duration: const Duration(milliseconds: 300),
                   child: Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: Colors.black54,
-                      borderRadius: BorderRadius.circular(24),
+                      borderRadius: BorderRadius.circular(28),
                     ),
-                    child: const Icon(Icons.chevron_left_rounded, color: Colors.white, size: 28),
+                    child: const Icon(Icons.chevron_left_rounded, color: Colors.white, size: 32),
                   ),
                 ),
               ),
@@ -356,15 +359,15 @@ Jérémy MORAGA — Faucigny Immobilier by Efficity''';
             child: IgnorePointer(
               child: Center(
                 child: AnimatedOpacity(
-                  opacity: _uiVisible ? 0.6 : 0.0,
+                  opacity: _uiVisible ? 0.75 : 0.25,
                   duration: const Duration(milliseconds: 300),
                   child: Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: Colors.black54,
-                      borderRadius: BorderRadius.circular(24),
+                      borderRadius: BorderRadius.circular(28),
                     ),
-                    child: const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 28),
+                    child: const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 32),
                   ),
                 ),
               ),
