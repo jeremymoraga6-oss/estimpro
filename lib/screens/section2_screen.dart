@@ -116,19 +116,22 @@ class _Section2ScreenState extends State<Section2Screen> {
             SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const CardTitleRow(icon: Icons.straighten_rounded, label: 'Surfaces'),
 
-              _SurfaceField(
-                label: 'Surface habitable',
-                controller: _surfCtrl,
-                onChanged: (v) => _update(_e.copyWith(surfaceHabitable: v)),
-              ),
+              // Surface habitable — masquée pour terrain (pas de bâti)
+              if (_e.typeId != 'terrain') ...[
+                _SurfaceField(
+                  label: 'Surface habitable',
+                  controller: _surfCtrl,
+                  onChanged: (v) => _update(_e.copyWith(surfaceHabitable: v)),
+                ),
+              ],
               if (_e.typeId != 'appartement') ...[
-                const SizedBox(height: 12),
+                if (_e.typeId != 'terrain') const SizedBox(height: 12),
                 _SurfaceField(
                   label: 'Surface terrain',
                   controller: _terrCtrl,
                   onChanged: (v) => _update(_e.copyWith(surfaceTerrain: v)),
                 ),
-                if (_e.surfaceTerrain > 500) ...[
+                if (_e.typeId != 'terrain' && _e.surfaceTerrain > 500) ...[
                   const SizedBox(height: 10),
                   _TerrainConstructibleWidget(
                     estimation: _e,
@@ -136,57 +139,59 @@ class _Section2ScreenState extends State<Section2Screen> {
                   ),
                 ],
               ],
-              const CardDivider(),
 
-              // Surfaces annexes pondérées
-              const FieldLabel('Surfaces annexes'),
-              const SizedBox(height: 4),
-              const Text('Balcon ×50%  ·  Cave ×20%  ·  Terrasse ×30%',
-                  style: TextStyle(fontSize: 10, color: kLightGrey, fontStyle: FontStyle.italic)),
-              const SizedBox(height: 8),
-              Row(children: [
-                Expanded(child: _AnnexeField(label: 'Balcon', controller: _balconCtrl,
-                    onChanged: (v) => _update(_e.copyWith(surfaceBalcon: v)))),
-                const SizedBox(width: 8),
-                Expanded(child: _AnnexeField(label: 'Cave', controller: _caveCtrl,
-                    onChanged: (v) => _update(_e.copyWith(surfaceCave: v)))),
-                const SizedBox(width: 8),
-                Expanded(child: _AnnexeField(label: 'Terrasse', controller: _terrasseCtrl,
-                    onChanged: (v) => _update(_e.copyWith(surfaceTerrasse: v)))),
-              ]),
-              if (_e.surfacePonderee > _e.surfaceHabitable) ...[
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: kGreen.withOpacity(0.07),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: kGreen.withOpacity(0.2)),
+              // Surfaces annexes pondérées — non pertinentes pour un terrain nu
+              if (_e.typeId != 'terrain') ...[
+                const CardDivider(),
+                const FieldLabel('Surfaces annexes'),
+                const SizedBox(height: 4),
+                const Text('Balcon ×50%  ·  Cave ×20%  ·  Terrasse ×30%',
+                    style: TextStyle(fontSize: 10, color: kLightGrey, fontStyle: FontStyle.italic)),
+                const SizedBox(height: 8),
+                Row(children: [
+                  Expanded(child: _AnnexeField(label: 'Balcon', controller: _balconCtrl,
+                      onChanged: (v) => _update(_e.copyWith(surfaceBalcon: v)))),
+                  const SizedBox(width: 8),
+                  Expanded(child: _AnnexeField(label: 'Cave', controller: _caveCtrl,
+                      onChanged: (v) => _update(_e.copyWith(surfaceCave: v)))),
+                  const SizedBox(width: 8),
+                  Expanded(child: _AnnexeField(label: 'Terrasse', controller: _terrasseCtrl,
+                      onChanged: (v) => _update(_e.copyWith(surfaceTerrasse: v)))),
+                ]),
+                if (_e.surfacePonderee > _e.surfaceHabitable) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: kGreen.withOpacity(0.07),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: kGreen.withOpacity(0.2)),
+                    ),
+                    child: Row(children: [
+                      const Icon(Icons.calculate_outlined, size: 14, color: kGreen),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(
+                        'Surface pondérée : ${_e.surfacePonderee.toStringAsFixed(1)} m²'
+                        '  ·  +${(_e.surfacePonderee - _e.surfaceHabitable).toStringAsFixed(1)} m² équivalent',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kGreen),
+                      )),
+                    ]),
                   ),
-                  child: Row(children: [
-                    const Icon(Icons.calculate_outlined, size: 14, color: kGreen),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(
-                      'Surface pondérée : ${_e.surfacePonderee.toStringAsFixed(1)} m²'
-                      '  ·  +${(_e.surfacePonderee - _e.surfaceHabitable).toStringAsFixed(1)} m² équivalent',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kGreen),
-                    )),
-                  ]),
+                ],
+                const CardDivider(),
+                Row(children: [
+                  Expanded(child: StepperField(label: 'Pièces', value: _e.pieces, onChange: (v) => _update(_e.copyWith(pieces: v)))),
+                  const SizedBox(width: 10),
+                  Expanded(child: StepperField(label: 'Chambres', value: _e.chambres, onChange: (v) => _update(_e.copyWith(chambres: v)))),
+                ]),
+                const SizedBox(height: 12),
+
+                // Détail des surfaces par pièce
+                _PiecesSurfacesWidget(
+                  pieces: _e.piecesSurfaces,
+                  onChanged: (list) => _update(_e.copyWith(piecesSurfaces: list)),
                 ),
               ],
-              const CardDivider(),
-              Row(children: [
-                Expanded(child: StepperField(label: 'Pièces', value: _e.pieces, onChange: (v) => _update(_e.copyWith(pieces: v)))),
-                const SizedBox(width: 10),
-                Expanded(child: StepperField(label: 'Chambres', value: _e.chambres, onChange: (v) => _update(_e.copyWith(chambres: v)))),
-              ]),
-              const SizedBox(height: 12),
-
-              // Détail des surfaces par pièce
-              _PiecesSurfacesWidget(
-                pieces: _e.piecesSurfaces,
-                onChanged: (list) => _update(_e.copyWith(piecesSurfaces: list)),
-              ),
 
               MesNotes(sectionKey: 'section2', initialData: _e.notes['section2'] ?? {}, onChanged: (data) {
                 final n = Map<String, Map<String, dynamic>>.from(_e.notes); n['section2'] = data;

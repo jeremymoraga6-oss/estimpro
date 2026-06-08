@@ -93,13 +93,21 @@ class AnnonceService {
 Tu rédiges des annonces vendeur OPTIMISÉES SEO (mots-clés acheteurs) et PERCUTANTES (vente rapide).
 
 Règles :
-- TITRE (60-80 caractères) : type + surface + commune + atout-clé. Ex : "Maison 120 m² avec vue Mont-Blanc à Saint-Pierre-en-Faucigny"
+- TITRE (60-80 caractères) : type + surface + commune + atout-clé.
+  Ex maison : "Maison 120 m² avec vue Mont-Blanc à Saint-Pierre-en-Faucigny"
+  Ex terrain : "Terrain constructible 850 m² zone UA à Ayse — viabilisé"
 - ACCROCHE (1 phrase, 100-150 caractères) : phrase d'impact qui donne envie de cliquer. Émotion + bénéfice concret.
 - DESCRIPTION (200-400 mots, 3-4 paragraphes) :
+  Pour un logement :
   1. Localisation + cadre de vie (commerces, écoles, accès Genève/autoroute)
   2. Présentation du bien (pièces, distribution, prestations)
   3. Atouts différenciants (vue, exposition, terrain, calme...)
   4. CTA discret ("Visite sur RDV avec Jérémy Moraga, votre conseiller Faucigny Immobilier by Efficity")
+  Pour un terrain :
+  1. Localisation + cadre de vie + accès
+  2. Caractéristiques clés (surface, zone PLU, constructibilité, COS si précisé)
+  3. Viabilisation + accès + forme / pente — valorise la constructibilité
+  4. CTA discret
 - POINTS FORTS : 5-7 bullets courts (3-6 mots chacun), formulation marketing
 - HASHTAGS : 6-8 hashtags pour réseaux sociaux (#ImmobilierFaucigny, #VueMontagne, #FrontalierGeneve...)
 - TITRE_ALT_1 / TITRE_ALT_2 : 2 variantes du titre principal
@@ -214,15 +222,39 @@ Format de sortie : JSON STRICT (rien d'autre, pas de markdown), structure :
     // Type & surface
     buf.writeln('## Type & surface');
     buf.writeln('- Type : ${e.typeId}');
-    buf.writeln('- Surface habitable : ${e.surfaceHabitable} m²');
-    if (e.pieces > 0) buf.writeln('- Nombre de pièces : ${e.pieces}');
-    if (e.chambres > 0) buf.writeln('- Nombre de chambres : ${e.chambres}');
-    if (e.surfaceTerrain > 0) buf.writeln('- Surface terrain : ${e.surfaceTerrain} m²');
-    if (e.surfaceBalcon > 0) buf.writeln('- Balcon : ${e.surfaceBalcon} m²');
-    if (e.surfaceTerrasse > 0) buf.writeln('- Terrasse : ${e.surfaceTerrasse} m²');
-    if (e.surfaceCave > 0) buf.writeln('- Cave : ${e.surfaceCave} m²');
-    if (e.anneeConstruction.isNotEmpty) buf.writeln('- Année construction : ${e.anneeConstruction}');
+    if (e.typeId == 'terrain') {
+      // Terrain : on n'affiche pas la surface habitable (pas de bâti)
+      if (e.surfaceTerrain > 0) buf.writeln('- Surface terrain : ${e.surfaceTerrain} m²');
+    } else {
+      buf.writeln('- Surface habitable : ${e.surfaceHabitable} m²');
+      if (e.pieces > 0) buf.writeln('- Nombre de pièces : ${e.pieces}');
+      if (e.chambres > 0) buf.writeln('- Nombre de chambres : ${e.chambres}');
+      if (e.surfaceTerrain > 0) buf.writeln('- Surface terrain : ${e.surfaceTerrain} m²');
+      if (e.surfaceBalcon > 0) buf.writeln('- Balcon : ${e.surfaceBalcon} m²');
+      if (e.surfaceTerrasse > 0) buf.writeln('- Terrasse : ${e.surfaceTerrasse} m²');
+      if (e.surfaceCave > 0) buf.writeln('- Cave : ${e.surfaceCave} m²');
+      if (e.anneeConstruction.isNotEmpty) buf.writeln('- Année construction : ${e.anneeConstruction}');
+    }
     buf.writeln();
+
+    // Caractéristiques spécifiques au terrain
+    if (e.typeId == 'terrain') {
+      buf.writeln('## Caractéristiques du terrain');
+      if (e.zonePlu.isNotEmpty) buf.writeln('- Zone PLU : ${e.zonePlu}');
+      if (e.terrainConstructibleM2 > 0) {
+        buf.writeln('- Surface constructible : ${e.terrainConstructibleM2.round()} m²');
+        if (e.terrainCos > 0) buf.writeln('- COS / SHON max ≈ ${(e.surfaceTerrain * e.terrainCos).round()} m²');
+      } else {
+        buf.writeln('- Non constructible (zone agricole/naturelle)');
+      }
+      if (e.viabilisation.isNotEmpty) buf.writeln('- Viabilisation : ${e.viabilisation.join(", ")}');
+      if (e.terrainAcces.isNotEmpty) buf.writeln('- Accès : ${e.terrainAcces}');
+      if (e.terrainPente.isNotEmpty) buf.writeln('- Pente : ${e.terrainPente}');
+      if (e.terrainForme.isNotEmpty) buf.writeln('- Forme : ${e.terrainForme}');
+      if (e.terrainServitudes.isNotEmpty) buf.writeln('- Servitudes / contraintes : ${e.terrainServitudes}');
+      if (e.orientations.isNotEmpty) buf.writeln('- Exposition : ${e.orientations.join(", ")}');
+      buf.writeln();
+    }
 
     // Étage / appartement
     if (e.typeId == 'appartement') {
@@ -233,21 +265,23 @@ Format de sortie : JSON STRICT (rien d'autre, pas de markdown), structure :
       buf.writeln();
     }
 
-    // Diagnostics
-    buf.writeln('## Diagnostics');
-    buf.writeln('- Classe DPE : ${e.dpeClasse}');
-    buf.writeln();
+    // Diagnostics (non applicable pour terrain)
+    if (e.typeId != 'terrain') {
+      buf.writeln('## Diagnostics');
+      buf.writeln('- Classe DPE : ${e.dpeClasse}');
+      buf.writeln();
 
-    // Prestations
-    buf.writeln('## État & prestations (notes 1-4)');
-    buf.writeln('- État général : ${e.noteEtatPrestation}/4');
-    buf.writeln('- Cuisine : ${e.noteCuisine}/4');
-    buf.writeln('- Sol : ${e.noteSol}/4');
-    buf.writeln('- Salle de bain : ${e.noteSdb}/4');
-    buf.writeln('- Fenêtres / menuiseries : ${e.noteFenetres}/4');
-    buf.writeln('- Chauffage : ${e.noteChauffage}/4');
-    if (e.isolation.isNotEmpty) buf.writeln('- Isolation : ${e.isolation}');
-    buf.writeln();
+      // Prestations
+      buf.writeln('## État & prestations (notes 1-4)');
+      buf.writeln('- État général : ${e.noteEtatPrestation}/4');
+      buf.writeln('- Cuisine : ${e.noteCuisine}/4');
+      buf.writeln('- Sol : ${e.noteSol}/4');
+      buf.writeln('- Salle de bain : ${e.noteSdb}/4');
+      buf.writeln('- Fenêtres / menuiseries : ${e.noteFenetres}/4');
+      buf.writeln('- Chauffage : ${e.noteChauffage}/4');
+      if (e.isolation.isNotEmpty) buf.writeln('- Isolation : ${e.isolation}');
+      buf.writeln();
+    }
 
     // Exposition / vue
     buf.writeln('## Exposition & vue');

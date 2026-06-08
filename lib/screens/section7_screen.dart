@@ -147,7 +147,7 @@ class _Section7ScreenState extends State<Section7Screen> {
     final price = _e.prixFinal > 0 ? _e.prixFinal : _e.prixCalcule;
     final checklist = [
       {'label': 'Informations générales', 'status': 'ok', 'detail': _e.typeId},
-      {'label': 'Description', 'status': 'ok', 'detail': '${_e.typeId[0].toUpperCase()}${_e.typeId.substring(1)} ${_e.surfaceHabitable} m²'},
+      {'label': 'Description', 'status': 'ok', 'detail': '${_e.typeId[0].toUpperCase()}${_e.typeId.substring(1)} · ${_e.typeId == 'terrain' ? _e.surfaceTerrain : _e.surfaceHabitable} m²'},
       {'label': 'État & équipements', 'status': 'ok', 'detail': 'DPE ${_e.dpeClasse}'},
       {'label': 'Analyse marché', 'status': 'ok', 'detail': '${_e.comparables.length} comparable${_e.comparables.length > 1 ? 's' : ''}'},
       {'label': 'Estimation', 'status': 'ok', 'detail': _fmt(price)},
@@ -451,7 +451,7 @@ class _PdfPreview extends StatelessWidget {
         const SizedBox(height: 10),
         Container(height: 1, color: const Color(0xFFF0F0F0)),
         const SizedBox(height: 10),
-        Text('${estimation.typeId[0].toUpperCase()}${estimation.typeId.substring(1)} · ${estimation.surfaceHabitable} m²',
+        Text('${estimation.typeId[0].toUpperCase()}${estimation.typeId.substring(1)} · ${estimation.typeId == 'terrain' ? estimation.surfaceTerrain : estimation.surfaceHabitable} m²',
             style: const TextStyle(fontSize: 10, color: kGrey)),
         const SizedBox(height: 4),
         Text(_fmt(price), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: kGreen)),

@@ -280,6 +280,19 @@ class _Section3ScreenState extends State<Section3Screen> {
             ])),
             const SizedBox(height: 14),
 
+            if (_e.typeId == 'terrain') ...[
+              SectionCard(child: Row(children: [
+                const Icon(Icons.info_outline_rounded, color: kGrey, size: 16),
+                const SizedBox(width: 10),
+                const Expanded(child: Text(
+                  'Les dépendances (garage, cave, piscine…) ne s\'appliquent pas à un terrain nu.',
+                  style: TextStyle(fontSize: 12, color: kGrey, height: 1.5),
+                )),
+              ])),
+              const SizedBox(height: 14),
+            ],
+
+            if (_e.typeId != 'terrain') ...[
             const Text('Activez les dépendances présentes',
                 style: TextStyle(fontSize: 12, color: Color(0xFF95A5A6), fontStyle: FontStyle.italic)),
             const SizedBox(height: 12),
@@ -361,6 +374,8 @@ class _Section3ScreenState extends State<Section3Screen> {
               ),
               const SizedBox(height: 14),
             ],
+
+            ], // fin if typeId != 'terrain'
 
             const SizedBox(height: 16),
           ]),

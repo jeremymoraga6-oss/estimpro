@@ -62,6 +62,11 @@ class _Section5ScreenState extends State<Section5Screen> {
   void _update(Estimation e) { setState(() => _e = e); widget.onChanged(e); }
 
   Future<void> _loadDvf() async {
+    // Les ventes DVF résidentielles ne s'appliquent pas aux terrains nus
+    if (_e.typeId == 'terrain') {
+      setState(() { _loading = false; _result = null; });
+      return;
+    }
     setState(() { _loading = true; _result = null; });
     final r = await DvfService().fetch(
       codeInsee: _e.codeInsee,
@@ -152,53 +157,63 @@ class _Section5ScreenState extends State<Section5Screen> {
               const SizedBox(height: 8),
             ],
 
-            // DVF header card (transactions individuelles)
-            SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Row(children: [
-                  const Icon(Icons.bar_chart_rounded, color: kGreen, size: 18),
-                  const SizedBox(width: 8),
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Ventes DVF', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kCharcoal)),
-                    const Text('Données officielles notaires', style: TextStyle(fontSize: 11, color: kGrey)),
+            // DVF header card (transactions individuelles) — masqué pour terrain
+            if (_e.typeId != 'terrain')
+              SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  Row(children: [
+                    const Icon(Icons.bar_chart_rounded, color: kGreen, size: 18),
+                    const SizedBox(width: 8),
+                    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('Ventes DVF', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kCharcoal)),
+                      const Text('Données officielles notaires', style: TextStyle(fontSize: 11, color: kGrey)),
+                    ]),
                   ]),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                    child: const Text('SOURCE OFFICIELLE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: kGreen, letterSpacing: 0.8)),
+                  ),
                 ]),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                  child: const Text('SOURCE OFFICIELLE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: kGreen, letterSpacing: 0.8)),
-                ),
-              ]),
-              const SizedBox(height: 12),
+                const SizedBox(height: 12),
 
-              // Type filter chips
-              Row(children: [
-                _TypeChip(label: 'Tous', selected: _filterType == null, onTap: () { setState(() => _filterType = null); _loadDvf(); }),
-                const SizedBox(width: 8),
-                _TypeChip(label: 'Maison', selected: _filterType == 'Maison', onTap: () { setState(() => _filterType = 'Maison'); _loadDvf(); }),
-                const SizedBox(width: 8),
-                _TypeChip(label: 'Appartement', selected: _filterType == 'Appartement', onTap: () { setState(() => _filterType = 'Appartement'); _loadDvf(); }),
-              ]),
-              const SizedBox(height: 10),
+                // Type filter chips
+                Row(children: [
+                  _TypeChip(label: 'Tous', selected: _filterType == null, onTap: () { setState(() => _filterType = null); _loadDvf(); }),
+                  const SizedBox(width: 8),
+                  _TypeChip(label: 'Maison', selected: _filterType == 'Maison', onTap: () { setState(() => _filterType = 'Maison'); _loadDvf(); }),
+                  const SizedBox(width: 8),
+                  _TypeChip(label: 'Appartement', selected: _filterType == 'Appartement', onTap: () { setState(() => _filterType = 'Appartement'); _loadDvf(); }),
+                ]),
+                const SizedBox(height: 10),
 
-              // Radius filter
-              Row(children: [
-                const Icon(Icons.radar_rounded, size: 14, color: kGrey),
-                const SizedBox(width: 6),
-                const Text('Rayon :', style: TextStyle(fontSize: 11, color: kGrey, fontWeight: FontWeight.w600)),
-                const SizedBox(width: 8),
-                _TypeChip(label: 'Commune', selected: _e.dvfRadiusKm == 0, onTap: () => _setRadius(0)),
-                const SizedBox(width: 6),
-                _TypeChip(label: '1 km', selected: _e.dvfRadiusKm == 1, onTap: () => _setRadius(1)),
-                const SizedBox(width: 6),
-                _TypeChip(label: '3 km', selected: _e.dvfRadiusKm == 3, onTap: () => _setRadius(3)),
-                const SizedBox(width: 6),
-                _TypeChip(label: '5 km', selected: _e.dvfRadiusKm == 5, onTap: () => _setRadius(5)),
-              ]),
-            ])),
+                // Radius filter
+                Row(children: [
+                  const Icon(Icons.radar_rounded, size: 14, color: kGrey),
+                  const SizedBox(width: 6),
+                  const Text('Rayon :', style: TextStyle(fontSize: 11, color: kGrey, fontWeight: FontWeight.w600)),
+                  const SizedBox(width: 8),
+                  _TypeChip(label: 'Commune', selected: _e.dvfRadiusKm == 0, onTap: () => _setRadius(0)),
+                  const SizedBox(width: 6),
+                  _TypeChip(label: '1 km', selected: _e.dvfRadiusKm == 1, onTap: () => _setRadius(1)),
+                  const SizedBox(width: 6),
+                  _TypeChip(label: '3 km', selected: _e.dvfRadiusKm == 3, onTap: () => _setRadius(3)),
+                  const SizedBox(width: 6),
+                  _TypeChip(label: '5 km', selected: _e.dvfRadiusKm == 5, onTap: () => _setRadius(5)),
+                ]),
+              ])),
 
-            // Results
-            if (_loading)
+            // Results DVF — masqués pour terrain
+            if (_e.typeId == 'terrain')
+              SectionCard(child: Row(children: [
+                const Icon(Icons.info_outline_rounded, color: kGrey, size: 16),
+                const SizedBox(width: 10),
+                const Expanded(child: Text(
+                  'Les ventes DVF résidentielles ne s\'appliquent pas aux terrains.\nUtilisez les comparables manuels ou la base locale.',
+                  style: TextStyle(fontSize: 12, color: kGrey, height: 1.5),
+                )),
+              ]))
+            else if (_loading)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 32),
                 child: Column(children: [

@@ -186,7 +186,8 @@ class _Section4ScreenState extends State<Section4Screen> {
               onChanged: (d) => _update(_e.copyWith(diagnostics: d)),
             ),
 
-            // DPE Recap
+            // DPE Recap — masqué pour terrain (pas de bâti)
+            if (_e.typeId != 'terrain')
             Container(
               margin: const EdgeInsets.only(bottom: 14),
               padding: const EdgeInsets.all(16),
@@ -764,6 +765,10 @@ const _kAllDiags = <String, Map<String, Object>>{
 const _kZoneDiags = ['termites', 'radon', 'bruit'];
 
 List<String> _obligatoireIds(Estimation e) {
+  // Terrain nu : seul l'ERP est obligatoire (pas de bâti → pas de DPE,
+  // amiante, plomb, électricité, gaz, Carrez)
+  if (e.typeId == 'terrain') return ['erp'];
+
   final ids = <String>['dpe', 'erp'];
   final annee = e.anneeConstruction;
 
