@@ -287,49 +287,24 @@ Jérémy MORAGA — Faucigny Immobilier by Efficity''';
           child: _pdfViewer(),
         ),
 
-        // Zones de tap : gauche = précédent, droite = suivant
+        // Couche de navigation plein écran — gère les swipes et les taps.
+        // AbsorbPointer sur le viewer garantit que pdfrx ne vole pas les gestes.
         Positioned.fill(
-          child: Row(children: [
-            // Zone gauche — précédent
-            Expanded(
-              flex: 2,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () {
-                  if (_currentPage > 1) {
-                    _goPrev();
-                  } else {
-                    _toggleUi();
-                  }
-                },
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-            // Zone centre — toggle UI
-            Expanded(
-              flex: 1,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _toggleUi,
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-            // Zone droite — suivant
-            Expanded(
-              flex: 2,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () {
-                  if (_currentPage < _totalPages) {
-                    _goNext();
-                  } else {
-                    _toggleUi();
-                  }
-                },
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-          ]),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            // Swipe horizontal → page suivante / précédente.
+            onHorizontalDragEnd: (details) {
+              final v = details.primaryVelocity ?? 0;
+              if (v < -300) {
+                _goNext();       // swipe vers la gauche = suivant
+              } else if (v > 300) {
+                _goPrev();       // swipe vers la droite = précédent
+              }
+            },
+            // Tap → afficher / cacher la barre.
+            onTap: _toggleUi,
+            child: const ColoredBox(color: Colors.transparent),
+          ),
         ),
 
         // Flèches latérales — toujours un peu visibles pour guider l'utilisateur.
