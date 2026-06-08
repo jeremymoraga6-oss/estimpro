@@ -438,7 +438,13 @@ class _PdfPageBitmapState extends State<_PdfPageBitmap> {
       final w = (widget.page.width  * scale).round().clamp(64, 4096);
       final h = (widget.page.height * scale).round().clamp(64, 4096);
 
-      final pdfImage = await widget.page.render(width: w, height: h);
+      // backgroundColor noir → le fond vide de la page PDF (blanc par défaut)
+      // devient noir, ce qui évite la zone blanche en bas des slides.
+      final pdfImage = await widget.page.render(
+        width: w,
+        height: h,
+        backgroundColor: const Color(0xFF000000),
+      );
       if (pdfImage == null || !mounted) return;
 
       // pixels bruts → ui.Image via ImmutableBuffer
