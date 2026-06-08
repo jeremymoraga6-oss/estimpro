@@ -88,6 +88,15 @@ class Estimation {
   bool fibreOptique;          // éligibilité / raccordement fibre
   List<String> equipements;   // climatisation, cheminée, photovoltaïque, borne VE…
 
+  // ── Terrain (spécifique au typeId == 'terrain') ─────────────────
+  String zonePlu;             // zone PLU : 'UA' | 'UB' | 'AU' | '1AU' | 'A' | 'N' | ''
+  List<String> viabilisation; // 'Eau' | 'Électricité' | 'Assainissement' | 'Gaz' | 'Fibre'
+  String terrainAcces;        // 'Voie publique' | 'Chemin privé' | 'Impasse' | ''
+  String terrainPente;        // 'Plat' | 'Légère pente' | 'Forte pente' | ''
+  String terrainForme;        // 'Rectangulaire' | 'Irrégulière' | 'En drapeau' | ''
+  double terrainCos;          // COS/CES — coefficient d'occupation des sols (0 = non précisé)
+  String terrainServitudes;   // servitudes, contraintes (texte libre)
+
   // Diagnostics obligatoires (statut: 'valide'|'a_refaire'|'absent'|'nc', date: 'YYYY')
   Map<String, Map<String, String>> diagnostics;
 
@@ -231,6 +240,13 @@ class Estimation {
     this.assainissement = '',
     this.fibreOptique = false,
     List<String>? equipements,
+    this.zonePlu = '',
+    List<String>? viabilisation,
+    this.terrainAcces = '',
+    this.terrainPente = '',
+    this.terrainForme = '',
+    this.terrainCos = 0.0,
+    this.terrainServitudes = '',
     Map<String, Map<String, String>>? diagnostics,
     this.facade = 'Bon',
     this.toiture = 'Bon',
@@ -279,6 +295,7 @@ class Estimation {
     Map<String, bool>? documentsChecked,
   })  : historique = historique ?? [],
         equipements = equipements ?? [],
+        viabilisation = viabilisation ?? [],
         piecesSurfaces = piecesSurfaces ?? [],
         orientations = orientations ?? ['S'],
         vues = vues ?? [],
@@ -406,8 +423,14 @@ class Estimation {
     return sumW > 0 ? sumV / sumW : dvfM2;
   }
 
-  double get prixM2Retenu => prixFondamentalM2 * (1 + coefficientPrestations / 100);
-  double get prixBase => prixM2Retenu * surfacePonderee;
+  // Pour un terrain : le prix/m² DVF est direct (pas de coefficient prestations).
+  double get prixM2Retenu => typeId == 'terrain'
+      ? prixFondamentalM2
+      : prixFondamentalM2 * (1 + coefficientPrestations / 100);
+  // Pour un terrain : surface × prix/m² terrain (pas de surface pondérée).
+  double get prixBase => typeId == 'terrain'
+      ? prixM2Retenu * surfaceTerrain
+      : prixM2Retenu * surfacePonderee;
 
   // Décote grande surface : -1% par 10 m² au-delà de 120 m², plafonnée à -8%
   // Basée sur la surface pondérée (annexes incluses)
@@ -435,7 +458,7 @@ class Estimation {
   static const _tauxNonConstructible = 8.0;
 
   double get primeTerrain {
-    if (typeId == 'appartement' || surfaceTerrain <= _seuilTerrain) return 0;
+    if (typeId == 'appartement' || typeId == 'terrain' || surfaceTerrain <= _seuilTerrain) return 0;
     final excedent = surfaceTerrain - _seuilTerrain;
     final constructible = terrainConstructibleM2.clamp(0, excedent);
     final nonConstructible = excedent - constructible;
@@ -529,6 +552,13 @@ class Estimation {
         'assainissement': assainissement,
         'fibreOptique': fibreOptique ? 1 : 0,
         'equipements': jsonEncode(equipements),
+        'zonePlu': zonePlu,
+        'viabilisation': jsonEncode(viabilisation),
+        'terrainAcces': terrainAcces,
+        'terrainPente': terrainPente,
+        'terrainForme': terrainForme,
+        'terrainCos': terrainCos,
+        'terrainServitudes': terrainServitudes,
         'diagnostics': jsonEncode(diagnostics),
         'documentsChecked': jsonEncode(documentsChecked),
         'facade': facade,
@@ -655,6 +685,13 @@ class Estimation {
       assainissement: m['assainissement'] as String? ?? '',
       fibreOptique: (m['fibreOptique'] as int? ?? 0) == 1,
       equipements: decodeStrList(m['equipements']),
+      zonePlu: m['zonePlu'] as String? ?? '',
+      viabilisation: decodeStrList(m['viabilisation']),
+      terrainAcces: m['terrainAcces'] as String? ?? '',
+      terrainPente: m['terrainPente'] as String? ?? '',
+      terrainForme: m['terrainForme'] as String? ?? '',
+      terrainCos: (m['terrainCos'] as num?)?.toDouble() ?? 0.0,
+      terrainServitudes: m['terrainServitudes'] as String? ?? '',
       diagnostics: m['diagnostics'] != null
           ? Map<String, Map<String, String>>.from(
               (jsonDecode(m['diagnostics']) as Map).map(
@@ -798,6 +835,13 @@ class Estimation {
     String? assainissement,
     bool? fibreOptique,
     List<String>? equipements,
+    String? zonePlu,
+    List<String>? viabilisation,
+    String? terrainAcces,
+    String? terrainPente,
+    String? terrainForme,
+    double? terrainCos,
+    String? terrainServitudes,
     Map<String, Map<String, String>>? diagnostics,
     Map<String, bool>? documentsChecked,
     String? facade,
@@ -917,6 +961,13 @@ class Estimation {
       assainissement: assainissement ?? this.assainissement,
       fibreOptique: fibreOptique ?? this.fibreOptique,
       equipements: equipements ?? List.from(this.equipements),
+      zonePlu: zonePlu ?? this.zonePlu,
+      viabilisation: viabilisation ?? List.from(this.viabilisation),
+      terrainAcces: terrainAcces ?? this.terrainAcces,
+      terrainPente: terrainPente ?? this.terrainPente,
+      terrainForme: terrainForme ?? this.terrainForme,
+      terrainCos: terrainCos ?? this.terrainCos,
+      terrainServitudes: terrainServitudes ?? this.terrainServitudes,
       diagnostics: diagnostics ?? Map.from(this.diagnostics),
       documentsChecked: documentsChecked ?? Map.from(this.documentsChecked),
       facade: facade ?? this.facade,

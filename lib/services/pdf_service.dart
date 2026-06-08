@@ -127,6 +127,10 @@ class PdfService {
         _infoSection(e),
         pw.SizedBox(height: 20),
         _descSection(e),
+        if (e.typeId == 'terrain') ...[
+          pw.SizedBox(height: 20),
+          _terrainSection(e),
+        ],
         pw.SizedBox(height: 20),
         _etatSection(e),
         pw.SizedBox(height: 20),
@@ -189,6 +193,10 @@ class PdfService {
         _infoSection(e),
         pw.SizedBox(height: 20),
         _descSection(e),
+        if (e.typeId == 'terrain') ...[
+          pw.SizedBox(height: 20),
+          _terrainSection(e),
+        ],
         pw.SizedBox(height: 20),
         _etatSection(e),
         pw.SizedBox(height: 20),
@@ -862,6 +870,48 @@ class PdfService {
         rows.add(_row('Conge locataire', 'Oui - bien libre a echeance'));
     }
     return _card('ETAT & EQUIPEMENTS', rows);
+  }
+
+  pw.Widget _terrainSection(Estimation e) {
+    String fmtYN(bool v) => v ? 'Oui' : 'Non';
+    final rows = <pw.Widget>[];
+
+    if (e.zonePlu.isNotEmpty)
+      rows.add(_row('Zone PLU', e.zonePlu));
+
+    if (e.surfaceTerrain > 0)
+      rows.add(_row('Surface', '${e.surfaceTerrain} m²'));
+
+    if (e.terrainConstructibleM2 > 0) {
+      rows.add(_row('Constructible', '${e.terrainConstructibleM2} m²'));
+      if (e.terrainCos > 0)
+        rows.add(_row('COS / CES', '${e.terrainCos} → SHON max ≈ ${(e.surfaceTerrain * e.terrainCos).round()} m²'));
+    } else {
+      rows.add(_row('Constructible', 'Non précisé'));
+    }
+
+    if (e.viabilisation.isNotEmpty)
+      rows.add(_row('Viabilisation', e.viabilisation.join(', ')));
+    else
+      rows.add(_row('Viabilisation', 'Non précisé'));
+
+    if (e.terrainAcces.isNotEmpty)
+      rows.add(_row('Accès', e.terrainAcces));
+
+    if (e.terrainPente.isNotEmpty)
+      rows.add(_row('Pente', e.terrainPente));
+
+    if (e.terrainForme.isNotEmpty)
+      rows.add(_row('Forme', e.terrainForme));
+
+    if (e.referenceCadastrale.isNotEmpty)
+      rows.add(_row('Réf. cadastrale', e.referenceCadastrale));
+
+    if (e.terrainServitudes.isNotEmpty)
+      rows.add(_row('Servitudes / contraintes', e.terrainServitudes));
+
+    if (rows.isEmpty) rows.add(_row('Détail', 'Non renseigné'));
+    return _card('CARACTERISTIQUES DU TERRAIN', rows);
   }
 
   pw.Widget _chargesSection(Estimation e) {

@@ -62,6 +62,8 @@ class _Section2ScreenState extends State<Section2Screen> {
   late TextEditingController _nbLotsCtrl;
   late TextEditingController _tantiemesCtrl;
   late TextEditingController _fondsCtrl;
+  late TextEditingController _terrainCosCtrl;
+  late TextEditingController _terrainServitudesCtrl;
 
   final _annees = ['Avant 1900', '1900-1950', '1950-1980', '1980-2000', '2000-2010', '2010-2020', 'Après 2020'];
   final _chauffages = ['Gaz naturel', 'Électrique', 'Pompe à chaleur', 'Fioul', 'Bois / Pellets', 'Géothermie'];
@@ -70,6 +72,7 @@ class _Section2ScreenState extends State<Section2Screen> {
   final _orientations = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO', 'Traversant'];
   final _typesCuisine = ['Non précisé', 'Indépendante', 'Ouverte', 'Américaine', 'Kitchenette'];
   final _comblesOptions = ['Non précisé', 'Aucun', 'Aménagés', 'Aménageables', 'Non aménageables'];
+  final _zonesPlu = ['Non précisé', 'UA', 'UB', 'UC', '1AU', '2AU', 'AU', 'A', 'N'];
 
   @override
   void initState() {
@@ -86,12 +89,15 @@ class _Section2ScreenState extends State<Section2Screen> {
     _nbLotsCtrl = TextEditingController(text: _e.nombreLots > 0 ? _e.nombreLots.toString() : '');
     _tantiemesCtrl = TextEditingController(text: _e.tantiemes > 0 ? _e.tantiemes.toString() : '');
     _fondsCtrl = TextEditingController(text: _e.fondsTravaux > 0 ? _e.fondsTravaux.toString() : '');
+    _terrainCosCtrl = TextEditingController(text: _e.terrainCos > 0 ? _e.terrainCos.toString() : '');
+    _terrainServitudesCtrl = TextEditingController(text: _e.terrainServitudes);
   }
 
   @override
   void dispose() {
     _surfCtrl.dispose(); _terrCtrl.dispose(); _balconCtrl.dispose(); _caveCtrl.dispose(); _terrasseCtrl.dispose();
     _carrezCtrl.dispose(); _cadastreCtrl.dispose(); _syndicCtrl.dispose(); _nbLotsCtrl.dispose(); _tantiemesCtrl.dispose(); _fondsCtrl.dispose();
+    _terrainCosCtrl.dispose(); _terrainServitudesCtrl.dispose();
     super.dispose();
   }
 
@@ -187,6 +193,116 @@ class _Section2ScreenState extends State<Section2Screen> {
                 _update(_e.copyWith(notes: n));
               }),
             ])),
+
+            // Caractéristiques du terrain — visible uniquement pour typeId == 'terrain'
+            if (_e.typeId == 'terrain')
+              SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const CardTitleRow(icon: Icons.terrain_outlined, label: 'Caractéristiques du terrain'),
+
+                DropdownField(
+                  label: 'Zone PLU',
+                  value: _e.zonePlu.isEmpty ? 'Non précisé' : _e.zonePlu,
+                  items: _zonesPlu,
+                  onChanged: (v) => _update(_e.copyWith(zonePlu: v == 'Non précisé' ? '' : v)),
+                ),
+                const SizedBox(height: 14),
+
+                // Constructibilité (widget existant réutilisé)
+                if (_e.surfaceTerrain > 0) ...[
+                  _TerrainConstructibleWidget(
+                    estimation: _e,
+                    onChanged: _update,
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
+                // COS si terrain constructible
+                if (_e.terrainConstructibleM2 > 0) ...[
+                  const FieldLabel('COS / CES (coefficient d\'occupation des sols)'),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: _terrainCosCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kCharcoal),
+                    decoration: InputDecoration(
+                      hintText: 'ex: 0.40',
+                      hintStyle: const TextStyle(color: kLightGrey),
+                      helperText: _e.terrainCos > 0 && _e.surfaceTerrain > 0
+                          ? 'SHON max ≈ ${(_e.surfaceTerrain * _e.terrainCos).round()} m²'
+                          : null,
+                      helperStyle: const TextStyle(fontSize: 11, color: kGreen),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kGreen, width: 2)),
+                    ),
+                    onChanged: (v) {
+                      final cos = double.tryParse(v.replaceAll(',', '.')) ?? 0.0;
+                      _update(_e.copyWith(terrainCos: cos));
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                ],
+
+                const CardDivider(),
+
+                const FieldLabel('Viabilisation'),
+                const SizedBox(height: 6),
+                ChipGroup(
+                  options: const ['Eau', 'Électricité', 'Assainissement', 'Gaz', 'Fibre'],
+                  selected: _e.viabilisation,
+                  onToggle: (v) {
+                    final list = List<String>.from(_e.viabilisation);
+                    list.contains(v) ? list.remove(v) : list.add(v);
+                    _update(_e.copyWith(viabilisation: list));
+                  },
+                ),
+                const SizedBox(height: 14),
+
+                const FieldLabel('Accès'),
+                const SizedBox(height: 6),
+                PillSelector(
+                  options: const ['Voie publique', 'Chemin privé', 'Impasse'],
+                  selected: _e.terrainAcces,
+                  onSelect: (v) => _update(_e.copyWith(terrainAcces: _e.terrainAcces == v ? '' : v)),
+                ),
+                const SizedBox(height: 14),
+
+                const FieldLabel('Pente'),
+                const SizedBox(height: 6),
+                PillSelector(
+                  options: const ['Plat', 'Légère pente', 'Forte pente'],
+                  selected: _e.terrainPente,
+                  onSelect: (v) => _update(_e.copyWith(terrainPente: _e.terrainPente == v ? '' : v)),
+                ),
+                const SizedBox(height: 14),
+
+                const FieldLabel('Forme'),
+                const SizedBox(height: 6),
+                ChipGroup(
+                  options: const ['Rectangulaire', 'Irrégulière', 'En drapeau', 'En bande'],
+                  selected: _e.terrainForme.isEmpty ? [] : [_e.terrainForme],
+                  onToggle: (v) => _update(_e.copyWith(terrainForme: _e.terrainForme == v ? '' : v)),
+                ),
+                const CardDivider(),
+
+                const FieldLabel('Servitudes / contraintes'),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _terrainServitudesCtrl,
+                  maxLines: 3,
+                  style: const TextStyle(fontSize: 13, color: kCharcoal),
+                  decoration: InputDecoration(
+                    hintText: 'Ex : servitude de passage, zone inondable, recul PLU…',
+                    hintStyle: const TextStyle(color: kLightGrey, fontSize: 12),
+                    contentPadding: const EdgeInsets.all(12),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kGreen, width: 2)),
+                  ),
+                  onChanged: (v) => _update(_e.copyWith(terrainServitudes: v)),
+                ),
+              ])),
 
             // Construction
             SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
