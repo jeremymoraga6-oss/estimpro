@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 
 class FichesAcquereursService {
@@ -19,11 +20,20 @@ class FichesAcquereursService {
       ..sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
   }
 
+  /// Sauvegarde depuis un chemin fichier (path disponible).
   Future<File> saveFiche(String sourcePath, String name) async {
     final folder = await _getFolder();
     final safeName = name.endsWith('.html') ? name : '$name.html';
     final dest = File('${folder.path}/$safeName');
     return File(sourcePath).copy(dest.path);
+  }
+
+  /// Sauvegarde depuis des bytes (content URI Android — path peut être null).
+  Future<File> saveFicheBytes(Uint8List bytes, String name) async {
+    final folder = await _getFolder();
+    final safeName = name.endsWith('.html') ? name : '$name.html';
+    final dest = File('${folder.path}/$safeName');
+    return dest.writeAsBytes(bytes);
   }
 
   Future<void> deleteFiche(File file) async {

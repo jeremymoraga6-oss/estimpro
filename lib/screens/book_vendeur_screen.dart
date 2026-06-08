@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -16,7 +15,12 @@ class BookVendeurScreen extends StatefulWidget {
 }
 
 class _BookVendeurScreenState extends State<BookVendeurScreen> {
-  late final PdfViewerController _controller;
+  // Viewer normal (mode lecture)
+  late final PdfViewerController _pdfController;
+
+  // PageController pour le mode présentation (swipe natif)
+  PageController? _pageController;
+
   int _currentPage = 1;
   int _totalPages = 0;
   bool _sharing = false;
@@ -29,21 +33,16 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
   // Orientation forcée (landscape manuel)
   bool _forceLandscape = false;
 
-  // Taille du viewport capturée au moment d'entrer en présentation.
-  // Utilisée par _presentationLayout pour que chaque page occupe exactement
-  // un "slot" de largeur viewport → goToPage scrolle d'une page exacte.
-  double _vpWidth = 0;
-  double _vpHeight = 0;
-
   @override
   void initState() {
     super.initState();
-    _controller = PdfViewerController();
+    _pdfController = PdfViewerController();
   }
 
   @override
   void dispose() {
     _hideTimer?.cancel();
+    _pageController?.dispose();
     if (_presentation) _exitPresentation();
     super.dispose();
   }
@@ -51,8 +50,9 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
   // ── Mode présentation ────────────────────────────────────────
 
   void _enterPresentation() {
+    _pageController?.dispose();
+    _pageController = PageController(initialPage: _currentPage - 1);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    // Déverrouille toutes les orientations pour pouvoir tourner en paysage
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.landscapeLeft,
@@ -63,71 +63,33 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
       _uiVisible = true;
       _forceLandscape = false;
     });
-    // En mode présentation la mise en page devient horizontale (une page par
-    // écran) : on recadre sur la page courante après le relayout.
-    _snapToCurrentPage();
     _scheduleHide();
-  }
-
-  /// Recadre la vue sur la page courante (utile après changement de mise en
-  /// page ou d'orientation, pour afficher une page pleine à l'écran).
-  void _snapToCurrentPage() {
-    void go() {
-      if (!mounted || !_presentation) return;
-      try {
-        _controller.goToPage(pageNumber: _currentPage);
-      } catch (_) {/* le viewer n'est pas encore prêt */}
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) => go());
-    // Filet de sécurité : le relayout pdfrx peut prendre une frame de plus.
-    Future.delayed(const Duration(milliseconds: 250), go);
-  }
-
-  /// Mise en page horizontale "une page par écran".
-  ///
-  /// Chaque page occupe un slot de largeur [_vpWidth] dans l'espace document.
-  /// goToPage(n) scrolle exactement à (n-1)*_vpWidth → jamais de débord sur
-  /// la page adjacente. La page est mise à l'échelle pour tenir dans le slot
-  /// tout en conservant son ratio (letterbox horizontal ou vertical).
-  PdfPageLayout _presentationLayout(List<PdfPage> pages, PdfViewerParams params) {
-    final vw = _vpWidth  > 0 ? _vpWidth  : 800.0;
-    final vh = _vpHeight > 0 ? _vpHeight : 600.0;
-    final layouts = <Rect>[];
-    for (int i = 0; i < pages.length; i++) {
-      final page = pages[i];
-      // Mise à l'échelle pour tenir dans le viewport (letterbox).
-      final scale  = math.min(vw / page.width, vh / page.height);
-      final scaledW = page.width  * scale;
-      final scaledH = page.height * scale;
-      // Le slot i commence à i*vw ; la page est centrée dans ce slot.
-      layouts.add(Rect.fromLTWH(
-        i * vw + (vw - scaledW) / 2,
-        (vh - scaledH) / 2,
-        scaledW,
-        scaledH,
-      ));
-    }
-    return PdfPageLayout(
-      pageLayouts: layouts,
-      documentSize: Size(pages.length * vw, vh),
-    );
   }
 
   void _exitPresentation() {
     _hideTimer?.cancel();
+    _pageController?.dispose();
+    _pageController = null;
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    // Reverrouille en portrait comme le reste de l'app
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-    if (mounted) setState(() { _presentation = false; _uiVisible = false; _forceLandscape = false; });
+    if (mounted) {
+      setState(() {
+        _presentation = false;
+        _uiVisible = false;
+        _forceLandscape = false;
+      });
+    }
   }
 
   void _toggleOrientation() {
     setState(() => _forceLandscape = !_forceLandscape);
     SystemChrome.setPreferredOrientations(_forceLandscape
         ? [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]
-        : [DeviceOrientation.portraitUp, DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
-    // Après rotation, recadre sur la page courante (le viewport a changé).
-    _snapToCurrentPage();
+        : [
+            DeviceOrientation.portraitUp,
+            DeviceOrientation.landscapeLeft,
+            DeviceOrientation.landscapeRight,
+          ]);
     if (_uiVisible) _scheduleHide();
   }
 
@@ -143,15 +105,22 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
     if (_uiVisible) _scheduleHide();
   }
 
+  // Navigation via le PageController (swipe natif du PageView)
   void _goNext() {
     if (_currentPage < _totalPages) {
-      _controller.goToPage(pageNumber: _currentPage + 1);
+      _pageController?.nextPage(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
     }
   }
 
   void _goPrev() {
     if (_currentPage > 1) {
-      _controller.goToPage(pageNumber: _currentPage - 1);
+      _pageController?.previousPage(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
     }
   }
 
@@ -170,7 +139,10 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
     setState(() => _sharing = true);
     try {
       final file = await _writeTempPdf();
-      await Share.shareXFiles([XFile(file.path)], subject: 'Book Vendeur — Faucigny Immobilier');
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        subject: 'Book Vendeur — Faucigny Immobilier',
+      );
     } finally {
       if (mounted) setState(() => _sharing = false);
     }
@@ -206,15 +178,11 @@ Jérémy MORAGA — Faucigny Immobilier by Efficity''';
 
   @override
   Widget build(BuildContext context) {
-    if (_presentation) {
-      // Capture la taille réelle du viewport à chaque build (gère les rotations).
-      final sz = MediaQuery.of(context).size;
-      _vpWidth  = sz.width;
-      _vpHeight = sz.height;
-      return _buildPresentation();
-    }
+    if (_presentation) return _buildPresentation();
     return _buildNormal();
   }
+
+  // ── Mode normal : lecteur PDF scrollable ─────────────────────
 
   Widget _buildNormal() {
     return Scaffold(
@@ -223,17 +191,21 @@ Jérémy MORAGA — Faucigny Immobilier by Efficity''';
         backgroundColor: kCharcoal,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text('Book Vendeur', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        title: const Text(
+          'Book Vendeur',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+        ),
         actions: [
           if (_totalPages > 0)
             Center(
               child: Padding(
                 padding: const EdgeInsets.only(right: 4),
-                child: Text('$_currentPage / $_totalPages',
-                    style: const TextStyle(color: Color(0xFFB2BEC3), fontSize: 13)),
+                child: Text(
+                  '$_currentPage / $_totalPages',
+                  style: const TextStyle(color: Color(0xFFB2BEC3), fontSize: 13),
+                ),
               ),
             ),
-          // Bouton rotation
           IconButton(
             icon: const Icon(Icons.screen_rotation_rounded),
             tooltip: 'Passer en paysage',
@@ -242,7 +214,6 @@ Jérémy MORAGA — Faucigny Immobilier by Efficity''';
               Future.microtask(_toggleOrientation);
             },
           ),
-          // Bouton mode présentation
           IconButton(
             icon: const Icon(Icons.present_to_all_rounded),
             tooltip: 'Mode présentation',
@@ -250,7 +221,20 @@ Jérémy MORAGA — Faucigny Immobilier by Efficity''';
           ),
         ],
       ),
-      body: _pdfViewer(),
+      body: PdfViewer.asset(
+        'assets/docs/book_vendeur.pdf',
+        controller: _pdfController,
+        params: PdfViewerParams(
+          backgroundColor: const Color(0xFF1A1A2E),
+          margin: 8,
+          onPageChanged: (page) {
+            if (mounted) setState(() => _currentPage = page ?? 1);
+          },
+          onViewerReady: (document, controller) {
+            if (mounted) setState(() => _totalPages = document.pages.length);
+          },
+        ),
+      ),
       bottomNavigationBar: SafeArea(
         child: Container(
           padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
@@ -265,25 +249,35 @@ Jérémy MORAGA — Faucigny Immobilier by Efficity''';
                 child: ElevatedButton.icon(
                   onPressed: _sharing ? null : _sendByEmail,
                   icon: const Icon(Icons.email_rounded, size: 18),
-                  label: const Text('Envoyer par email',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                  label: const Text(
+                    'Envoyer par email',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                  ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: kGreen, foregroundColor: Colors.white,
+                    backgroundColor: kGreen,
+                    foregroundColor: Colors.white,
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                 ),
               ),
             ),
             const SizedBox(width: 10),
             SizedBox(
-              height: 46, width: 46,
+              height: 46,
+              width: 46,
               child: ElevatedButton(
                 onPressed: _sharing ? null : _share,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2D3436), foregroundColor: Colors.white,
-                  elevation: 0, padding: EdgeInsets.zero,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  backgroundColor: const Color(0xFF2D3436),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
                 child: const Icon(Icons.share_rounded, size: 18),
               ),
@@ -294,47 +288,68 @@ Jérémy MORAGA — Faucigny Immobilier by Efficity''';
     );
   }
 
+  // ── Mode présentation : PageView avec swipe natif ────────────
+  //
+  // PdfDocumentViewBuilder charge le document une seule fois.
+  // PageView.builder gère le swipe horizontal nativement — plus besoin de
+  // AbsorbPointer ni de layout custom ni de goToPage().
+
   Widget _buildPresentation() {
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(children: [
 
-        // PDF plein écran — AbsorbPointer bloque les gestes internes de pdfrx
-        // (scroll, zoom) en mode présentation, sinon ils avalent tous les taps
-        // et les zones de navigation ne répondent jamais.
-        AbsorbPointer(
-          absorbing: true,
-          child: _pdfViewer(),
+        // ── PDF : un PdfPageView par page, swipeable nativement ──
+        PdfDocumentViewBuilder.asset(
+          'assets/docs/book_vendeur.pdf',
+          builder: (context, document) {
+            if (document == null) {
+              return const Center(
+                child: CircularProgressIndicator(color: kGreen),
+              );
+            }
+            // Sync total pages (une seule fois)
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && _totalPages != document.pages.length) {
+                setState(() => _totalPages = document.pages.length);
+              }
+            });
+            return PageView.builder(
+              controller: _pageController,
+              itemCount: document.pages.length,
+              // onPageChanged reçoit l'index 0-based → page 1-based
+              onPageChanged: (index) {
+                if (mounted) {
+                  setState(() => _currentPage = index + 1);
+                  _scheduleHide();
+                }
+              },
+              itemBuilder: (context, index) => PdfPageView(
+                document: document,
+                pageNumber: index + 1,
+              ),
+            );
+          },
         ),
 
-        // Couche de navigation plein écran — gère les swipes et les taps.
-        // AbsorbPointer sur le viewer garantit que pdfrx ne vole pas les gestes.
+        // ── Couche tap transparente (afficher/cacher l'UI) ──────
         Positioned.fill(
           child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            // Swipe horizontal → page suivante / précédente.
-            onHorizontalDragEnd: (details) {
-              final v = details.primaryVelocity ?? 0;
-              if (v < -300) {
-                _goNext();       // swipe vers la gauche = suivant
-              } else if (v > 300) {
-                _goPrev();       // swipe vers la droite = précédent
-              }
-            },
-            // Tap → afficher / cacher la barre.
+            behavior: HitTestBehavior.translucent,
             onTap: _toggleUi,
-            child: const ColoredBox(color: Colors.transparent),
+            child: const SizedBox.expand(),
           ),
         ),
 
-        // Flèches latérales — toujours un peu visibles pour guider l'utilisateur.
+        // ── Flèche gauche (tappable) ─────────────────────────────
         if (_currentPage > 1)
           Positioned(
-            left: 12, top: 0, bottom: 0,
-            child: IgnorePointer(
+            left: 0, top: 0, bottom: 0, width: 64,
+            child: GestureDetector(
+              onTap: _goPrev,
               child: Center(
                 child: AnimatedOpacity(
-                  opacity: _uiVisible ? 0.75 : 0.25,
+                  opacity: _uiVisible ? 0.80 : 0.20,
                   duration: const Duration(milliseconds: 300),
                   child: Container(
                     padding: const EdgeInsets.all(10),
@@ -342,54 +357,75 @@ Jérémy MORAGA — Faucigny Immobilier by Efficity''';
                       color: Colors.black54,
                       borderRadius: BorderRadius.circular(28),
                     ),
-                    child: const Icon(Icons.chevron_left_rounded, color: Colors.white, size: 32),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        if (_currentPage < _totalPages)
-          Positioned(
-            right: 12, top: 0, bottom: 0,
-            child: IgnorePointer(
-              child: Center(
-                child: AnimatedOpacity(
-                  opacity: _uiVisible ? 0.75 : 0.25,
-                  duration: const Duration(milliseconds: 300),
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(28),
+                    child: const Icon(
+                      Icons.chevron_left_rounded,
+                      color: Colors.white,
+                      size: 32,
                     ),
-                    child: const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 32),
                   ),
                 ),
               ),
             ),
           ),
 
-        // Barre supérieure : indicateur page + bouton sortie
+        // ── Flèche droite (tappable) ─────────────────────────────
+        if (_currentPage < _totalPages)
+          Positioned(
+            right: 0, top: 0, bottom: 0, width: 64,
+            child: GestureDetector(
+              onTap: _goNext,
+              child: Center(
+                child: AnimatedOpacity(
+                  opacity: _uiVisible ? 0.80 : 0.20,
+                  duration: const Duration(milliseconds: 300),
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(28),
+                    ),
+                    child: const Icon(
+                      Icons.chevron_right_rounded,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+        // ── Barre supérieure ─────────────────────────────────────
         AnimatedPositioned(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
           top: _uiVisible ? 0 : -80,
           left: 0, right: 0,
           child: Container(
-            padding: EdgeInsets.fromLTRB(16, MediaQuery.of(context).padding.top + 8, 16, 12),
+            padding: EdgeInsets.fromLTRB(
+              16,
+              MediaQuery.of(context).padding.top + 8,
+              16,
+              12,
+            ),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
                 colors: [Colors.black87, Colors.transparent],
               ),
             ),
             child: Row(children: [
-              // Logo / titre
               const Expanded(
-                child: Text('Book Vendeur',
-                    style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)),
+                child: Text(
+                  'Book Vendeur',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
-              // Page indicator
               if (_totalPages > 0)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
@@ -397,27 +433,36 @@ Jérémy MORAGA — Faucigny Immobilier by Efficity''';
                     color: Colors.black45,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Text('$_currentPage / $_totalPages',
-                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                  child: Text(
+                    '$_currentPage / $_totalPages',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               const SizedBox(width: 12),
-              // Bouton rotation paysage / portrait
               GestureDetector(
                 onTap: _toggleOrientation,
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: _forceLandscape ? kGreen.withOpacity(0.6) : Colors.white24,
+                    color: _forceLandscape
+                        ? kGreen.withOpacity(0.6)
+                        : Colors.white24,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
-                    _forceLandscape ? Icons.stay_current_landscape_rounded : Icons.screen_rotation_rounded,
-                    color: Colors.white, size: 20,
+                    _forceLandscape
+                        ? Icons.stay_current_landscape_rounded
+                        : Icons.screen_rotation_rounded,
+                    color: Colors.white,
+                    size: 20,
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              // Bouton quitter
               GestureDetector(
                 onTap: _exitPresentation,
                 child: Container(
@@ -426,29 +471,38 @@ Jérémy MORAGA — Faucigny Immobilier by Efficity''';
                     color: Colors.white24,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.fullscreen_exit_rounded, color: Colors.white, size: 20),
+                  child: const Icon(
+                    Icons.fullscreen_exit_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
               ),
             ]),
           ),
         ),
 
-        // Barre inférieure : barre de progression
+        // ── Barre inférieure : progression ───────────────────────
         AnimatedPositioned(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
           bottom: _uiVisible ? 0 : -60,
           left: 0, right: 0,
           child: Container(
-            padding: EdgeInsets.fromLTRB(20, 12, 20, MediaQuery.of(context).padding.bottom + 12),
+            padding: EdgeInsets.fromLTRB(
+              20,
+              12,
+              20,
+              MediaQuery.of(context).padding.bottom + 12,
+            ),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.bottomCenter, end: Alignment.topCenter,
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
                 colors: [Colors.black87, Colors.transparent],
               ),
             ),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              // Barre de progression
               if (_totalPages > 0)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(4),
@@ -460,30 +514,14 @@ Jérémy MORAGA — Faucigny Immobilier by Efficity''';
                   ),
                 ),
               const SizedBox(height: 8),
-              // Indication tap
-              const Text('← Précédent  ·  Suivant →',
-                  style: TextStyle(color: Colors.white54, fontSize: 11)),
+              const Text(
+                '← Précédent  ·  Suivant →',
+                style: TextStyle(color: Colors.white54, fontSize: 11),
+              ),
             ]),
           ),
         ),
       ]),
     );
   }
-
-  Widget _pdfViewer() => PdfViewer.asset(
-    'assets/docs/book_vendeur.pdf',
-    controller: _controller,
-    params: PdfViewerParams(
-      backgroundColor: _presentation ? Colors.black : const Color(0xFF1A1A2E),
-      margin: _presentation ? 0 : 8,
-      // En présentation : une page par écran, défilement horizontal.
-      layoutPages: _presentation ? _presentationLayout : null,
-      onPageChanged: (page) {
-        if (mounted) setState(() => _currentPage = page ?? 1);
-      },
-      onViewerReady: (document, controller) {
-        if (mounted) setState(() => _totalPages = document.pages.length);
-      },
-    ),
-  );
 }

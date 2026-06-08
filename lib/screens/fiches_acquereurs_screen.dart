@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -30,40 +31,47 @@ class _FichesAcquereursScreenState extends State<FichesAcquereursScreen> {
   }
 
   Future<void> _import() async {
-    // FileType.any est le plus compatible sur Android : le sélecteur système
-    // affiche tous les fichiers. On filtre ensuite par extension .html/.htm.
-    // FileType.custom + allowedExtensions peut bloquer les fichiers HTML sur
-    // certaines versions Android (mauvais mapping MIME text/html).
+    // withData: true — récupère les bytes en plus du path.
+    // Sur Android, f.path peut être null (content URI) mais f.bytes est
+    // toujours disponible. FileType.any pour un accès universel aux fichiers.
     final result = await FilePicker.platform.pickFiles(
       type: FileType.any,
       allowMultiple: true,
+      withData: true,
     );
     if (result == null || result.files.isEmpty) return;
 
     int imported = 0;
     for (final f in result.files) {
-      if (f.path == null) continue;
-      final ext = f.name.toLowerCase();
-      if (!ext.endsWith('.html') && !ext.endsWith('.htm')) {
-        // Fichier non-HTML → ignorer silencieusement
-        continue;
-      }
-      imported++;
+      // Filtre par extension
+      final nameLow = f.name.toLowerCase();
+      if (!nameLow.endsWith('.html') && !nameLow.endsWith('.htm')) continue;
+
+      // Normalise le nom en .html
       String name = f.name;
       if (!name.toLowerCase().endsWith('.html')) {
         name = '${name.replaceAll(RegExp(r'\.htm$', caseSensitive: false), '')}.html';
       }
+
+      // Évite les doublons de nom
       final existing = _files.map((e) => e.path.split('/').last).toList();
       if (existing.contains(name)) {
         final ts = DateTime.now().millisecondsSinceEpoch;
-        final base = name.replaceAll('.html', '');
+        final base = name.replaceAll(RegExp(r'\.html$'), '');
         name = '${base}_$ts.html';
       }
-      await _service.saveFiche(f.path!, name);
+
+      // Priorité aux bytes (Android content URI) puis au path
+      if (f.bytes != null) {
+        await _service.saveFicheBytes(f.bytes!, name);
+        imported++;
+      } else if (f.path != null) {
+        await _service.saveFiche(f.path!, name);
+        imported++;
+      }
     }
 
-    if (imported == 0 && (result.files.isNotEmpty)) {
-      // L'utilisateur a sélectionné des fichiers mais aucun n'est HTML
+    if (imported == 0 && result.files.isNotEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
