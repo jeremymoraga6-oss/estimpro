@@ -324,10 +324,27 @@ Jérémy MORAGA — Faucigny Immobilier by Efficity''';
                   _scheduleHide();
                 }
               },
-              itemBuilder: (context, index) => PdfPageView(
-                document: document,
-                pageNumber: index + 1,
-              ),
+              itemBuilder: (context, index) {
+                // PdfPageView DOIT avoir des contraintes bornées.
+                // FittedBox + SizedBox(page PDF points) → aspect-ratio correct,
+                // aucun crash layout quel que soit l'orientation.
+                final page = document.pages[index];
+                return Container(
+                  color: Colors.black,
+                  child: FittedBox(
+                    fit: BoxFit.contain,
+                    child: SizedBox(
+                      width: page.width,
+                      height: page.height,
+                      child: PdfPageView(
+                        key: ValueKey(index),
+                        document: document,
+                        pageNumber: index + 1,
+                      ),
+                    ),
+                  ),
+                );
+              },
             );
           },
         ),

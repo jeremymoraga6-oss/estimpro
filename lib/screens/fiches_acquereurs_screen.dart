@@ -31,59 +31,91 @@ class _FichesAcquereursScreenState extends State<FichesAcquereursScreen> {
   }
 
   Future<void> _import() async {
-    // withData: true — récupère les bytes en plus du path.
-    // Sur Android, f.path peut être null (content URI) mais f.bytes est
-    // toujours disponible. FileType.any pour un accès universel aux fichiers.
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.any,
-      allowMultiple: true,
-      withData: true,
-    );
-    if (result == null || result.files.isEmpty) return;
+    try {
+      // withData: true → bytes toujours disponibles même via content URI Android.
+      // FileType.any → sélecteur système affiche tous les fichiers.
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+        allowMultiple: true,
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) return;
 
-    int imported = 0;
-    for (final f in result.files) {
-      // Filtre par extension
-      final nameLow = f.name.toLowerCase();
-      if (!nameLow.endsWith('.html') && !nameLow.endsWith('.htm')) continue;
+      int imported = 0;
+      final errors = <String>[];
 
-      // Normalise le nom en .html
-      String name = f.name;
-      if (!name.toLowerCase().endsWith('.html')) {
-        name = '${name.replaceAll(RegExp(r'\.htm$', caseSensitive: false), '')}.html';
+      for (final f in result.files) {
+        // f.extension est plus fiable que f.name.endsWith() sur Android
+        // (certains providers ne mettent pas l'extension dans le nom).
+        final ext = (f.extension ?? '').toLowerCase();
+        final nameExt = f.name.contains('.')
+            ? f.name.split('.').last.toLowerCase()
+            : '';
+        final isHtml = ext == 'html' || ext == 'htm' ||
+            nameExt == 'html' || nameExt == 'htm';
+        if (!isHtml) continue;
+
+        // Normalise le nom en .html
+        String name = f.name.isNotEmpty ? f.name : 'fiche_${DateTime.now().millisecondsSinceEpoch}.html';
+        if (!name.toLowerCase().endsWith('.html')) {
+          name = '${name.replaceAll(RegExp(r'\.[^.]+$'), '')}.html';
+        }
+
+        // Évite les doublons de nom
+        final existing = _files.map((e) => e.path.split('/').last).toList();
+        if (existing.contains(name)) {
+          final ts = DateTime.now().millisecondsSinceEpoch;
+          final base = name.replaceAll(RegExp(r'\.html$'), '');
+          name = '${base}_$ts.html';
+        }
+
+        try {
+          if (f.bytes != null && f.bytes!.isNotEmpty) {
+            await _service.saveFicheBytes(f.bytes!, name);
+            imported++;
+          } else if (f.path != null) {
+            await _service.saveFiche(f.path!, name);
+            imported++;
+          } else {
+            errors.add('${f.name}: fichier inaccessible');
+          }
+        } catch (e) {
+          errors.add('${f.name}: $e');
+        }
       }
 
-      // Évite les doublons de nom
-      final existing = _files.map((e) => e.path.split('/').last).toList();
-      if (existing.contains(name)) {
-        final ts = DateTime.now().millisecondsSinceEpoch;
-        final base = name.replaceAll(RegExp(r'\.html$'), '');
-        name = '${base}_$ts.html';
-      }
+      if (!mounted) return;
 
-      // Priorité aux bytes (Android content URI) puis au path
-      if (f.bytes != null) {
-        await _service.saveFicheBytes(f.bytes!, name);
-        imported++;
-      } else if (f.path != null) {
-        await _service.saveFiche(f.path!, name);
-        imported++;
-      }
-    }
-
-    if (imported == 0 && result.files.isNotEmpty) {
-      if (mounted) {
+      if (errors.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur : ${errors.first}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      } else if (imported == 0 && result.files.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Sélectionnez uniquement des fichiers .html'),
+            content: Text('Sélectionnez un fichier .html'),
             backgroundColor: Color(0xFFE65100),
           ),
         );
+        return;
       }
-      return;
-    }
 
-    await _load();
+      if (imported > 0) await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur import : $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _delete(File file) async {
