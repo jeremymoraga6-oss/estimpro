@@ -30,24 +30,51 @@ class _FichesAcquereursScreenState extends State<FichesAcquereursScreen> {
   }
 
   Future<void> _import() async {
+    // FileType.any est le plus compatible sur Android : le sélecteur système
+    // affiche tous les fichiers. On filtre ensuite par extension .html/.htm.
+    // FileType.custom + allowedExtensions peut bloquer les fichiers HTML sur
+    // certaines versions Android (mauvais mapping MIME text/html).
     final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['html', 'htm'],
+      type: FileType.any,
       allowMultiple: true,
     );
     if (result == null || result.files.isEmpty) return;
 
+    int imported = 0;
     for (final f in result.files) {
       if (f.path == null) continue;
+      final ext = f.name.toLowerCase();
+      if (!ext.endsWith('.html') && !ext.endsWith('.htm')) {
+        // Fichier non-HTML → ignorer silencieusement
+        continue;
+      }
+      imported++;
       String name = f.name;
+      if (!name.toLowerCase().endsWith('.html')) {
+        name = '${name.replaceAll(RegExp(r'\.htm$', caseSensitive: false), '')}.html';
+      }
       final existing = _files.map((e) => e.path.split('/').last).toList();
       if (existing.contains(name)) {
         final ts = DateTime.now().millisecondsSinceEpoch;
-        final base = name.replaceAll('.html', '').replaceAll('.htm', '');
+        final base = name.replaceAll('.html', '');
         name = '${base}_$ts.html';
       }
       await _service.saveFiche(f.path!, name);
     }
+
+    if (imported == 0 && (result.files.isNotEmpty)) {
+      // L'utilisateur a sélectionné des fichiers mais aucun n'est HTML
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sélectionnez uniquement des fichiers .html'),
+            backgroundColor: Color(0xFFE65100),
+          ),
+        );
+      }
+      return;
+    }
+
     await _load();
   }
 
