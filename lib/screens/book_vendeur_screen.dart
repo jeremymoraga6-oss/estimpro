@@ -29,6 +29,12 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
   // Orientation forcée (landscape manuel)
   bool _forceLandscape = false;
 
+  // Taille du viewport capturée au moment d'entrer en présentation.
+  // Utilisée par _presentationLayout pour que chaque page occupe exactement
+  // un "slot" de largeur viewport → goToPage scrolle d'une page exacte.
+  double _vpWidth = 0;
+  double _vpHeight = 0;
+
   @override
   void initState() {
     super.initState();
@@ -77,25 +83,33 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
     Future.delayed(const Duration(milliseconds: 250), go);
   }
 
-  /// Mise en page horizontale : pages alignées côte à côte, centrées
-  /// verticalement. Combinée à goToPage, chaque « suivant » fait défiler
-  /// d'une page pleine — idéal pour présenter le book au vendeur en paysage.
+  /// Mise en page horizontale "une page par écran".
+  ///
+  /// Chaque page occupe un slot de largeur [_vpWidth] dans l'espace document.
+  /// goToPage(n) scrolle exactement à (n-1)*_vpWidth → jamais de débord sur
+  /// la page adjacente. La page est mise à l'échelle pour tenir dans le slot
+  /// tout en conservant son ratio (letterbox horizontal ou vertical).
   PdfPageLayout _presentationLayout(List<PdfPage> pages, PdfViewerParams params) {
-    final maxHeight = pages.fold<double>(0.0, (h, p) => math.max(h, p.height));
+    final vw = _vpWidth  > 0 ? _vpWidth  : 800.0;
+    final vh = _vpHeight > 0 ? _vpHeight : 600.0;
     final layouts = <Rect>[];
-    double x = params.margin;
-    for (final page in pages) {
+    for (int i = 0; i < pages.length; i++) {
+      final page = pages[i];
+      // Mise à l'échelle pour tenir dans le viewport (letterbox).
+      final scale  = math.min(vw / page.width, vh / page.height);
+      final scaledW = page.width  * scale;
+      final scaledH = page.height * scale;
+      // Le slot i commence à i*vw ; la page est centrée dans ce slot.
       layouts.add(Rect.fromLTWH(
-        x,
-        (maxHeight - page.height) / 2 + params.margin,
-        page.width,
-        page.height,
+        i * vw + (vw - scaledW) / 2,
+        (vh - scaledH) / 2,
+        scaledW,
+        scaledH,
       ));
-      x += page.width + params.margin;
     }
     return PdfPageLayout(
       pageLayouts: layouts,
-      documentSize: Size(x, maxHeight + params.margin * 2),
+      documentSize: Size(pages.length * vw, vh),
     );
   }
 
@@ -192,7 +206,13 @@ Jérémy MORAGA — Faucigny Immobilier by Efficity''';
 
   @override
   Widget build(BuildContext context) {
-    if (_presentation) return _buildPresentation();
+    if (_presentation) {
+      // Capture la taille réelle du viewport à chaque build (gère les rotations).
+      final sz = MediaQuery.of(context).size;
+      _vpWidth  = sz.width;
+      _vpHeight = sz.height;
+      return _buildPresentation();
+    }
     return _buildNormal();
   }
 
