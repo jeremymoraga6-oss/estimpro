@@ -434,6 +434,8 @@ class _PdfPageBitmapState extends State<_PdfPageBitmap> {
       final sw  = mq.size.width;
       final sh  = mq.size.height;
 
+      // Rendu à la résolution exacte de l'écran (contain) : qualité optimale
+      // sans sur-rendu. BoxFit.contain dans build() gère l'affichage final.
       final scale = math.min(sw / widget.page.width, sh / widget.page.height) * dpr;
       final w = (widget.page.width  * scale).round().clamp(64, 4096);
       final h = (widget.page.height * scale).round().clamp(64, 4096);
@@ -482,10 +484,22 @@ class _PdfPageBitmapState extends State<_PdfPageBitmap> {
         ),
       );
     }
+    // width/height explicites = dimensions logiques de l'écran.
+    // Sans ça, RawImage utilise scale=1.0 et affiche l'image en taille
+    // physique (×DPR), ce qui la rend ×3 trop grande et Center ne montre
+    // que le centre rogné. Avec les dimensions de l'écran + BoxFit.contain,
+    // toute la page est visible et remplit toute la largeur (pour un PDF
+    // paysage sur écran portrait).
+    final size = MediaQuery.of(context).size;
     return ColoredBox(
       color: Colors.black,
       child: Center(
-        child: RawImage(image: _image, fit: BoxFit.contain),
+        child: RawImage(
+          image: _image,
+          fit: BoxFit.contain,
+          width: size.width,
+          height: size.height,
+        ),
       ),
     );
   }
