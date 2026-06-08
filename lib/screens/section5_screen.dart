@@ -33,13 +33,25 @@ class _Section5ScreenState extends State<Section5Screen> {
   // null = tous, 'Maison', 'Appartement'
   String? _filterType;
 
+  // Statistiques agrégées DVF par commune (Tabular API)
+  DvfCommuneStats? _communeStats;
+  bool _loadingStats = false;
+
   @override
   void initState() {
     super.initState();
     _e = widget.estimation;
     _loadDvf();
     _loadLocalRefs();
+    _loadCommuneStats();
     if (_e.risques == null) _loadRisques();
+  }
+
+  Future<void> _loadCommuneStats() async {
+    if (_e.codeInsee.isEmpty) return;
+    setState(() => _loadingStats = true);
+    final s = await DvfCommuneStatsService.fetchByCodeInsee(_e.codeInsee);
+    if (mounted) setState(() { _communeStats = s; _loadingStats = false; });
   }
 
   Future<void> _loadLocalRefs() async {
@@ -129,7 +141,18 @@ class _Section5ScreenState extends State<Section5Screen> {
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
           child: Column(children: [
 
-            // DVF header card
+            // ── Carte stats agrégées DVF par commune ─────────────────────────
+            if (_e.codeInsee.isNotEmpty) ...[
+              _DvfCommuneStatsCard(
+                commune: _e.commune.isNotEmpty ? _e.commune : _e.codeInsee,
+                stats: _communeStats,
+                loading: _loadingStats,
+                typeId: _e.typeId,
+              ),
+              const SizedBox(height: 8),
+            ],
+
+            // DVF header card (transactions individuelles)
             SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Row(children: [
@@ -1490,5 +1513,149 @@ class _ConcurrenceCard extends StatelessWidget {
         ),
       ]),
     );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Carte statistiques DVF agrégées par commune
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _DvfCommuneStatsCard extends StatelessWidget {
+  final String commune;
+  final DvfCommuneStats? stats;
+  final bool loading;
+  final String typeId;
+
+  const _DvfCommuneStatsCard({
+    required this.commune,
+    required this.stats,
+    required this.loading,
+    required this.typeId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: kGreen.withOpacity(0.25)),
+        boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 2))],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Header
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Row(children: [
+            const Icon(Icons.location_on_rounded, color: kGreen, size: 16),
+            const SizedBox(width: 6),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(commune,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal)),
+              const Text('Prix/m² — Stat. DVF officielles (toutes années)',
+                  style: TextStyle(fontSize: 10, color: kGrey)),
+            ]),
+          ]),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+            child: const Text('DVF · DGFIP', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: kGreen, letterSpacing: 0.5)),
+          ),
+        ]),
+
+        if (loading) ...[
+          const SizedBox(height: 12),
+          const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: kGreen))),
+        ] else if (stats == null || !stats!.hasData) ...[
+          const SizedBox(height: 10),
+          const Text('Données insuffisantes pour cette commune.',
+              style: TextStyle(fontSize: 11, color: kGrey, fontStyle: FontStyle.italic)),
+        ] else ...[
+          const SizedBox(height: 12),
+          // Choisit le bon type selon typeId
+          if (typeId == 'appartement' && stats!.hasAppartement)
+            _PriceRow(
+              label: 'Appartements',
+              icon: Icons.apartment_rounded,
+              med: stats!.medPrixM2Appartement,
+              moy: stats!.moyPrixM2Appartement,
+              nb: stats!.nbVentesAppartement,
+            )
+          else if ((typeId == 'maison' || typeId == 'chalet') && stats!.hasMaison)
+            _PriceRow(
+              label: 'Maisons',
+              icon: Icons.house_rounded,
+              med: stats!.medPrixM2Maison,
+              moy: stats!.moyPrixM2Maison,
+              nb: stats!.nbVentesMaison,
+            )
+          else ...[
+            if (stats!.hasMaison)
+              _PriceRow(
+                label: 'Maisons',
+                icon: Icons.house_rounded,
+                med: stats!.medPrixM2Maison,
+                moy: stats!.moyPrixM2Maison,
+                nb: stats!.nbVentesMaison,
+              ),
+            if (stats!.hasAppartement) ...[
+              if (stats!.hasMaison) const SizedBox(height: 6),
+              _PriceRow(
+                label: 'Appartements',
+                icon: Icons.apartment_rounded,
+                med: stats!.medPrixM2Appartement,
+                moy: stats!.moyPrixM2Appartement,
+                nb: stats!.nbVentesAppartement,
+              ),
+            ],
+          ],
+        ],
+      ]),
+    );
+  }
+}
+
+class _PriceRow extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final int? med;
+  final int? moy;
+  final int? nb;
+  const _PriceRow({required this.label, required this.icon, this.med, this.moy, this.nb});
+
+  static String _fmt(int? v) {
+    if (v == null || v == 0) return '—';
+    return '${_fmtNum(v)} €/m²';
+  }
+
+  static String _fmtNum(int n) {
+    final s = n.toString();
+    if (s.length <= 3) return s;
+    final buf = StringBuffer();
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write('\u202f');
+      buf.write(s[i]);
+    }
+    return buf.toString();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Icon(icon, size: 14, color: kGrey),
+      const SizedBox(width: 6),
+      Text(label, style: const TextStyle(fontSize: 12, color: kGrey)),
+      if (nb != null && nb! > 0) ...[
+        const SizedBox(width: 4),
+        Text('($nb ventes)', style: const TextStyle(fontSize: 10, color: kLightGrey)),
+      ],
+      const Spacer(),
+      Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+        Text(_fmt(med),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: kGreen)),
+        Text('moy. ${_fmt(moy)}',
+            style: const TextStyle(fontSize: 10, color: kGrey)),
+      ]),
+    ]);
   }
 }

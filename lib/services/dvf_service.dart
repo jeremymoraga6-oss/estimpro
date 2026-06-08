@@ -3,6 +3,134 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'geo_service.dart';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Statistiques agrégées DVF par commune  (Tabular API data.gouv.fr)
+// Source : https://www.data.gouv.fr/datasets/statistiques-dvf/
+// Ressource : 851d342f-9c96-41c1-924a-11a7a7aae8a6
+// ─────────────────────────────────────────────────────────────────────────────
+
+class DvfCommuneStats {
+  final String codeGeo;
+  final String libelleGeo;
+
+  // Appartements
+  final int? nbVentesAppartement;
+  final int? moyPrixM2Appartement;
+  final int? medPrixM2Appartement;
+
+  // Maisons
+  final int? nbVentesMaison;
+  final int? moyPrixM2Maison;
+  final int? medPrixM2Maison;
+
+  // Maisons + appartements combinés
+  final int? nbVentesTotal;
+  final int? moyPrixM2Total;
+  final int? medPrixM2Total;
+
+  const DvfCommuneStats({
+    required this.codeGeo,
+    required this.libelleGeo,
+    this.nbVentesAppartement,
+    this.moyPrixM2Appartement,
+    this.medPrixM2Appartement,
+    this.nbVentesMaison,
+    this.moyPrixM2Maison,
+    this.medPrixM2Maison,
+    this.nbVentesTotal,
+    this.moyPrixM2Total,
+    this.medPrixM2Total,
+  });
+
+  factory DvfCommuneStats.fromJson(Map<String, dynamic> j) => DvfCommuneStats(
+        codeGeo: j['code_geo']?.toString() ?? '',
+        libelleGeo: j['libelle_geo']?.toString() ?? '',
+        nbVentesAppartement: _n(j['nb_ventes_whole_appartement']),
+        moyPrixM2Appartement: _n(j['moy_prix_m2_whole_appartement']),
+        medPrixM2Appartement: _n(j['med_prix_m2_whole_appartement']),
+        nbVentesMaison: _n(j['nb_ventes_whole_maison']),
+        moyPrixM2Maison: _n(j['moy_prix_m2_whole_maison']),
+        medPrixM2Maison: _n(j['med_prix_m2_whole_maison']),
+        nbVentesTotal: _n(j['nb_ventes_whole_apt_maison']),
+        moyPrixM2Total: _n(j['moy_prix_m2_whole_apt_maison']),
+        medPrixM2Total: _n(j['med_prix_m2_whole_apt_maison']),
+      );
+
+  static int? _n(dynamic v) {
+    if (v == null) return null;
+    if (v is int) return v;
+    if (v is double) return v.round();
+    return int.tryParse(v.toString());
+  }
+
+  bool get hasAppartement =>
+      moyPrixM2Appartement != null && moyPrixM2Appartement! > 0;
+  bool get hasMaison => moyPrixM2Maison != null && moyPrixM2Maison! > 0;
+  bool get hasData => hasAppartement || hasMaison;
+}
+
+/// Accès aux statistiques agrégées DVF par commune via la Tabular API
+/// data.gouv.fr. Résultats mis en cache en mémoire pour la session.
+class DvfCommuneStatsService {
+  static const _resourceId = '851d342f-9c96-41c1-924a-11a7a7aae8a6';
+  static const _base =
+      'https://tabular-api.data.gouv.fr/api/resources/$_resourceId/data/';
+
+  static final _cache = <String, DvfCommuneStats?>{};
+
+  /// Récupère les stats pour une commune par code INSEE.
+  static Future<DvfCommuneStats?> fetchByCodeInsee(String codeInsee) async {
+    if (codeInsee.isEmpty) return null;
+    if (_cache.containsKey(codeInsee)) return _cache[codeInsee];
+    try {
+      final uri = Uri.parse(_base).replace(queryParameters: {
+        'code_geo__exact': codeInsee,
+        'page_size': '1',
+      });
+      final resp =
+          await http.get(uri).timeout(const Duration(seconds: 10));
+      if (resp.statusCode != 200) { _cache[codeInsee] = null; return null; }
+      final body = jsonDecode(resp.body) as Map<String, dynamic>;
+      final data = body['data'] as List?;
+      if (data == null || data.isEmpty) { _cache[codeInsee] = null; return null; }
+      final stats =
+          DvfCommuneStats.fromJson(data.first as Map<String, dynamic>);
+      _cache[codeInsee] = stats;
+      return stats;
+    } catch (e) {
+      debugPrint('[DVF stats] fetchByCodeInsee error: $e');
+      _cache[codeInsee] = null;
+      return null;
+    }
+  }
+
+  /// Recherche des communes par nom (retourne jusqu'à [limit] résultats).
+  static Future<List<DvfCommuneStats>> searchByName(
+      String name, {int limit = 12}) async {
+    if (name.trim().length < 2) return [];
+    try {
+      final uri = Uri.parse(_base).replace(queryParameters: {
+        'libelle_geo__contains': name.trim(),
+        'echelle_geo__exact': 'commune',
+        'page_size': limit.toString(),
+      });
+      final resp =
+          await http.get(uri).timeout(const Duration(seconds: 10));
+      if (resp.statusCode != 200) return [];
+      final body = jsonDecode(resp.body) as Map<String, dynamic>;
+      final data = (body['data'] as List?) ?? [];
+      return data
+          .map((d) => DvfCommuneStats.fromJson(d as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('[DVF stats] searchByName error: $e');
+      return [];
+    }
+  }
+
+  static void clearCache() => _cache.clear();
+}
+
 class DvfTransaction {
   final String dateMutation;
   final double valeurFonciere;
