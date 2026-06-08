@@ -32,12 +32,14 @@ class _FichesAcquereursScreenState extends State<FichesAcquereursScreen> {
 
   Future<void> _import() async {
     try {
-      // FileType.any + withData:false → file_picker retourne f.path accessible.
-      // Pas de filtre extension côté picker : certains providers Android
-      // ne renseignent pas f.extension ni l'extension dans f.name.
+      // withData:true → f.bytes toujours renseigné (évite les content:// URIs
+      // Android SAF qui ne sont pas lisibles via File()).
+      // FileType.any sans filtre : meilleure compatibilité avec tous les
+      // providers Android (certains ne renseignent pas f.extension).
       final result = await FilePicker.platform.pickFiles(
         type: FileType.any,
         allowMultiple: true,
+        withData: true,
       );
       if (result == null || result.files.isEmpty) return;
 
@@ -65,14 +67,16 @@ class _FichesAcquereursScreenState extends State<FichesAcquereursScreen> {
         }
 
         try {
-          if (f.path != null) {
-            await _service.saveFiche(f.path!, name);
-            imported++;
-          } else if (f.bytes != null && f.bytes!.isNotEmpty) {
+          // Bytes en priorité (withData:true les garantit sur toutes plateformes)
+          if (f.bytes != null && f.bytes!.isNotEmpty) {
             await _service.saveFicheBytes(f.bytes!, name);
             imported++;
+          } else if (f.path != null) {
+            // Fallback : chemin direct (desktop / iOS)
+            await _service.saveFiche(f.path!, name);
+            imported++;
           } else {
-            errors.add('${f.name} : fichier inaccessible (path et bytes null)');
+            errors.add('${f.name} : fichier inaccessible (bytes et path null)');
           }
         } catch (e) {
           errors.add('${f.name} : $e');
