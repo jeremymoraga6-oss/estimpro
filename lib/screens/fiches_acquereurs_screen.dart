@@ -32,12 +32,12 @@ class _FichesAcquereursScreenState extends State<FichesAcquereursScreen> {
 
   Future<void> _import() async {
     try {
-      // withData: true → bytes toujours disponibles même via content URI Android.
-      // FileType.any → sélecteur système affiche tous les fichiers.
+      // FileType.any + withData:false → file_picker retourne f.path accessible.
+      // Pas de filtre extension côté picker : certains providers Android
+      // ne renseignent pas f.extension ni l'extension dans f.name.
       final result = await FilePicker.platform.pickFiles(
         type: FileType.any,
         allowMultiple: true,
-        withData: true,
       );
       if (result == null || result.files.isEmpty) return;
 
@@ -45,42 +45,37 @@ class _FichesAcquereursScreenState extends State<FichesAcquereursScreen> {
       final errors = <String>[];
 
       for (final f in result.files) {
-        // f.extension est plus fiable que f.name.endsWith() sur Android
-        // (certains providers ne mettent pas l'extension dans le nom).
-        final ext = (f.extension ?? '').toLowerCase();
-        final nameExt = f.name.contains('.')
-            ? f.name.split('.').last.toLowerCase()
-            : '';
-        final isHtml = ext == 'html' || ext == 'htm' ||
-            nameExt == 'html' || nameExt == 'htm';
-        if (!isHtml) continue;
-
-        // Normalise le nom en .html
-        String name = f.name.isNotEmpty ? f.name : 'fiche_${DateTime.now().millisecondsSinceEpoch}.html';
-        if (!name.toLowerCase().endsWith('.html')) {
-          name = '${name.replaceAll(RegExp(r'\.[^.]+$'), '')}.html';
+        // Nom de stockage : on garde le nom d'origine et on force .html
+        String name = f.name.isNotEmpty
+            ? f.name
+            : 'fiche_${DateTime.now().millisecondsSinceEpoch}';
+        if (!name.toLowerCase().endsWith('.html') &&
+            !name.toLowerCase().endsWith('.htm')) {
+          name = '$name.html';
+        } else if (name.toLowerCase().endsWith('.htm')) {
+          name = '${name.substring(0, name.length - 4)}.html';
         }
 
-        // Évite les doublons de nom
+        // Anti-doublon
         final existing = _files.map((e) => e.path.split('/').last).toList();
         if (existing.contains(name)) {
-          final ts = DateTime.now().millisecondsSinceEpoch;
+          final ts   = DateTime.now().millisecondsSinceEpoch;
           final base = name.replaceAll(RegExp(r'\.html$'), '');
           name = '${base}_$ts.html';
         }
 
         try {
-          if (f.bytes != null && f.bytes!.isNotEmpty) {
-            await _service.saveFicheBytes(f.bytes!, name);
-            imported++;
-          } else if (f.path != null) {
+          if (f.path != null) {
             await _service.saveFiche(f.path!, name);
             imported++;
+          } else if (f.bytes != null && f.bytes!.isNotEmpty) {
+            await _service.saveFicheBytes(f.bytes!, name);
+            imported++;
           } else {
-            errors.add('${f.name}: fichier inaccessible');
+            errors.add('${f.name} : fichier inaccessible (path et bytes null)');
           }
         } catch (e) {
-          errors.add('${f.name}: $e');
+          errors.add('${f.name} : $e');
         }
       }
 
@@ -89,22 +84,29 @@ class _FichesAcquereursScreenState extends State<FichesAcquereursScreen> {
       if (errors.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur : ${errors.first}'),
+            content: Text('Erreur : ${errors.join(" | ")}'),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
+            duration: const Duration(seconds: 6),
           ),
         );
-      } else if (imported == 0 && result.files.isNotEmpty) {
+      }
+
+      if (imported > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$imported fiche${imported > 1 ? 's' : ''} importée${imported > 1 ? 's' : ''}'),
+            backgroundColor: kGreen,
+          ),
+        );
+        await _load();
+      } else if (errors.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Sélectionnez un fichier .html'),
+            content: Text('Aucun fichier importé'),
             backgroundColor: Color(0xFFE65100),
           ),
         );
-        return;
       }
-
-      if (imported > 0) await _load();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
