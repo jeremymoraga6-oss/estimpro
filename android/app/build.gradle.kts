@@ -28,6 +28,11 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // Limite aux architectures des vrais appareils Android.
+        // x86 (émulateur) fait échouer la compilation native de pdfrx (CMake).
+        ndk {
+            abiFilters += setOf("arm64-v8a", "armeabi-v7a")
+        }
     }
 
     // Prevents AGP from compressing ML Kit .tflite model files
