@@ -12,6 +12,7 @@ import 'book_vendeur_screen.dart';
 import 'pricehubble_screen.dart';
 import 'carte_de_visite_screen.dart';
 import 'fiches_acquereurs_screen.dart';
+import 'simulateurs_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -330,6 +331,39 @@ class _HomeTab extends StatelessWidget {
                             Text('Ma carte de visite', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
                             SizedBox(height: 2),
                             Text('Partager mon contact · QR Code vCard', style: TextStyle(color: Color(0xFFA5D6A7), fontSize: 12)),
+                          ]),
+                        ),
+                        const Icon(Icons.chevron_right, color: Colors.white70, size: 20),
+                      ]),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Simulateurs financiers
+                  GestureDetector(
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SimulateursScreen())),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF4527A0), Color(0xFF311B92)],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(children: [
+                        Container(
+                          width: 42, height: 42,
+                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                          child: const Icon(Icons.calculate_rounded, color: Colors.white, size: 22),
+                        ),
+                        const SizedBox(width: 14),
+                        const Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text('Simulateurs financiers', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+                            SizedBox(height: 2),
+                            Text('Net vendeur · Frais · Plus-value · Rendement', style: TextStyle(color: Color(0xFFD1C4E9), fontSize: 12)),
                           ]),
                         ),
                         const Icon(Icons.chevron_right, color: Colors.white70, size: 20),
