@@ -15,7 +15,10 @@ class FichesAcquereursService {
     final files = await folder.list().toList();
     return files
         .whereType<File>()
-        .where((f) => f.path.toLowerCase().endsWith('.html'))
+        .where((f) {
+          final p = f.path.toLowerCase();
+          return p.endsWith('.pdf') || p.endsWith('.html');
+        })
         .toList()
       ..sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
   }
@@ -23,16 +26,14 @@ class FichesAcquereursService {
   /// Sauvegarde depuis un chemin fichier (path disponible).
   Future<File> saveFiche(String sourcePath, String name) async {
     final folder = await _getFolder();
-    final safeName = name.endsWith('.html') ? name : '$name.html';
-    final dest = File('${folder.path}/$safeName');
+    final dest = File('${folder.path}/$name');
     return File(sourcePath).copy(dest.path);
   }
 
   /// Sauvegarde depuis des bytes (content URI Android — path peut être null).
   Future<File> saveFicheBytes(Uint8List bytes, String name) async {
     final folder = await _getFolder();
-    final safeName = name.endsWith('.html') ? name : '$name.html';
-    final dest = File('${folder.path}/$safeName');
+    final dest = File('${folder.path}/$name');
     return dest.writeAsBytes(bytes);
   }
 

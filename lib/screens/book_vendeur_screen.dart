@@ -256,15 +256,17 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
   Widget _buildPresentation() {
     final doc = _pdfDocument;
     if (doc == null) {
-      return const Scaffold(
-        backgroundColor: Colors.black,
-        body: Center(child: CircularProgressIndicator(color: kGreen)),
+      return const Material(
+        color: Colors.black,
+        child: Center(child: CircularProgressIndicator(color: kGreen)),
       );
     }
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(children: [
+    // Material (pas Scaffold) : évite le safe-area padding automatique qui
+    // crée des marges blanches autour du PageView en mode plein écran.
+    return Material(
+      color: Colors.black,
+      child: Stack(children: [
 
         // ── PageView : swipe natif, chaque page rendue en bitmap ──
         PageView.builder(
@@ -418,6 +420,7 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
 }
 
 // ─── Widget de rendu d'une page PDF en bitmap ──────────────────────────────
+
 //
 // Utilise PdfPage.render() → pixels bruts → ui.ImmutableBuffer → RawImage.
 // Complètement indépendant de PdfPageView : aucune contrainte de layout.
@@ -433,13 +436,9 @@ class _PdfPageBitmap extends StatefulWidget {
 
 class _PdfPageBitmapState extends State<_PdfPageBitmap> {
   ui.Image? _image;
-
-  @override
-  void initState() {
-    super.initState();
-    // Post-frame : attend que le widget ait ses dimensions dans le contexte
-    WidgetsBinding.instance.addPostFrameCallback((_) => _render());
-  }
+  double _renderW  = -1;   // dimensions du dernier rendu
+  double _renderH  = -1;
+  bool   _rendering = false;
 
   @override
   void dispose() {
@@ -447,37 +446,35 @@ class _PdfPageBitmapState extends State<_PdfPageBitmap> {
     super.dispose();
   }
 
-  Future<void> _render() async {
-    if (!mounted) return;
+  // ── Rendu à la taille exacte du widget (appelé par LayoutBuilder) ──────────
+  // Utilise math.max → résolution suffisante pour BoxFit.fill ET BoxFit.contain.
+  // Le flag _rendering évite les rendus concurrents.
+  Future<void> _renderAt(double availW, double availH) async {
+    if (_rendering) return;
+    // Ignorer si déjà rendu à ±30 px près (évite les re-rendus inutiles)
+    if ((availW - _renderW).abs() < 30 &&
+        (availH - _renderH).abs() < 30 &&
+        _image != null) return;
+    _rendering = true;
+    if (!mounted) { _rendering = false; return; }
     try {
-      final mq  = MediaQuery.of(context);
-      final dpr = mq.devicePixelRatio;
-      final sw  = mq.size.width;
-      final sh  = mq.size.height;
-
-      // Rendu à la résolution exacte de l'écran (contain) : qualité optimale
-      // sans sur-rendu. BoxFit.contain dans build() gère l'affichage final.
-      final scale = math.min(sw / widget.page.width, sh / widget.page.height) * dpr;
+      final dpr   = MediaQuery.of(context).devicePixelRatio;
+      // math.max : couvre les deux dimensions → plein écran sans perte de qualité
+      final scale = math.max(availW / widget.page.width,
+                             availH / widget.page.height) * dpr;
       final w = (widget.page.width  * scale).round().clamp(64, 4096);
       final h = (widget.page.height * scale).round().clamp(64, 4096);
 
-      // backgroundColor noir → le fond vide de la page PDF (blanc par défaut)
-      // devient noir, ce qui évite la zone blanche en bas des slides.
       final pdfImage = await widget.page.render(
-        width: w,
-        height: h,
+        width: w, height: h,
         backgroundColor: const Color(0xFF000000),
       );
-      if (pdfImage == null || !mounted) return;
+      if (pdfImage == null || !mounted) { _rendering = false; return; }
 
-      // pixels bruts → ui.Image via ImmutableBuffer
       final buffer     = await ui.ImmutableBuffer.fromUint8List(pdfImage.pixels);
-      final descriptor = ui.ImageDescriptor.raw(
-        buffer,
-        width: pdfImage.width,
-        height: pdfImage.height,
-        pixelFormat: pdfImage.format,  // rgba8888 ou bgra8888 selon plateforme
-      );
+      final descriptor = ui.ImageDescriptor.raw(buffer,
+        width: pdfImage.width, height: pdfImage.height,
+        pixelFormat: pdfImage.format);
       final codec = await descriptor.instantiateCodec();
       final frame = await codec.getNextFrame();
       pdfImage.dispose();
@@ -485,44 +482,53 @@ class _PdfPageBitmapState extends State<_PdfPageBitmap> {
       if (mounted) {
         setState(() {
           _image?.dispose();
-          _image = frame.image;
+          _image   = frame.image;
+          _renderW = availW;
+          _renderH = availH;
         });
       } else {
         frame.image.dispose();
       }
     } catch (e) {
       debugPrint('[PdfPageBitmap] render error: $e');
+    } finally {
+      _rendering = false;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_image == null) {
-      return const ColoredBox(
+    // LayoutBuilder fournit les dimensions réelles du widget (après rotation).
+    // Cela déclenche un nouveau rendu si l'orientation change portrait↔paysage.
+    return LayoutBuilder(builder: (_, constraints) {
+      final w = constraints.maxWidth;
+      final h = constraints.maxHeight;
+
+      // Déclenche _renderAt si les dimensions changent de plus de 30 px
+      if ((w - _renderW).abs() > 30 || (h - _renderH).abs() > 30) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _renderAt(w, h));
+      }
+
+      if (_image == null) {
+        return const ColoredBox(
+          color: Colors.black,
+          child: Center(
+            child: CircularProgressIndicator(color: Colors.white30, strokeWidth: 2),
+          ),
+        );
+      }
+      return ColoredBox(
         color: Colors.black,
         child: Center(
-          child: CircularProgressIndicator(color: Colors.white30, strokeWidth: 2),
+          child: RawImage(
+            image: _image,
+            fit: widget.fit,  // contain (défaut) ou fill (mode stretch)
+            width: w,
+            height: h,
+          ),
         ),
       );
-    }
-    // width/height explicites = dimensions logiques de l'écran.
-    // Sans ça, RawImage utilise scale=1.0 et affiche l'image en taille
-    // physique (×DPR), ce qui la rend ×3 trop grande et Center ne montre
-    // que le centre rogné. Avec les dimensions de l'écran + BoxFit.contain,
-    // toute la page est visible et remplit toute la largeur (pour un PDF
-    // paysage sur écran portrait).
-    final size = MediaQuery.of(context).size;
-    return ColoredBox(
-      color: Colors.black,
-      child: Center(
-        child: RawImage(
-          image: _image,
-          fit: widget.fit,   // contain (défaut) ou fill (mode stretch)
-          width: size.width,
-          height: size.height,
-        ),
-      ),
-    );
+    });
   }
 }
 

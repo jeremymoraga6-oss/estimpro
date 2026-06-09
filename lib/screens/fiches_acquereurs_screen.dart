@@ -2,8 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:pdfrx/pdfrx.dart';
 import '../theme.dart';
 import '../services/fiches_acquereurs_service.dart';
 
@@ -33,12 +32,10 @@ class _FichesAcquereursScreenState extends State<FichesAcquereursScreen> {
 
   Future<void> _import() async {
     try {
-      // withData:true → f.bytes toujours renseigné (évite les content:// URIs
-      // Android SAF qui ne sont pas lisibles via File()).
-      // FileType.any sans filtre : meilleure compatibilité avec tous les
-      // providers Android (certains ne renseignent pas f.extension).
+      // PDF uniquement — fiable sur Android (pas de problème WebView/access denied)
       final result = await FilePicker.platform.pickFiles(
-        type: FileType.any,
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
         allowMultiple: true,
         withData: true,
       );
@@ -48,23 +45,20 @@ class _FichesAcquereursScreenState extends State<FichesAcquereursScreen> {
       final errors = <String>[];
 
       for (final f in result.files) {
-        // Nom de stockage : on garde le nom d'origine et on force .html
+        // Nom de stockage : on garde le nom d'origine et on force .pdf
         String name = f.name.isNotEmpty
             ? f.name
             : 'fiche_${DateTime.now().millisecondsSinceEpoch}';
-        if (!name.toLowerCase().endsWith('.html') &&
-            !name.toLowerCase().endsWith('.htm')) {
-          name = '$name.html';
-        } else if (name.toLowerCase().endsWith('.htm')) {
-          name = '${name.substring(0, name.length - 4)}.html';
+        if (!name.toLowerCase().endsWith('.pdf')) {
+          name = '$name.pdf';
         }
 
         // Anti-doublon
         final existing = _files.map((e) => e.path.split('/').last).toList();
         if (existing.contains(name)) {
           final ts   = DateTime.now().millisecondsSinceEpoch;
-          final base = name.replaceAll(RegExp(r'\.html$'), '');
-          name = '${base}_$ts.html';
+          final base = name.replaceAll(RegExp(r'\.pdf$'), '');
+          name = '${base}_$ts.pdf';
         }
 
         try {
@@ -73,7 +67,6 @@ class _FichesAcquereursScreenState extends State<FichesAcquereursScreen> {
             await _service.saveFicheBytes(f.bytes!, name);
             imported++;
           } else if (f.path != null) {
-            // Fallback : chemin direct (desktop / iOS)
             await _service.saveFiche(f.path!, name);
             imported++;
           } else {
@@ -152,8 +145,15 @@ class _FichesAcquereursScreenState extends State<FichesAcquereursScreen> {
     return '${d.day} ${months[d.month - 1]} ${d.year}';
   }
 
-  String _displayName(File file) =>
-      file.path.split('/').last.replaceAll('.html', '').replaceAll('.htm', '');
+  String _displayName(File file) {
+    final n = file.path.split('/').last;
+    return n
+        .replaceAll('.pdf',  '')
+        .replaceAll('.html', '')
+        .replaceAll('.htm',  '');
+  }
+
+  bool _isPdf(File file) => file.path.toLowerCase().endsWith('.pdf');
 
   @override
   Widget build(BuildContext context) {
@@ -210,7 +210,9 @@ class _FichesAcquereursScreenState extends State<FichesAcquereursScreen> {
                             onTap: () => Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => _HtmlViewerScreen(file: file, title: name),
+                                builder: (_) => _isPdf(file)
+                                    ? _PdfViewerScreen(file: file, title: name)
+                                    : _HtmlViewerScreen(file: file, title: name),
                               ),
                             ),
                             child: Container(
@@ -223,7 +225,11 @@ class _FichesAcquereursScreenState extends State<FichesAcquereursScreen> {
                                     color: const Color(0xFFFFF3E0),
                                     borderRadius: BorderRadius.circular(10),
                                   ),
-                                  child: const Icon(Icons.person_search_rounded, color: Color(0xFFE65100), size: 24),
+                                  child: Icon(
+                                    _isPdf(file)
+                                        ? Icons.picture_as_pdf_rounded
+                                        : Icons.person_search_rounded,
+                                    color: const Color(0xFFE65100), size: 24),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
@@ -281,7 +287,7 @@ class _EmptyState extends StatelessWidget {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kCharcoal),
                 textAlign: TextAlign.center),
             const SizedBox(height: 8),
-            const Text('Importez vos fiches HTML générées par Claude\npour les présenter en rendez-vous acquéreur',
+            const Text('Importez vos fiches PDF générées par Claude\npour les présenter en rendez-vous acquéreur',
                 style: TextStyle(fontSize: 13, color: kGrey), textAlign: TextAlign.center),
             const SizedBox(height: 24),
             ElevatedButton.icon(
@@ -300,88 +306,97 @@ class _EmptyState extends StatelessWidget {
       );
 }
 
-// ─── Viewer HTML ──────────────────────────────────────────────────────────────
+// ─── Viewer PDF (pdfrx) ───────────────────────────────────────────────────────
 
-class _HtmlViewerScreen extends StatefulWidget {
-  final File file;
+class _PdfViewerScreen extends StatelessWidget {
+  final File   file;
   final String title;
-  const _HtmlViewerScreen({required this.file, required this.title});
-
-  @override
-  State<_HtmlViewerScreen> createState() => _HtmlViewerScreenState();
-}
-
-class _HtmlViewerScreenState extends State<_HtmlViewerScreen> {
-  late final WebViewController _controller;
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(Colors.white)
-      ..setNavigationDelegate(NavigationDelegate(
-        onPageFinished: (_) {
-          if (mounted) setState(() => _loading = false);
-        },
-      ));
-    _loadHtml();
-  }
-
-  Future<void> _loadHtml() async {
-    // Android bloque file:///data/user/0/... (ERR_ACCESS_DENIED) dans WebView.
-    // Solution : copier vers le cache EXTERNE (/storage/emulated/0/Android/data/
-    // .../cache/) qui est accessible via file:// sans permission supplémentaire.
-    if (Platform.isAndroid) {
-      try {
-        final extCacheDirs = await getExternalCacheDirectories();
-        if (extCacheDirs != null && extCacheDirs.isNotEmpty) {
-          final name = widget.file.path.split('/').last;
-          final tmp  = File('${extCacheDirs.first.path}/$name');
-          await widget.file.copy(tmp.path);
-          await _controller.loadRequest(Uri.file(tmp.path));
-          return;
-        }
-      } catch (_) {}
-      // Fallback Android : loadHtmlString (peut rester blanc si > ~1 Mo)
-      final html = await widget.file.readAsString();
-      await _controller.loadHtmlString(html, baseUrl: 'about:blank');
-    } else {
-      // iOS / desktop : chemin direct accessible
-      await _controller.loadRequest(Uri.file(widget.file.path));
-    }
-  }
+  const _PdfViewerScreen({required this.file, required this.title, super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFF1A1A2E),
       appBar: AppBar(
         backgroundColor: kCharcoal,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: Text(widget.title,
+        title: Text(title,
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
             overflow: TextOverflow.ellipsis),
-        actions: [
-          if (_loading)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Center(
-                child: SizedBox(
-                  width: 18, height: 18,
-                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                ),
+      ),
+      // PdfViewer.file lit directement le fichier via pdfrx (natif) —
+      // aucune restriction Android file:// contrairement à WebView.
+      body: PdfViewer.file(
+        file.path,
+        params: const PdfViewerParams(
+          backgroundColor: Color(0xFF1A1A2E),
+          margin: 8,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Écran de migration HTML → PDF ───────────────────────────────────────────
+// Pour les anciennes fiches HTML importées avant la migration vers PDF.
+
+class _HtmlViewerScreen extends StatelessWidget {
+  final File   file;
+  final String title;
+  const _HtmlViewerScreen({required this.file, required this.title, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: kBackground,
+      appBar: AppBar(
+        backgroundColor: kCharcoal,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: Text(title,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            overflow: TextOverflow.ellipsis),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Container(
+              width: 72, height: 72,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3E0),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: const Icon(Icons.swap_horiz_rounded, color: Color(0xFFE65100), size: 38),
+            ),
+            const SizedBox(height: 20),
+            const Text('Format HTML non supporté',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kCharcoal),
+                textAlign: TextAlign.center),
+            const SizedBox(height: 10),
+            const Text(
+              'L\'affichage HTML a été remplacé par PDF pour plus de fiabilité.\n\n'
+              'Supprimez cette fiche (glissez vers la gauche) et réimportez-la '
+              'en format PDF depuis Claude.',
+              style: TextStyle(fontSize: 13, color: kGrey),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.arrow_back_rounded),
+              label: const Text('Retour', style: TextStyle(fontWeight: FontWeight.w700)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kCharcoal,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
-        ],
+          ]),
+        ),
       ),
-      body: Stack(children: [
-        WebViewWidget(controller: _controller),
-        if (_loading)
-          const Center(child: CircularProgressIndicator(color: kGreen)),
-      ]),
     );
   }
 }
