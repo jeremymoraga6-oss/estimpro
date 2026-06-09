@@ -32,6 +32,7 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
   bool _uiVisible    = false;
   Timer? _hideTimer;
   bool _forceLandscape = false;
+  bool _stretchMode    = false;   // BoxFit.fill : remplit l'écran sans marges noires
 
   @override
   void initState() {
@@ -70,18 +71,20 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
     _pageController?.dispose();
     _pageController = PageController(initialPage: math.max(0, _currentPage - 1));
 
+    // Paysage automatique : les slides occupent toute la largeur de l'écran
+    // (particulièrement bénéfique sur les grands écrans type S24 Ultra).
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
 
     setState(() {
-      _totalPages    = _pdfDocument!.pages.length;
-      _presentation  = true;
-      _uiVisible     = true;
-      _forceLandscape = false;
+      _totalPages     = _pdfDocument!.pages.length;
+      _presentation   = true;
+      _uiVisible      = true;
+      _forceLandscape = true;
+      _stretchMode    = false;
     });
     _scheduleHide();
   }
@@ -92,7 +95,7 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
     _pageController = null;
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-    if (mounted) setState(() { _presentation = false; _uiVisible = false; _forceLandscape = false; });
+    if (mounted) setState(() { _presentation = false; _uiVisible = false; _forceLandscape = false; _stretchMode = false; });
   }
 
   void _toggleOrientation() {
@@ -279,6 +282,7 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
           itemBuilder: (context, index) => _PdfPageBitmap(
             page: doc.pages[index],
             key: ValueKey(index),
+            fit: _stretchMode ? BoxFit.fill : BoxFit.contain,
           ),
         ),
 
@@ -336,6 +340,22 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
                       style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
                 ),
               const SizedBox(width: 12),
+              // Bouton stretch : BoxFit.fill pour remplir l'écran sans marges noires
+              GestureDetector(
+                onTap: () {
+                  setState(() => _stretchMode = !_stretchMode);
+                  if (_uiVisible) _scheduleHide();
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: _stretchMode ? Colors.orange.withOpacity(0.7) : Colors.white24,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.fit_screen_rounded, color: Colors.white, size: 20),
+                ),
+              ),
+              const SizedBox(width: 8),
               GestureDetector(
                 onTap: _toggleOrientation,
                 child: Container(
@@ -404,7 +424,8 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
 
 class _PdfPageBitmap extends StatefulWidget {
   final PdfPage page;
-  const _PdfPageBitmap({required this.page, super.key});
+  final BoxFit fit;
+  const _PdfPageBitmap({required this.page, this.fit = BoxFit.contain, super.key});
 
   @override
   State<_PdfPageBitmap> createState() => _PdfPageBitmapState();
@@ -496,7 +517,7 @@ class _PdfPageBitmapState extends State<_PdfPageBitmap> {
       child: Center(
         child: RawImage(
           image: _image,
-          fit: BoxFit.contain,
+          fit: widget.fit,   // contain (défaut) ou fill (mode stretch)
           width: size.width,
           height: size.height,
         ),

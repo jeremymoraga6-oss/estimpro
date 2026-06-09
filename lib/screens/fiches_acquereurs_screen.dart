@@ -329,8 +329,17 @@ class _HtmlViewerScreenState extends State<_HtmlViewerScreen> {
   }
 
   Future<void> _loadHtml() async {
-    final html = await widget.file.readAsString();
-    await _controller.loadHtmlString(html, baseUrl: 'about:blank');
+    // loadHtmlString a une limite ~1 Mo sur Android (loadDataWithBaseURL) et
+    // reste blanc pour les grosses fiches avec images embarquées.
+    // loadRequest(Uri.file) charge directement depuis le disque sans limite,
+    // et webview_flutter active allowFileAccess=true par défaut côté Android.
+    try {
+      await _controller.loadRequest(Uri.file(widget.file.path));
+    } catch (_) {
+      // Fallback si le chemin n'est pas accessible (cas rare)
+      final html = await widget.file.readAsString();
+      await _controller.loadHtmlString(html, baseUrl: 'about:blank');
+    }
   }
 
   @override
