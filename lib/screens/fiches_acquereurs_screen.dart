@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../theme.dart';
 import '../services/fiches_acquereurs_service.dart';
@@ -329,16 +330,26 @@ class _HtmlViewerScreenState extends State<_HtmlViewerScreen> {
   }
 
   Future<void> _loadHtml() async {
-    // loadHtmlString a une limite ~1 Mo sur Android (loadDataWithBaseURL) et
-    // reste blanc pour les grosses fiches avec images embarquées.
-    // loadRequest(Uri.file) charge directement depuis le disque sans limite,
-    // et webview_flutter active allowFileAccess=true par défaut côté Android.
-    try {
-      await _controller.loadRequest(Uri.file(widget.file.path));
-    } catch (_) {
-      // Fallback si le chemin n'est pas accessible (cas rare)
+    // Android bloque file:///data/user/0/... (ERR_ACCESS_DENIED) dans WebView.
+    // Solution : copier vers le cache EXTERNE (/storage/emulated/0/Android/data/
+    // .../cache/) qui est accessible via file:// sans permission supplémentaire.
+    if (Platform.isAndroid) {
+      try {
+        final extCacheDirs = await getExternalCacheDirectories();
+        if (extCacheDirs != null && extCacheDirs.isNotEmpty) {
+          final name = widget.file.path.split('/').last;
+          final tmp  = File('${extCacheDirs.first.path}/$name');
+          await widget.file.copy(tmp.path);
+          await _controller.loadRequest(Uri.file(tmp.path));
+          return;
+        }
+      } catch (_) {}
+      // Fallback Android : loadHtmlString (peut rester blanc si > ~1 Mo)
       final html = await widget.file.readAsString();
       await _controller.loadHtmlString(html, baseUrl: 'about:blank');
+    } else {
+      // iOS / desktop : chemin direct accessible
+      await _controller.loadRequest(Uri.file(widget.file.path));
     }
   }
 
