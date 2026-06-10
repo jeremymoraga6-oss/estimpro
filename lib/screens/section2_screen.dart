@@ -158,17 +158,25 @@ class _Section2ScreenState extends State<Section2Screen> {
                   Expanded(child: _AnnexeField(label: 'Terrasse', controller: _terrasseCtrl,
                       onChanged: (v) => _update(_e.copyWith(surfaceTerrasse: v)))),
                 ]),
-                // Avertissement plafonds pondération
+                // Plafonds pondération — indication grise individuelle sous chaque champ
                 if (_e.surfaceBalcon > 12 || _e.surfaceCave > 15 || _e.surfaceTerrasse > 20) ...[
-                  const SizedBox(height: 5),
-                  Text(
-                    [
-                      if (_e.surfaceBalcon > 12) 'Balcon : plafond 12 m²',
-                      if (_e.surfaceCave > 15) 'Cave : plafond 15 m²',
-                      if (_e.surfaceTerrasse > 20) 'Terrasse : plafond 20 m²',
-                    ].join('  ·  ') + ' — surplus non pondéré',
-                    style: const TextStyle(fontSize: 10, color: kAmber, fontStyle: FontStyle.italic),
-                  ),
+                  const SizedBox(height: 3),
+                  Row(children: [
+                    Expanded(child: _e.surfaceBalcon > 12
+                        ? Text('Plafonné à 12 m²\ndans le calcul',
+                            style: TextStyle(fontSize: 9, color: kLightGrey))
+                        : const SizedBox()),
+                    const SizedBox(width: 8),
+                    Expanded(child: _e.surfaceCave > 15
+                        ? Text('Plafonné à 15 m²\ndans le calcul',
+                            style: TextStyle(fontSize: 9, color: kLightGrey))
+                        : const SizedBox()),
+                    const SizedBox(width: 8),
+                    Expanded(child: _e.surfaceTerrasse > 20
+                        ? Text('Plafonné à 20 m²\ndans le calcul',
+                            style: TextStyle(fontSize: 9, color: kLightGrey))
+                        : const SizedBox()),
+                  ]),
                 ],
                 if (_e.surfacePonderee > _e.surfaceHabitable) ...[
                   const SizedBox(height: 10),

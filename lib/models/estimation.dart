@@ -508,24 +508,22 @@ class Estimation {
   /// Décote locative modulée selon la situation occupationnelle.
   /// - Libre : 0%
   /// - Bail commercial : −25%
-  /// - Congé donné + fin bail ≤ 12 mois : −6%
-  /// - Congé donné : −8%
-  /// - Bail meublé : −10%
+  /// - Congé locataire : −3% (bien quasi libre, sans condition de date)
+  /// - Fin bail ≤ 12 mois (MM/YYYY) : −6%
+  /// - Bail meublé : −8%
   /// - Bail vide standard : −12%
   double get decoteOccupation {
     if (libreOccupation) return 0.0;
     if (typeBail == 'Commercial') return -25.0;
-    if (congeLocataire) {
-      if (dateFinBail.isNotEmpty) {
-        final mtch = RegExp(r'^(\d{1,2})/(\d{4})$').firstMatch(dateFinBail);
-        if (mtch != null) {
-          final fin = DateTime(int.parse(mtch.group(2)!), int.parse(mtch.group(1)!));
-          if (fin.difference(DateTime.now()).inDays <= 365) return -6.0;
-        }
+    if (congeLocataire) return -3.0;
+    if (dateFinBail.isNotEmpty) {
+      final mtch = RegExp(r'^(\d{1,2})/(\d{4})$').firstMatch(dateFinBail);
+      if (mtch != null) {
+        final fin = DateTime(int.parse(mtch.group(2)!), int.parse(mtch.group(1)!));
+        if (fin.difference(DateTime.now()).inDays <= 365) return -6.0;
       }
-      return -8.0;
     }
-    if (typeBail == 'Meublé') return -10.0;
+    if (typeBail == 'Meublé') return -8.0;
     return -12.0;
   }
 
@@ -534,8 +532,8 @@ class Estimation {
     if (libreOccupation) return 'Bien libre';
     final pct = decoteOccupation.toInt();
     if (typeBail == 'Commercial') return 'Bail commercial ($pct%)';
-    if (congeLocataire && decoteOccupation == -6.0) return 'Congé < 12 mois ($pct%)';
     if (congeLocataire) return 'Congé donné ($pct%)';
+    if (decoteOccupation == -6.0) return 'Fin bail ≤ 12 mois ($pct%)';
     if (typeBail == 'Meublé') return 'Bail meublé ($pct%)';
     return 'Bail vide standard ($pct%)';
   }

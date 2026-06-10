@@ -138,7 +138,7 @@ class BaseLocaleService {
     if (eligible.isEmpty) {
       final allRefs = await loadAll();
       final e = _eligible(allRefs);
-      if (e.isNotEmpty) { eligible = e; scope = 'globale'; }
+      if (e.length >= 5) { eligible = e; scope = 'globale'; }
     }
 
     // Calcul du prix m² médian (toutes ventes, pas seulement celles avec estim)
