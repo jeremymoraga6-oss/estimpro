@@ -18,19 +18,27 @@ double _calcFreAgence(double prix) {
 }
 
 // Total frais de notaire (utilisé par capacité d'emprunt & rendement locatif)
+// Émoluments HT : arrêté du 28/02/2020 (en vigueur depuis le 01/03/2020)
+// DMTO ancien    : 6,32 % = 5 % (dépt 74, LF 2025 art. 116) + 1,20 % (commune) + 0,12 % (État)
+//                  → applicable 01/04/2025 – 31/03/2028 pour les dép. ayant adopté le taux majoré
+// DMTO neuf (VEFA soumis TVA) : 0,715 %
+// CSI            : 0,10 % (min. 15 €) — arrêté stable depuis 2014
 double _calcFraisNotaire(double prix, {bool neuf = false}) {
   if (prix <= 0) return 0;
   const tranches = [
-    (0.0, 6500.0, 0.03945), (6500.0, 17000.0, 0.01627),
-    (17000.0, 60000.0, 0.01085), (60000.0, double.infinity, 0.00814),
+    (0.0,     6500.0,          0.03870),   // arrêté 28/02/2020
+    (6500.0,  17000.0,         0.01596),
+    (17000.0, 60000.0,         0.01064),
+    (60000.0, double.infinity, 0.00799),
   ];
   double emo = 0;
   for (final (mn, mx, t) in tranches) {
     if (prix > mn) emo += (prix.clamp(mn, mx) - mn) * t;
   }
-  emo = max(emo * 1.20, 90.0);
-  final csi = max(prix * 0.001, 15.0);
-  return neuf ? prix * 0.00715 + emo + csi + 900 : prix * 0.0580 + emo + csi + 1300;
+  emo = max(emo * 1.20, 90.0);           // TVA 20 % + plancher 90 € TTC
+  final csi = max(prix * 0.001, 15.0);   // CSI : 0,10 %, min 15 €
+  return neuf ? prix * 0.00715 + emo + csi + 900
+              : prix * 0.0632  + emo + csi + 1300;
 }
 
 String _fmtE(double v) {
@@ -567,17 +575,22 @@ class _FraisNotaireScreenState extends State<_FraisNotaireScreen> {
   void dispose() { _prixCtrl.removeListener(_u); _prixCtrl.dispose(); super.dispose(); }
 
   ({double droits, double emo, double csi, double debours, double total}) _calc(double prix) {
+    // Émoluments HT — arrêté du 28/02/2020 (taux en vigueur depuis 01/03/2020)
     const tranches = [
-      (0.0, 6500.0, 0.03945), (6500.0, 17000.0, 0.01627),
-      (17000.0, 60000.0, 0.01085), (60000.0, double.infinity, 0.00814),
+      (0.0,     6500.0,          0.03870),
+      (6500.0,  17000.0,         0.01596),
+      (17000.0, 60000.0,         0.01064),
+      (60000.0, double.infinity, 0.00799),
     ];
     double emo = 0;
     for (final (mn, mx, t) in tranches) {
       if (prix > mn) emo += (prix.clamp(mn, mx) - mn) * t;
     }
-    emo = max(emo * 1.20, 90.0);
-    final csi     = max(prix * 0.001, 15.0);
-    final droits  = _neuf ? prix * 0.00715 : prix * 0.0580;
+    emo = max(emo * 1.20, 90.0);           // TVA 20 % + plancher 90 € TTC
+    final csi = max(prix * 0.001, 15.0);   // CSI : 0,10 %, min 15 €
+    // DMTO ancien : 6,32 % (HS 74 – LF 2025 : 5 % dépt + 1,20 % commune + 0,12 % État)
+    // DMTO neuf   : 0,715 % (VEFA soumis TVA)
+    final droits  = _neuf ? prix * 0.00715 : prix * 0.0632;
     final debours = _neuf ? 900.0 : 1300.0;
     final total   = droits + emo + csi + debours;
     return (droits: droits, emo: emo, csi: csi, debours: debours, total: total);
@@ -619,14 +632,21 @@ class _FraisNotaireScreenState extends State<_FraisNotaireScreen> {
             if (r != null)
               _Card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 _SecTitle('Détail', icon: Icons.receipt_long_rounded, color: _accent),
-                _Ligne(label: _neuf ? 'Droits (TVA réduite)' : 'Droits de mutation (5,80 %)', value: _fmtE(r.droits)),
+                _Ligne(label: _neuf ? 'TPF réduite VEFA (0,715 %)' : 'Droits de mutation (6,32 %)', value: _fmtE(r.droits)),
                 _Ligne(label: 'Émoluments notaire TTC', value: _fmtE(r.emo)),
                 _Ligne(label: 'CSI – sécurité immobilière', value: _fmtE(r.csi)),
                 _Ligne(label: 'Débours (forfait indicatif)', value: _fmtE(r.debours)),
                 _Ligne(label: '= Total frais notaire', value: _fmtE(r.total), color: _accent, bold: true, sep: true),
                 _Ligne(label: '= Budget total (achat + frais)', value: _fmtE(prix + r.total), bold: true),
               ])),
-            const _InfoNote('Calcul estimatif — Haute-Savoie (dép. 74). Droits ancien = 5,80 %. Débours = forfait indicatif. Les frais réels peuvent légèrement varier selon le dossier.'),
+            const _InfoNote(
+              'Calcul estimatif — Haute-Savoie (dép. 74).\n'
+              '• Émoluments : arrêté du 28/02/2020 (taux HT en vigueur depuis 01/03/2020) + TVA 20 %.\n'
+              '• DMTO ancien : 6,32 % = 5 % (dépt, LF 2025 art. 116) + 1,20 % (commune) + 0,12 % (État) — applicable 01/04/2025 au 31/03/2028.\n'
+              '• DMTO neuf (VEFA) : 0,715 %.\n'
+              '• CSI : 0,10 %, min 15 €.\n'
+              '• Débours = forfait indicatif. Les frais réels varient selon le dossier.',
+            ),
           ],
         ),
       ),
