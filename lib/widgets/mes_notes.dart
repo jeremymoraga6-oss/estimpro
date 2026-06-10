@@ -17,21 +17,35 @@ class _MesNotesState extends State<MesNotes> {
   bool _open = false;
   bool _saved = false;
   late TextEditingController _textCtrl;
+  String _lastSavedText = '';
 
   @override
   void initState() {
     super.initState();
-    _textCtrl = TextEditingController(text: widget.initialData['text'] ?? '');
+    final initial = widget.initialData['text'] as String? ?? '';
+    _textCtrl = TextEditingController(text: initial);
+    _lastSavedText = initial;
+    // addListener capture TOUS les changements : frappe clavier ET transcription vocale
+    _textCtrl.addListener(_onTextChanged);
   }
 
-  // Sauvegarde silencieuse (à chaque frappe / transcription vocale)
+  // Appelé à chaque changement du controller (frappe, collage, transcription).
+  void _onTextChanged() {
+    if (!mounted) return;
+    if (_textCtrl.text == _lastSavedText) return; // pas de changement réel
+    setState(() {}); // met à jour le compteur de caractères
+    _autoSave();
+  }
+
+  // Sauvegarde silencieuse — ne déclenche PAS le badge "sauvegardé".
   void _autoSave() {
+    _lastSavedText = _textCtrl.text;
     widget.onChanged({'text': _textCtrl.text});
   }
 
-  // Sauvegarde avec confirmation visuelle (bouton explicite)
-  void _save() {
-    widget.onChanged({'text': _textCtrl.text});
+  // Sauvegarde avec confirmation visuelle (bouton explicite ou après transcription vocale).
+  void _saveWithFeedback() {
+    _autoSave();
     setState(() => _saved = true);
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) setState(() => _saved = false);
@@ -40,7 +54,8 @@ class _MesNotesState extends State<MesNotes> {
 
   @override
   void dispose() {
-    _autoSave(); // sécurité : sauvegarde si l'utilisateur quitte sans appuyer
+    _autoSave(); // sécurité finale avant la destruction
+    _textCtrl.removeListener(_onTextChanged);
     _textCtrl.dispose();
     super.dispose();
   }
@@ -66,8 +81,19 @@ class _MesNotesState extends State<MesNotes> {
                       const Text('📝', style: TextStyle(fontSize: 18)),
                       const SizedBox(width: 8),
                       const Text('Mes notes', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal)),
+                      // Indicateur : la section a déjà des notes
+                      if (_lastSavedText.isNotEmpty)
+                        Container(
+                          margin: const EdgeInsets.only(left: 6),
+                          width: 7, height: 7,
+                          decoration: const BoxDecoration(color: kGreen, shape: BoxShape.circle),
+                        ),
                     ]),
                     Row(children: [
+                      if (_saved) ...[
+                        const Icon(Icons.check_circle_outline_rounded, color: kGreen, size: 14),
+                        const SizedBox(width: 4),
+                      ],
                       Text('+', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: kGreen)),
                       const SizedBox(width: 6),
                       Icon(_open ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: kLightGrey, size: 18),
@@ -104,7 +130,9 @@ class _MesNotesState extends State<MesNotes> {
                           enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
                         ),
                         style: const TextStyle(fontSize: 13, color: kCharcoal, height: 1.6),
-                        onChanged: (_) { setState(() {}); _autoSave(); },
+                        // onChanged n'est plus nécessaire pour la sauvegarde (addListener s'en charge)
+                        // Garde uniquement le rebuild pour le compteur de caractères en temps réel
+                        onChanged: (_) => setState(() {}),
                       ),
                       Positioned(
                         bottom: 8, right: 10,
@@ -124,10 +152,12 @@ class _MesNotesState extends State<MesNotes> {
                   Text('NOTE VOCALE', style: kSectionLabel),
                   const SizedBox(height: 8),
                   _VoiceRecorder(onTranscript: (t) {
+                    // Transcription vocale → ajout au champ texte
                     final cur = _textCtrl.text;
                     _textCtrl.text = cur.isEmpty ? t : '$cur\n$t';
-                    setState(() {});
-                    _autoSave(); // sauvegarde automatique après transcription
+                    // addListener appelle automatiquement _autoSave()
+                    // On déclenche aussi le badge visuel "Sauvegardé ✓"
+                    _saveWithFeedback();
                   }),
                   const SizedBox(height: 16),
 
@@ -136,7 +166,7 @@ class _MesNotesState extends State<MesNotes> {
                     width: double.infinity,
                     height: 48,
                     child: ElevatedButton.icon(
-                      onPressed: _save,
+                      onPressed: _saveWithFeedback,
                       icon: Icon(_saved ? Icons.check : Icons.save_outlined, size: 16),
                       label: Text(_saved ? 'Sauvegardé ✓' : 'Sauvegarder les notes',
                           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),

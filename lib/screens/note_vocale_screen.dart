@@ -116,61 +116,104 @@ class _NoteVocaleSheetState extends State<_NoteVocaleSheet>
     }
   }
 
+  // Retourne la note dès qu'elle est disponible, quelle que soit la façon de fermer.
+  // Appelé par le bouton "Fermer / Sauvegarder" ET par PopScope (swipe bas, bouton retour).
+  void _dismiss() => Navigator.pop(context, _note);
+
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: _state == _State.done ? 0.85 : 0.55,
-      maxChildSize: 0.92,
-      minChildSize: 0.35,
-      builder: (ctx, scroll) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(children: [
-          // Handle
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40, height: 4,
-            decoration: BoxDecoration(
-                color: const Color(0xFFDDDDDD),
-                borderRadius: BorderRadius.circular(2)),
+    // PopScope : intercepte TOUT type de fermeture (swipe bas, bouton retour Android).
+    // Si une note a déjà été traitée (_note != null), elle est automatiquement sauvegardée.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, _) {
+        if (!didPop) _dismiss();
+      },
+      child: DraggableScrollableSheet(
+        initialChildSize: _state == _State.done ? 0.85 : 0.55,
+        maxChildSize: 0.92,
+        minChildSize: 0.35,
+        builder: (ctx, scroll) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
-          // Header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Note vocale vendeur',
-                    style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: kCharcoal)),
-                if (_state == _State.done)
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, _note),
-                    child: const Text('Sauvegarder',
-                        style: TextStyle(
-                            color: kGreen, fontWeight: FontWeight.w700)),
-                  )
-                else
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close, color: kGrey),
+          child: Column(children: [
+            // Handle
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                  color: const Color(0xFFDDDDDD),
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Note vocale vendeur',
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: kCharcoal)),
+                  if (_state == _State.done)
+                    // Bouton vert explicite pour confirmer — mais le swipe bas sauvegarde aussi
+                    ElevatedButton.icon(
+                      onPressed: _dismiss,
+                      icon: const Icon(Icons.check_rounded, size: 16),
+                      label: const Text('Sauvegarder',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: kGreen,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        elevation: 0,
+                      ),
+                    )
+                  else
+                    // Fermeture sans note (enregistrement non terminé)
+                    IconButton(
+                      onPressed: _dismiss,
+                      icon: const Icon(Icons.close, color: kGrey),
+                      tooltip: 'Fermer',
+                    ),
+                ],
+              ),
+            ),
+            // Bandeau info si état done : swipe bas = sauvegarde automatique
+            if (_state == _State.done)
+              Container(
+                margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: kGreen.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: kGreen.withValues(alpha: 0.25)),
+                ),
+                child: Row(children: [
+                  Icon(Icons.info_outline_rounded, size: 13, color: kGreen.withValues(alpha: 0.8)),
+                  const SizedBox(width: 6),
+                  const Expanded(
+                    child: Text(
+                      'Fermer ou glisser vers le bas sauvegarde automatiquement la note.',
+                      style: TextStyle(fontSize: 10, color: kGrey, height: 1.4),
+                    ),
                   ),
-              ],
+                ]),
+              ),
+            const Divider(height: 16),
+            Expanded(
+              child: SingleChildScrollView(
+                controller: scroll,
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                child: _buildBody(),
+              ),
             ),
-          ),
-          const Divider(),
-          Expanded(
-            child: SingleChildScrollView(
-              controller: scroll,
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-              child: _buildBody(),
-            ),
-          ),
-        ]),
+          ]),
+        ),
       ),
     );
   }
