@@ -298,7 +298,7 @@ class DvfService {
     final cagr =
         (math.pow(valides[y1]! / valides[y0]!, 1.0 / (y1 - y0)) - 1) * 100;
     return DvfTrend(
-      tauxAnnuelPct: cagr.clamp(-6.0, 6.0),
+      tauxAnnuelPct: cagr.clamp(-6.0, 6.0).toDouble(),
       anneeDebut: y0,
       anneeFin: y1,
       nbVentesUtilisees: nbVentes,
