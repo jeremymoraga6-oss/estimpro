@@ -76,7 +76,18 @@ class _Section5ScreenState extends State<Section5Screen> {
       latitude: _e.latitude,
       longitude: _e.longitude,
     );
-    setState(() { _result = r; _loading = false; });
+    if (mounted) {
+      setState(() { _result = r; _loading = false; });
+      final trend = r.trend;
+      if (trend != null) {
+        _update(_e.copyWith(
+          tauxEvolutionAnnuel: trend.tauxAnnuelPct,
+          trendInfo: '${trend.anneeDebut}→${trend.anneeFin} · ${trend.nbVentesUtilisees} ventes',
+        ));
+      } else if (_e.tauxEvolutionAnnuel != 0) {
+        _update(_e.copyWith(tauxEvolutionAnnuel: 0, trendInfo: ''));
+      }
+    }
   }
 
   void _setRadius(double km) {
@@ -260,6 +271,53 @@ class _Section5ScreenState extends State<Section5Screen> {
                 ]),
               ),
               _MarketStatsCard(transactions: _filtered),
+              if (_e.trendInfo.isNotEmpty || _e.tauxEvolutionAnnuel != 0) ...[
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _e.tauxEvolutionAnnuel > 0
+                        ? kGreen.withValues(alpha: 0.07)
+                        : _e.tauxEvolutionAnnuel < 0
+                            ? kRed.withValues(alpha: 0.07)
+                            : const Color(0xFFF5F5F5),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(children: [
+                    Icon(
+                      _e.tauxEvolutionAnnuel > 0
+                          ? Icons.trending_up_rounded
+                          : _e.tauxEvolutionAnnuel < 0
+                              ? Icons.trending_down_rounded
+                              : Icons.trending_flat_rounded,
+                      size: 16,
+                      color: _e.tauxEvolutionAnnuel > 0
+                          ? kGreen
+                          : _e.tauxEvolutionAnnuel < 0
+                              ? kRed
+                              : kGrey,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(
+                      _e.tauxEvolutionAnnuel != 0
+                          ? 'Tendance ${_e.commune.isNotEmpty ? _e.commune : 'locale'} : '
+                            '${_e.tauxEvolutionAnnuel >= 0 ? '+' : ''}${_e.tauxEvolutionAnnuel.toStringAsFixed(1)} %/an '
+                            '(médiane DVF · ${_e.trendInfo})'
+                          : 'Tendance non calculable : données DVF insuffisantes sur ce secteur.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _e.tauxEvolutionAnnuel > 0
+                            ? kGreen
+                            : _e.tauxEvolutionAnnuel < 0
+                                ? kRed
+                                : kGrey,
+                      ),
+                    )),
+                  ]),
+                ),
+                const SizedBox(height: 4),
+              ],
               ..._filtered.map((tx) => _DvfCard(
                 tx: tx,
                 selected: _isSelected(tx),

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'geo_service.dart';
@@ -8,6 +9,23 @@ import 'geo_service.dart';
 // Source : https://www.data.gouv.fr/datasets/statistiques-dvf/
 // Ressource : 851d342f-9c96-41c1-924a-11a7a7aae8a6
 // ─────────────────────────────────────────────────────────────────────────────
+
+/// Tendance de marché calculée depuis les transactions DVF d'une commune.
+class DvfTrend {
+  final double tauxAnnuelPct;   // borné ±6%/an
+  final int anneeDebut;
+  final int anneeFin;
+  final int nbVentesUtilisees;
+  final Map<int, double> medianesParAnnee;
+  const DvfTrend({
+    required this.tauxAnnuelPct,
+    required this.anneeDebut,
+    required this.anneeFin,
+    required this.nbVentesUtilisees,
+    required this.medianesParAnnee,
+  });
+  bool get isValid => tauxAnnuelPct != 0 || medianesParAnnee.length >= 2;
+}
 
 class DvfCommuneStats {
   final String codeGeo;
@@ -178,6 +196,7 @@ class DvfTransaction {
         'desc': '$typeLocal · ${surfaceReelleBati.round()} m² · $nomCommune'
             '${distanceKm != null ? ' · ${distanceKm!.toStringAsFixed(1)} km' : ''}',
         'date': _fmtDate(dateMutation),
+        'dateIso': dateMutation,
         'prix': valeurFonciere,
         'prixM2': prixM2.roundToDouble(),
         if (latitude != 0 && longitude != 0) 'lat': latitude,
@@ -226,6 +245,7 @@ class DvfFetchResult {
   final String urlUtilisee;
   final int nombreBrut;
   final String? erreur;
+  final DvfTrend? trend;
 
   const DvfFetchResult({
     required this.transactions,
@@ -233,6 +253,7 @@ class DvfFetchResult {
     required this.urlUtilisee,
     required this.nombreBrut,
     this.erreur,
+    this.trend,
   });
 }
 
@@ -242,6 +263,48 @@ class DvfFetchResult {
 /// Pattern : .../latest/csv/{année}/communes/{dep}/{insee}.csv
 class DvfService {
   static const _base = 'https://files.data.gouv.fr/geo-dvf/latest/csv';
+
+  /// Calcule la tendance annuelle du marché à partir d'une liste de
+  /// transactions AVANT filtrage surface/rayon, pour maximiser l'échantillon.
+  static DvfTrend? computeTrend(List<DvfTransaction> txs) {
+    double? medianOf(List<double> v) {
+      if (v.isEmpty) return null;
+      final s = List<double>.from(v)..sort();
+      final m = s.length ~/ 2;
+      return s.length.isOdd ? s[m] : (s[m - 1] + s[m]) / 2;
+    }
+    // Regroupe les prix m² plausibles par année de mutation
+    final byYear = <int, List<double>>{};
+    for (final t in txs) {
+      final y = int.tryParse(t.dateMutation.split('-').first);
+      if (y == null) continue;
+      final p = t.prixM2;
+      if (p < 800 || p > 12000) continue; // aberrants DVF
+      byYear.putIfAbsent(y, () => []).add(p);
+    }
+    // Années valides : ≥ 8 ventes
+    final valides = <int, double>{};
+    var nbVentes = 0;
+    byYear.forEach((y, prices) {
+      if (prices.length >= 8) {
+        valides[y] = medianOf(prices)!;
+        nbVentes += prices.length;
+      }
+    });
+    if (valides.length < 2) return null;
+    final years = valides.keys.toList()..sort();
+    final y0 = years.first, y1 = years.last;
+    if (y1 - y0 < 1) return null;
+    final cagr =
+        (math.pow(valides[y1]! / valides[y0]!, 1.0 / (y1 - y0)) - 1) * 100;
+    return DvfTrend(
+      tauxAnnuelPct: cagr.clamp(-6.0, 6.0),
+      anneeDebut: y0,
+      anneeFin: y1,
+      nbVentesUtilisees: nbVentes,
+      medianesParAnnee: valides,
+    );
+  }
 
   /// Fetch DVF transactions for a commune across the last 3-4 years,
   /// with optional surface (±30%), type, and radius (km) filtering.
@@ -345,6 +408,7 @@ class DvfService {
         urlUtilisee: firstUrl,
         nombreBrut: 0,
         erreur: errors.first,
+        trend: null,
       );
     }
 
@@ -364,6 +428,9 @@ class DvfService {
         return true;
       }
     }).toList();
+
+    // Tendance marché — calculée avant filtres type/surface/rayon (max d'échantillon)
+    final trend = DvfService.computeTrend(filtered);
 
     // Filtre 3 — type
     if (typeLocal != null && typeLocal.isNotEmpty) {
@@ -405,6 +472,7 @@ class DvfService {
       codeInsee: codeInsee,
       urlUtilisee: firstUrl,
       nombreBrut: totalBrut,
+      trend: trend,
     );
   }
 

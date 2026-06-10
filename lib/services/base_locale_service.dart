@@ -3,6 +3,30 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import '../models/reference_locale.dart';
 
+/// Résultat de la calibration automatique — source unique de vérité.
+class CalibrationSuggestion {
+  /// Correction en % à intégrer dans `ajustCalibration` (clamped ±5 %, arrondi 0,5 %).
+  final double delta;
+
+  /// Nombre de ventes retenues pour le calcul (après filtrage outliers).
+  final int nbVentes;
+
+  /// 'commune' | 'globale' | '' (pas de données).
+  final String scope;
+
+  /// Prix m² médian de la base (commune ou globale, toutes ventes).
+  final double prixM2Median;
+
+  const CalibrationSuggestion({
+    required this.delta,
+    required this.nbVentes,
+    required this.scope,
+    required this.prixM2Median,
+  });
+
+  bool get hasData => nbVentes > 0;
+}
+
 class BaseLocaleService {
   static final BaseLocaleService _instance = BaseLocaleService._internal();
   factory BaseLocaleService() => _instance;
@@ -83,5 +107,75 @@ class BaseLocaleService {
       'ecartMoyen': ecartMoyen,
       'prixM2Moyen': prixM2Moyen,
     };
+  }
+
+  // ── Calibration automatique ──────────────────────────────────────────────────
+
+  /// Calcule une suggestion de calibration basée sur la médiane des écarts
+  /// estimé/vendu de la base locale.
+  ///
+  /// Algorithme :
+  ///  1. Tente d'abord les ventes de la commune [codeInsee] (min 3).
+  ///  2. Fallback sur toute la base si pas assez de données.
+  ///  3. Filtre les outliers : |ecartPct| > 20 %.
+  ///  4. Calcule la médiane (robustesse vs outliers résiduels).
+  ///  5. Clamp ±5 %, arrondi au 0,5 % le plus proche.
+  Future<CalibrationSuggestion> getSuggestion(String codeInsee) async {
+    List<ReferenceLocale> eligible = [];
+    String scope = '';
+
+    // Filtre : ventes avec estimation et sans outlier grossier
+    List<ReferenceLocale> _eligible(List<ReferenceLocale> src) => src
+        .where((r) => r.hasEstime && r.ecartPct.abs() <= 20)
+        .toList();
+
+    if (codeInsee.isNotEmpty) {
+      final communeRefs = await loadByCommune(codeInsee);
+      final e = _eligible(communeRefs);
+      if (e.length >= 3) { eligible = e; scope = 'commune'; }
+    }
+
+    if (eligible.isEmpty) {
+      final allRefs = await loadAll();
+      final e = _eligible(allRefs);
+      if (e.isNotEmpty) { eligible = e; scope = 'globale'; }
+    }
+
+    // Calcul du prix m² médian (toutes ventes, pas seulement celles avec estim)
+    final allScope = scope == 'commune'
+        ? await loadByCommune(codeInsee)
+        : await loadAll();
+    final prixM2List = allScope.map((r) => r.prixM2).where((p) => p > 0).toList()..sort();
+    final prixM2Med = _medianSorted(prixM2List);
+
+    if (eligible.isEmpty) {
+      return CalibrationSuggestion(
+        delta: 0,
+        nbVentes: allScope.length,  // affiche le nb total même sans données estim
+        scope: '',
+        prixM2Median: prixM2Med,
+      );
+    }
+
+    // Médiane des écarts
+    final ecarts = eligible.map((r) => r.ecartPct).toList()..sort();
+    final medianEcart = _medianSorted(ecarts);
+
+    // Clamp ±5 %, arrondi au 0,5 % le plus proche
+    final rawDelta = medianEcart.clamp(-5.0, 5.0);
+    final delta = (rawDelta * 2).round() / 2.0;
+
+    return CalibrationSuggestion(
+      delta: delta,
+      nbVentes: eligible.length,
+      scope: scope,
+      prixM2Median: prixM2Med,
+    );
+  }
+
+  static double _medianSorted(List<double> sorted) {
+    if (sorted.isEmpty) return 0;
+    final n = sorted.length;
+    return n.isOdd ? sorted[n ~/ 2] : (sorted[n ~/ 2 - 1] + sorted[n ~/ 2]) / 2;
   }
 }
