@@ -11,7 +11,8 @@ class Section1Screen extends StatefulWidget {
   final Estimation estimation;
   final ValueChanged<Estimation> onChanged;
   final VoidCallback onNext;
-  const Section1Screen({super.key, required this.estimation, required this.onChanged, required this.onNext});
+  final ValueChanged<int>? onStepTap;
+  const Section1Screen({super.key, required this.estimation, required this.onChanged, required this.onNext, this.onStepTap});
 
   @override
   State<Section1Screen> createState() => _Section1ScreenState();
@@ -78,6 +79,7 @@ class _Section1ScreenState extends State<Section1Screen> {
           step: 1,
           totalSteps: 7,
           onBack: () => Navigator.pop(context),
+          onStepTap: widget.onStepTap,
         ),
         Expanded(
           child: SingleChildScrollView(

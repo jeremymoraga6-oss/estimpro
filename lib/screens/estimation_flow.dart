@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
 import '../models/estimation.dart';
 import '../services/database_service.dart';
@@ -111,7 +112,10 @@ class _EstimationFlowState extends State<EstimationFlow> {
   }
 
   void _goToStep(int step) {
-    if (step >= 1 && step <= 7) setState(() => _step = step - 1);
+    if (step >= 1 && step <= 7) {
+      HapticFeedback.selectionClick();
+      setState(() => _step = step - 1);
+    }
   }
 
   void _finish() {
@@ -141,7 +145,7 @@ class _EstimationFlowState extends State<EstimationFlow> {
   Widget _buildStep() {
     switch (_step) {
       case 0:
-        return Section1Screen(estimation: _e, onChanged: _onChanged, onNext: _next);
+        return Section1Screen(estimation: _e, onChanged: _onChanged, onNext: _next, onStepTap: _goToStep);
       case 1:
         return Section2Screen(estimation: _e, onChanged: _onChanged, onNext: _next, onPrev: _prev, onStepTap: _goToStep);
       case 2:

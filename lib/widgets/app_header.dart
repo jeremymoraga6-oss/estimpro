@@ -106,8 +106,8 @@ class AppHeader extends StatelessWidget {
                         ? kGreen.withValues(alpha: 0.85)
                         : const Color(0xFF607D8B);
 
-                return GestureDetector(
-                  behavior: HitTestBehavior.opaque,
+                return InkWell(
+                  borderRadius: BorderRadius.circular(22),
                   onTap: !isCurrent && onStepTap != null ? () => onStepTap!(i + 1) : null,
                   child: SizedBox(
                     width: 44,
@@ -121,7 +121,9 @@ class AppHeader extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: circleColor,
                             shape: BoxShape.circle,
-                            border: isCurrent ? Border.all(color: Colors.white, width: 2) : null,
+                            border: isCurrent
+                                ? Border.all(color: Colors.white, width: 2)
+                                : Border.all(color: Colors.white24, width: 1),
                           ),
                           alignment: Alignment.center,
                           child: isDone
