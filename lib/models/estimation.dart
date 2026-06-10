@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'vendeur_note.dart';
 import '../services/georisques_service.dart';
 
@@ -130,6 +131,7 @@ class Estimation {
 
   // Terrain — valorisation excédentaire
   int terrainConstructibleM2; // m² du terrain jugés constructibles (0 = non précisé)
+  bool parcelleDivisible;     // parcelle potentiellement divisible (→ 280 €/m² au lieu de 100 €/m²)
 
   // Section 6 — Estimation
   double margeNegociation; // % marge pour prix de mandat (défaut 10%)
@@ -143,6 +145,13 @@ class Estimation {
   int ajustTravaux;
   int ajustParking; // € bonus/malus stationnement (négatif = malus sans parking)
   int ajustPiscine; // € prime piscine (calibrée 10 000–20 000€ selon état)
+  double ajustCalibration;   // % appliqué depuis la base locale
+  int calibrationNbVentes;   // nb ventes ayant servi au calcul
+  String calibrationScope;   // 'commune' | 'globale' | ''
+  // ── Tendance marché & actualisation des comparables ──────────────────────────
+  double tauxEvolutionAnnuel;   // %/an calculé via DvfTrend (0 = inconnu)
+  bool actualisationActive;     // toggle utilisateur (défaut true)
+  String trendInfo;             // ex: '2022→2025 · 142 ventes'
   double prixFinal;
   double fourchetteBasse;
   double fourchetteHaute;
@@ -278,9 +287,16 @@ class Estimation {
     this.ajustEnvironnement = 0,
     this.ajustConjoncture = -1, // marché Haute-Savoie 2026 : légère hausse, défaut prudent
     this.terrainConstructibleM2 = 0,
+    this.parcelleDivisible = false,
     this.ajustTravaux = 0,
     this.ajustParking = 0,
     this.ajustPiscine = 0,
+    this.ajustCalibration = 0,
+    this.calibrationNbVentes = 0,
+    this.calibrationScope = '',
+    this.tauxEvolutionAnnuel = 0,
+    this.actualisationActive = true,
+    this.trendInfo = '',
     this.prixFinal = 0,
     this.fourchetteBasse = 0,
     this.fourchetteHaute = 0,
@@ -323,11 +339,15 @@ class Estimation {
         diagnostics = diagnostics ?? {},
         documentsChecked = documentsChecked ?? {};
 
-  // Surface pondérée : balcon×50%, cave×20%, terrasse×30%
-  // Pondération annexes — convention métier 2026 (terrasse > balcon car plus utile)
-  // Source : pratique FNAIM, Hosman, Imop. Plafond habituel ~8 m² par annexe.
-  double get surfacePonderee =>
-      surfaceHabitable + surfaceBalcon * 0.4 + surfaceCave * 0.2 + surfaceTerrasse * 0.5;
+  // Surface pondérée : balcon×40%, cave×20%, terrasse×50%
+  // Plafonds métier (FNAIM 2026) : balcon 12 m², cave 15 m², terrasse 20 m²
+  // Au-delà du plafond, les m² supplémentaires ne sont plus pondérés.
+  double get surfacePonderee {
+    final b = math.min(surfaceBalcon, 12);
+    final c = math.min(surfaceCave, 15);
+    final t = math.min(surfaceTerrasse, 20);
+    return surfaceHabitable + b * 0.4 + c * 0.2 + t * 0.5;
+  }
 
   // Coefficients DPE — calibrés sur l'étude Notaires de France 2024
   // (les maisons subissent une décote plus forte que les appartements en F/G)
@@ -398,12 +418,42 @@ class Estimation {
   // Volontairement légèrement bas pour ne pas surévaluer en l'absence de comparable.
   static const double _fallbackPrixM2 = 4200;
 
-  double get prixMoyen {
+  /// Prix m² brut (médiane sans actualisation temporelle).
+  double get prixMoyenBrut {
     if (comparables.isEmpty) return _fallbackPrixM2;
     final prices = comparables
         .map<double>((c) => (c['prixM2'] as num?)?.toDouble() ?? 0)
         .where((p) => p > 0)
         .toList();
+    if (prices.isEmpty) return _fallbackPrixM2;
+    prices.sort();
+    return prices[prices.length ~/ 2];
+  }
+
+  /// Actualise un comparable au prix d'aujourd'hui selon la tendance communale.
+  double _prixM2Actualise(Map<String, dynamic> c) {
+    final brut = (c['prixM2'] as num?)?.toDouble() ?? 0;
+    if (brut <= 0) return 0;
+    if (!actualisationActive || tauxEvolutionAnnuel == 0) return brut;
+    DateTime? d;
+    final iso = c['dateIso']?.toString();
+    if (iso != null && iso.length >= 7) {
+      d = DateTime.tryParse(iso.length == 7 ? '$iso-01' : iso);
+    }
+    if (d == null) {
+      final match = RegExp(r'(20\d{2})').firstMatch(c['date']?.toString() ?? '');
+      if (match != null) d = DateTime(int.parse(match.group(1)!), 6);
+    }
+    if (d == null) return brut;
+    final annees =
+        (DateTime.now().difference(d).inDays / 365.25).clamp(0.0, 4.0);
+    return brut * math.pow(1 + tauxEvolutionAnnuel / 100, annees);
+  }
+
+  /// Prix m² médian actualisé à aujourd'hui (utilisé pour le calcul du prix de base).
+  double get prixMoyen {
+    if (comparables.isEmpty) return _fallbackPrixM2;
+    final prices = comparables.map(_prixM2Actualise).where((p) => p > 0).toList();
     if (prices.isEmpty) return _fallbackPrixM2;
     prices.sort();
     return prices[prices.length ~/ 2];
@@ -437,10 +487,14 @@ class Estimation {
   double get decoteSurface =>
       surfacePonderee <= 120 ? 0.0 : ((-(surfacePonderee - 120) / 10)).clamp(-8.0, 0.0);
 
-  // Ajustement étage appartement : RDC=-5%, intermédiaire=0%, dernier+ascenseur=+3%, dernier sans=+1%
+  // Ajustement étage appartement : RDC=-5%, rez-de-jardin=0%, intermédiaire=0%, dernier+ascenseur=+3%, dernier sans=+1%
+  // Un rez-de-jardin (RDC avec jardin privatif actif) neutralise la décote RDC.
   double get ajustEtageAuto {
     if (typeId != 'appartement') return 0.0;
-    if (etage == 0) return -5.0;
+    if (etage == 0) {
+      final hasJardin = (annexesActives['jardin'] ?? false) && jardinSurface > 0;
+      return hasJardin ? 0.0 : -5.0;
+    }
     if (dernierEtage) return ascenseur ? 3.0 : 1.0;
     return 0.0;
   }
@@ -451,10 +505,60 @@ class Estimation {
     return (-(chargesCopro - 2000) / 500).clamp(-6.0, 0.0);
   }
 
+  /// Décote locative modulée selon la situation occupationnelle.
+  /// - Libre : 0%
+  /// - Bail commercial : −25%
+  /// - Congé donné + fin bail ≤ 12 mois : −6%
+  /// - Congé donné : −8%
+  /// - Bail meublé : −10%
+  /// - Bail vide standard : −12%
+  double get decoteOccupation {
+    if (libreOccupation) return 0.0;
+    if (typeBail == 'Commercial') return -25.0;
+    if (congeLocataire) {
+      if (dateFinBail.isNotEmpty) {
+        final mtch = RegExp(r'^(\d{1,2})/(\d{4})$').firstMatch(dateFinBail);
+        if (mtch != null) {
+          final fin = DateTime(int.parse(mtch.group(2)!), int.parse(mtch.group(1)!));
+          if (fin.difference(DateTime.now()).inDays <= 365) return -6.0;
+        }
+      }
+      return -8.0;
+    }
+    if (typeBail == 'Meublé') return -10.0;
+    return -12.0;
+  }
+
+  /// Libellé lisible de la situation locative pour l'UI.
+  String get labelOccupation {
+    if (libreOccupation) return 'Bien libre';
+    final pct = decoteOccupation.toInt();
+    if (typeBail == 'Commercial') return 'Bail commercial ($pct%)';
+    if (congeLocataire && decoteOccupation == -6.0) return 'Congé < 12 mois ($pct%)';
+    if (congeLocataire) return 'Congé donné ($pct%)';
+    if (typeBail == 'Meublé') return 'Bail meublé ($pct%)';
+    return 'Bail vide standard ($pct%)';
+  }
+
+  /// Valorisation recommandée du stationnement (€) selon le type et le nombre de places.
+  /// Plafond : 3 places valorisées. Types : 'Intégré'/'Box fermé' → 15 000 €, 'Séparé' → 10 000 €, autre → 6 000 €.
+  int get recommendedAjustParking {
+    final hasGarage = annexesActives['garage'] ?? false;
+    final hasParking = annexesActives['parking'] ?? false;
+    if (!hasGarage && !hasParking) return 0;
+    final places = garagePlaces.clamp(0, 3);
+    if (places == 0) return 0;
+    final types = garageType.map((t) => t.toLowerCase()).toList();
+    if (types.any((t) => t.contains('intégré') || t.contains('box'))) return places * 15000;
+    if (types.any((t) => t.contains('séparé') || t.contains('separe'))) return places * 10000;
+    return places * 6000;
+  }
+
   // Prime terrain : valorise les m² au-delà de 500 m² standard (inclus dans le prix/m² DVF)
-  // Constructible : 100 €/m² | Non-constructible : 8 €/m² (calibré marché 74, décote liquidité ~60%)
+  // Constructible : 100 €/m² | Divisible constructible : 280 €/m² | Non-constructible : 8 €/m²
   static const _seuilTerrain = 500;
   static const _tauxConstructible = 100.0;
+  static const _tauxConstructibleDivisible = 280.0; // terrain à bâtir détachable
   static const _tauxNonConstructible = 8.0;
 
   double get primeTerrain {
@@ -462,7 +566,8 @@ class Estimation {
     final excedent = surfaceTerrain - _seuilTerrain;
     final constructible = terrainConstructibleM2.clamp(0, excedent);
     final nonConstructible = excedent - constructible;
-    return constructible * _tauxConstructible + nonConstructible * _tauxNonConstructible;
+    final tauxConstr = parcelleDivisible ? _tauxConstructibleDivisible : _tauxConstructible;
+    return constructible * tauxConstr + nonConstructible * _tauxNonConstructible;
   }
 
   double get prixMandat => (prixCalcule * (1 + margeNegociation / 100) / 1000).round() * 1000;
@@ -472,15 +577,80 @@ class Estimation {
   double get fraisNotaireAcquereur => prixMandat * 0.08;
   double get budgetTotalAcquereur => prixMandat + fraisNotaireAcquereur;
 
+  /// Somme de tous les ajustements en % (hors corrections monétaires travaux/parking/piscine).
+  double get totalPctAjustements =>
+      ajustVue + ajustEtat + ajustDpe + ajustExposition +
+      ajustEnvironnement + ajustConjoncture + decoteSurface + decoteOccupation +
+      ajustEtageAuto + decoteCharges + ajustCalibration;
+
   double get prixCalcule {
-    final occupPct = libreOccupation ? 0.0 : -12.0;
-    final totalPct = ajustVue + ajustEtat + ajustDpe + ajustExposition +
-        ajustEnvironnement + ajustConjoncture + decoteSurface + occupPct +
-        ajustEtageAuto + decoteCharges;
-    final impact = prixBase * totalPct / 100 - ajustTravaux + ajustParking + ajustPiscine + primeTerrain;
+    final impact = prixBase * totalPctAjustements / 100 - ajustTravaux + ajustParking + ajustPiscine + primeTerrain;
     final raw = prixBase + impact;
     return (raw / 1000).round() * 1000;
   }
+
+  /// Alias lisible pour le prix arrondi au millier le plus proche.
+  double get prixArrondi => prixCalcule;
+
+  // ── Fourchette dynamique & indice de confiance ───────────────────────────
+
+  /// Dispersion relative (IQR/médiane) des prix m² actualisés, en %.
+  double get dispersionComparables {
+    final prices =
+        comparables.map(_prixM2Actualise).where((p) => p > 0).toList()..sort();
+    if (prices.length < 3) return 0;
+    double q(double p) {
+      final pos = (prices.length - 1) * p;
+      final lo = pos.floor(), hi = pos.ceil();
+      return lo == hi
+          ? prices[lo]
+          : prices[lo] + (prices[hi] - prices[lo]) * (pos - lo);
+    }
+    final med = q(0.5);
+    return med > 0 ? (q(0.75) - q(0.25)) / med * 100 : 0;
+  }
+
+  /// Largeur de fourchette auto (%) — remplace le ±5% figé.
+  double get fourchettePctAuto {
+    final n = comparables.length;
+    final d = dispersionComparables;
+    if (d > 25 || n < 3) return 8;
+    if (d > 18) return 6;
+    if (n >= 8 && d < 10) return 3;
+    if (n >= 5 && d < 18) return 4;
+    return 5;
+  }
+
+  /// Fourchette basse dynamique (respecte la saisie manuelle si renseignée).
+  double get fourchetteBasseDyn => fourchetteBasse > 0
+      ? fourchetteBasse
+      : (prixCalcule * (1 - fourchettePctAuto / 100) / 1000).round() * 1000.0;
+
+  /// Fourchette haute dynamique (respecte la saisie manuelle si renseignée).
+  double get fourchetteHauteDyn => fourchetteHaute > 0
+      ? fourchetteHaute
+      : (prixCalcule * (1 + fourchettePctAuto / 100) / 1000).round() * 1000.0;
+
+  /// Score de confiance /100.
+  int get scoreConfiance {
+    final n = comparables.length;
+    final d = dispersionComparables;
+    // Critère 1 : nb comparables (/40)
+    int s = n >= 10 ? 40 : n >= 6 ? 30 : n >= 3 ? 18 : n >= 1 ? 8 : 0;
+    // Critère 2 : dispersion (/30) — seulement si ≥ 3 comparables
+    if (n >= 3) {
+      s += d < 10 ? 30 : d < 18 ? 20 : d < 25 ? 10 : 5;
+    }
+    // Critère 3 : tendance marché (+15)
+    if (tauxEvolutionAnnuel != 0 || trendInfo.isNotEmpty) s += 15;
+    // Critère 4 : calibration locale (+15)
+    if (calibrationNbVentes >= 3) s += 15;
+    return s.clamp(0, 100);
+  }
+
+  /// Niveau de confiance lisible.
+  String get niveauConfiance =>
+      scoreConfiance >= 75 ? 'Élevée' : scoreConfiance >= 45 ? 'Bonne' : 'Indicative';
 
   Map<String, dynamic> toMap() => {
         'id': id,
@@ -583,6 +753,7 @@ class Estimation {
         'ponderationPh': ponderationPh,
         'ponderationAnnonces': ponderationAnnonces,
         'terrainConstructibleM2': terrainConstructibleM2,
+        'parcelleDivisible': parcelleDivisible ? 1 : 0,
         'margeNegociation': margeNegociation,
         'tauxAgence': tauxAgence,
         'ajustVue': ajustVue,
@@ -594,6 +765,12 @@ class Estimation {
         'ajustTravaux': ajustTravaux,
         'ajustParking': ajustParking,
         'ajustPiscine': ajustPiscine,
+        'ajustCalibration': ajustCalibration,
+        'calibrationNbVentes': calibrationNbVentes,
+        'calibrationScope': calibrationScope,
+        'tauxEvolutionAnnuel': tauxEvolutionAnnuel,
+        'actualisationActive': actualisationActive ? 1 : 0,
+        'trendInfo': trendInfo,
         'prixFinal': prixFinal,
         'fourchetteBasse': fourchetteBasse,
         'fourchetteHaute': fourchetteHaute,
@@ -725,6 +902,7 @@ class Estimation {
       ponderationPh: m['ponderationPh'] as int? ?? 40,
       ponderationAnnonces: m['ponderationAnnonces'] as int? ?? 15,
       terrainConstructibleM2: m['terrainConstructibleM2'] as int? ?? 0,
+      parcelleDivisible: (m['parcelleDivisible'] as int? ?? 0) == 1,
       margeNegociation: (m['margeNegociation'] as num?)?.toDouble() ?? 10,
       tauxAgence: (m['tauxAgence'] as num?)?.toDouble() ?? 5.0,
       ajustVue: (m['ajustVue'] as num?)?.toDouble() ?? 0,
@@ -736,6 +914,12 @@ class Estimation {
       ajustTravaux: m['ajustTravaux'] ?? 0,
       ajustParking: m['ajustParking'] as int? ?? 0,
       ajustPiscine: m['ajustPiscine'] as int? ?? 0,
+      ajustCalibration: (m['ajustCalibration'] as num?)?.toDouble() ?? 0,
+      calibrationNbVentes: m['calibrationNbVentes'] as int? ?? 0,
+      calibrationScope: m['calibrationScope'] as String? ?? '',
+      tauxEvolutionAnnuel: (m['tauxEvolutionAnnuel'] as num?)?.toDouble() ?? 0,
+      actualisationActive: (m['actualisationActive'] as int? ?? 1) == 1,
+      trendInfo: m['trendInfo'] as String? ?? '',
       prixFinal: (m['prixFinal'] as num?)?.toDouble() ?? 0,
       fourchetteBasse: (m['fourchetteBasse'] as num?)?.toDouble() ?? 0,
       fourchetteHaute: (m['fourchetteHaute'] as num?)?.toDouble() ?? 0,
@@ -874,9 +1058,16 @@ class Estimation {
     double? ajustEnvironnement,
     double? ajustConjoncture,
     int? terrainConstructibleM2,
+    bool? parcelleDivisible,
     int? ajustTravaux,
     int? ajustParking,
     int? ajustPiscine,
+    double? ajustCalibration,
+    int? calibrationNbVentes,
+    String? calibrationScope,
+    double? tauxEvolutionAnnuel,
+    bool? actualisationActive,
+    String? trendInfo,
     double? prixFinal,
     double? fourchetteBasse,
     double? fourchetteHaute,
@@ -1000,9 +1191,16 @@ class Estimation {
       ajustEnvironnement: ajustEnvironnement ?? this.ajustEnvironnement,
       ajustConjoncture: ajustConjoncture ?? this.ajustConjoncture,
       terrainConstructibleM2: terrainConstructibleM2 ?? this.terrainConstructibleM2,
+      parcelleDivisible: parcelleDivisible ?? this.parcelleDivisible,
       ajustTravaux: ajustTravaux ?? this.ajustTravaux,
       ajustParking: ajustParking ?? this.ajustParking,
       ajustPiscine: ajustPiscine ?? this.ajustPiscine,
+      ajustCalibration: ajustCalibration ?? this.ajustCalibration,
+      calibrationNbVentes: calibrationNbVentes ?? this.calibrationNbVentes,
+      calibrationScope: calibrationScope ?? this.calibrationScope,
+      tauxEvolutionAnnuel: tauxEvolutionAnnuel ?? this.tauxEvolutionAnnuel,
+      actualisationActive: actualisationActive ?? this.actualisationActive,
+      trendInfo: trendInfo ?? this.trendInfo,
       prixFinal: prixFinal ?? this.prixFinal,
       fourchetteBasse: fourchetteBasse ?? this.fourchetteBasse,
       fourchetteHaute: fourchetteHaute ?? this.fourchetteHaute,

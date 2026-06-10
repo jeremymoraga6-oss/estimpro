@@ -39,6 +39,85 @@ class _Section6ScreenState extends State<Section6Screen> {
 
   void _update(Estimation e) { setState(() => _e = e); widget.onChanged(e); }
 
+  void _showConfianceSheet(BuildContext context) {
+    final e = _e;
+    final n = e.comparables.length;
+    final d = e.dispersionComparables;
+    final nPts = n >= 10 ? 40 : n >= 6 ? 30 : n >= 3 ? 18 : n >= 1 ? 8 : 0;
+    final dPts = n >= 3 ? (d < 10 ? 30 : d < 18 ? 20 : d < 25 ? 10 : 5) : 0;
+    final tPts = (e.tauxEvolutionAnnuel != 0 || e.trendInfo.isNotEmpty) ? 15 : 0;
+    final cPts = e.calibrationNbVentes >= 3 ? 15 : 0;
+    final Color confianceColor = e.niveauConfiance == 'Élevée'
+        ? kGreen
+        : e.niveauConfiance == 'Bonne'
+            ? const Color(0xFFE8A33D)
+            : kGrey;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(Icons.shield_outlined, color: confianceColor, size: 22),
+            const SizedBox(width: 10),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Indice de confiance', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: kCharcoal)),
+              Text('Comment est calculé ce score ?', style: const TextStyle(fontSize: 12, color: kGrey)),
+            ]),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(color: confianceColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
+              child: Text('${e.niveauConfiance} · ${e.scoreConfiance}/100',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: confianceColor)),
+            ),
+          ]),
+          const SizedBox(height: 20),
+          _ConfianceCritere(
+            label: 'Nombre de comparables DVF',
+            detail: '$n vente${n > 1 ? 's' : ''} sélectionnée${n > 1 ? 's' : ''}',
+            points: nPts, maxPoints: 40,
+            color: confianceColor,
+          ),
+          const SizedBox(height: 10),
+          _ConfianceCritere(
+            label: 'Homogénéité des prix',
+            detail: n >= 3 ? 'Dispersion : ${d.toStringAsFixed(1)} % (IQR/médiane)' : 'Trop peu de comparables',
+            points: dPts, maxPoints: 30,
+            color: confianceColor,
+          ),
+          const SizedBox(height: 10),
+          _ConfianceCritere(
+            label: 'Tendance marché intégrée',
+            detail: tPts > 0
+                ? '${e.tauxEvolutionAnnuel >= 0 ? '+' : ''}${e.tauxEvolutionAnnuel.toStringAsFixed(1)} %/an · ${e.trendInfo}'
+                : 'Non calculable — données DVF insuffisantes',
+            points: tPts, maxPoints: 15,
+            color: confianceColor,
+          ),
+          const SizedBox(height: 10),
+          _ConfianceCritere(
+            label: 'Calibration ventes locales',
+            detail: cPts > 0
+                ? '${e.calibrationNbVentes} ventes · ${e.calibrationScope}'
+                : 'Non appliquée',
+            points: cPts, maxPoints: 15,
+            color: confianceColor,
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Un score « Indicatif » n\'invalide pas l\'estimation — il signale simplement un marché peu documenté sur ce secteur.',
+            style: TextStyle(fontSize: 11, color: kGrey, height: 1.5, fontStyle: FontStyle.italic),
+          ),
+        ]),
+      ),
+    );
+  }
+
   String _fmt(double n) {
     final s = n.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
     return '$s €';
@@ -47,15 +126,12 @@ class _Section6ScreenState extends State<Section6Screen> {
   @override
   Widget build(BuildContext context) {
     final base = _e.prixBase;
-    final occupPct = _e.libreOccupation ? 0.0 : -12.0;
-    final totalPct = _e.ajustVue + _e.ajustEtat + _e.ajustDpe + _e.ajustExposition +
-        _e.ajustEnvironnement + _e.ajustConjoncture + _e.decoteSurface + occupPct +
-        _e.ajustEtageAuto + _e.decoteCharges;
-    final impact = base * totalPct / 100 - _e.ajustTravaux + _e.ajustParking + _e.primeTerrain;
+    final rounded = _e.prixCalcule; // source unique de vérité (inclut ajustCalibration)
+    final low = _e.fourchetteBasseDyn;
+    final high = _e.fourchetteHauteDyn;
+    final totalPct = _e.totalPctAjustements;
+    final impact = base * totalPct / 100 - _e.ajustTravaux + _e.ajustParking + _e.ajustPiscine + _e.primeTerrain;
     final raw = base + impact;
-    final rounded = (raw / 1000).round() * 1000.0;
-    final low = _e.fourchetteBasse > 0 ? _e.fourchetteBasse : (rounded * 0.95 / 1000).round() * 1000.0;
-    final high = _e.fourchetteHaute > 0 ? _e.fourchetteHaute : (rounded * 1.05 / 1000).round() * 1000.0;
 
     return Column(children: [
       AppHeader(title: 'Estimation', reference: _e.reference, step: 6, totalSteps: 7, onBack: widget.onPrev, onStepTap: widget.onStepTap),
@@ -108,6 +184,42 @@ class _Section6ScreenState extends State<Section6Screen> {
                     ]),
                   ),
                 ),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () => _showConfianceSheet(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.35), width: 1),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.shield_outlined, size: 11,
+                          color: _e.niveauConfiance == 'Élevée'
+                              ? Colors.white
+                              : _e.niveauConfiance == 'Bonne'
+                                  ? const Color(0xFFFFD27F)
+                                  : Colors.white70),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Confiance : ${_e.niveauConfiance} · ${_e.scoreConfiance}/100'
+                        '${_e.comparables.isNotEmpty ? ' · disp. ${_e.dispersionComparables.toStringAsFixed(0)} %' : ''}',
+                        style: TextStyle(
+                          fontSize: 10, fontWeight: FontWeight.w600,
+                          color: _e.niveauConfiance == 'Élevée'
+                              ? Colors.white
+                              : _e.niveauConfiance == 'Bonne'
+                                  ? const Color(0xFFFFD27F)
+                                  : Colors.white70,
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                      Icon(Icons.info_outline_rounded, size: 10,
+                          color: Colors.white.withValues(alpha: 0.6)),
+                    ]),
+                  ),
+                ),
               ]),
             ),
 
@@ -116,12 +228,46 @@ class _Section6ScreenState extends State<Section6Screen> {
               const CardTitleRow(icon: Icons.bar_chart_rounded, label: 'Prix de référence DVF'),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Prix médian constaté :', style: TextStyle(fontSize: 12, color: kGrey)),
-                  Text('Sur ${_e.comparables.length} ventes · Ayse et communes proches',
+                  const Text('Prix médian actualisé :', style: TextStyle(fontSize: 12, color: kGrey)),
+                  Text('Sur ${_e.comparables.length} ventes · ${_e.commune.isNotEmpty ? _e.commune : 'secteur'}',
                       style: const TextStyle(fontSize: 11, color: kLightGrey)),
                 ]),
-                Text('${_e.prixMoyen.round()} €/m²', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kGreen)),
+                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  Text('${_e.prixMoyen.round()} €/m²', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kGreen)),
+                  if (_e.actualisationActive && _e.tauxEvolutionAnnuel != 0 && _e.prixMoyen.round() != _e.prixMoyenBrut.round())
+                    Text('Brut : ${_e.prixMoyenBrut.round()} €/m²',
+                        style: const TextStyle(fontSize: 10, color: kLightGrey)),
+                ]),
               ]),
+              if (_e.tauxEvolutionAnnuel != 0 || _e.trendInfo.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Row(children: [
+                  Icon(
+                    _e.tauxEvolutionAnnuel > 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                    size: 12, color: _e.tauxEvolutionAnnuel > 0 ? kGreen : kRed,
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(child: Text(
+                    'Tendance : ${_e.tauxEvolutionAnnuel >= 0 ? '+' : ''}${_e.tauxEvolutionAnnuel.toStringAsFixed(1)} %/an · ${_e.trendInfo}',
+                    style: TextStyle(fontSize: 10, color: _e.tauxEvolutionAnnuel > 0 ? kGreen : kRed, fontWeight: FontWeight.w500),
+                  )),
+                ]),
+              ],
+              if (_e.tauxEvolutionAnnuel != 0) ...[
+                const SizedBox(height: 6),
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  const Text('Actualiser les comparables', style: TextStyle(fontSize: 11, color: kGrey)),
+                  Transform.scale(
+                    scale: 0.75,
+                    alignment: Alignment.centerRight,
+                    child: Switch(
+                      value: _e.actualisationActive,
+                      onChanged: (v) => _update(_e.copyWith(actualisationActive: v)),
+                      activeColor: kGreen,
+                    ),
+                  ),
+                ]),
+              ],
               const SizedBox(height: 8),
               Row(children: [
                 Text('Surface habitable : ${_e.surfaceHabitable} m²', style: const TextStyle(fontSize: 11, color: Color(0xFF95A5A6))),
@@ -183,7 +329,10 @@ class _Section6ScreenState extends State<Section6Screen> {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(color: const Color(0xFFF7F9F6), borderRadius: BorderRadius.circular(8)),
                 child: Column(children: [
-                  _PriceDetailRow('Prix m² médian DVF :', '${_e.prixMoyen.round()} €/m²'),
+                  _PriceDetailRow(
+                    'Prix m² médian DVF${_e.actualisationActive && _e.tauxEvolutionAnnuel != 0 ? ' (act.)' : ''} :',
+                    '${_e.prixMoyen.round()} €/m²',
+                  ),
                   _PriceDetailRow('Ajust. prestations :', '${_e.coefficientPrestations >= 0 ? '+' : ''}${_e.coefficientPrestations.toInt()}%'),
                   _PriceDetailRow('Prix m² retenu :', '${_e.prixM2Retenu.round()} €/m²', bold: true),
                   if (_e.ajustExposition != 0)
@@ -212,6 +361,44 @@ class _Section6ScreenState extends State<Section6Screen> {
                 _AdjLegend(color: kRed, label: 'Décote (−)'),
               ]),
               const SizedBox(height: 14),
+
+              // Triple levier — alerte si ≥ 2 facteurs dégradants cumulés
+              Builder(builder: (ctx) {
+                final nLeviers = [
+                  _e.coefficientPrestations <= -5,
+                  _e.ajustEtat <= -3,
+                  _e.ajustTravaux >= 15000,
+                ].where((b) => b).length;
+                if (nLeviers < 2) return const SizedBox.shrink();
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                  decoration: BoxDecoration(
+                    color: kAmber.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: kAmber.withOpacity(0.45)),
+                  ),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Icon(Icons.warning_amber_rounded, size: 16, color: kAmber),
+                    const SizedBox(width: 8),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('Triple levier dégradant détecté',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kAmber)),
+                      const SizedBox(height: 3),
+                      Text(
+                        '${nLeviers} facteurs cumulés : '
+                        '${[
+                          if (_e.coefficientPrestations <= -5) 'prestations très dégradées (${_e.coefficientPrestations.toInt()}%)',
+                          if (_e.ajustEtat <= -3) 'état/travaux (${_e.ajustEtat.toInt()}%)',
+                          if (_e.ajustTravaux >= 15000) 'budget travaux (${(_e.ajustTravaux / 1000).toInt()} k€)',
+                        ].join(' · ')}. '
+                        'Vérifiez que la décote globale reste cohérente avec le marché local.',
+                        style: const TextStyle(fontSize: 10.5, color: kAmber, height: 1.4),
+                      ),
+                    ])),
+                  ]),
+                );
+              }),
 
               _AdjRow(label: 'Vue dégagée', val: _e.ajustVue, min: 0, max: 8, base: base,
                   note: 'Vue montagne, lac ou panorama valorisant',
@@ -292,7 +479,10 @@ class _Section6ScreenState extends State<Section6Screen> {
                       '+${_fmt(_e.primeTerrain)}',
                     ),
                     if (_e.terrainConstructibleM2 > 0) ...[
-                      _PriceDetailRow('  Constructible :', '${_e.terrainConstructibleM2} m² × 80 €/m²'),
+                      _PriceDetailRow(
+                        '  Constructible${_e.parcelleDivisible ? ' (divisible)' : ''} :',
+                        '${_e.terrainConstructibleM2} m² × ${_e.parcelleDivisible ? 280 : 100} €/m²',
+                      ),
                       _PriceDetailRow('  Non-constructible :', '${_e.surfaceTerrain - 500 - _e.terrainConstructibleM2} m² × 8 €/m²'),
                     ] else
                       _PriceDetailRow('  Zone non précisée :', '${_e.surfaceTerrain - 500} m² × 8 €/m²'),
@@ -302,7 +492,8 @@ class _Section6ScreenState extends State<Section6Screen> {
               ],
 
               // Décotes automatiques (lecture seule)
-              if (!_e.libreOccupation || _e.decoteSurface < 0 || _e.ajustEtageAuto != 0 || _e.decoteCharges < 0) ...[
+              if (!_e.libreOccupation || _e.decoteSurface < 0 || _e.ajustEtageAuto != 0 || _e.decoteCharges < 0 ||
+                  (_e.etage == 0 && (_e.annexesActives['jardin'] ?? false) && _e.jardinSurface > 0)) ...[
                 const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -315,15 +506,24 @@ class _Section6ScreenState extends State<Section6Screen> {
                     const Text('DÉCOTES / BONUS AUTOMATIQUES', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF7A5800), letterSpacing: 0.8)),
                     const SizedBox(height: 6),
                     if (!_e.libreOccupation)
-                      _PriceDetailRow('Bien loué (occupation) :', '−12%'),
+                      _PriceDetailRow(
+                        'Occupation (${_e.typeBail}) :',
+                        '${_e.decoteOccupation.toInt()}%',
+                      ),
                     if (_e.decoteSurface < 0)
                       _PriceDetailRow(
                         'Grande surface (${_e.surfaceHabitable} m²) :',
                         '${_e.decoteSurface.toStringAsFixed(1)}%',
                       ),
-                    if (_e.ajustEtageAuto != 0)
+                    if (_e.ajustEtageAuto != 0 || (_e.etage == 0 && (_e.annexesActives['jardin'] ?? false) && _e.jardinSurface > 0))
                       _PriceDetailRow(
-                        _e.etage == 0 ? 'Rez-de-chaussée :' : _e.dernierEtage ? 'Dernier étage :' : 'Étage ${_e.etage} :',
+                        _e.etage == 0
+                            ? ((_e.annexesActives['jardin'] ?? false) && _e.jardinSurface > 0
+                                ? 'Rez-de-jardin :'
+                                : 'Rez-de-chaussée :')
+                            : _e.dernierEtage
+                                ? 'Dernier étage :'
+                                : 'Étage ${_e.etage} :',
                         '${_e.ajustEtageAuto >= 0 ? '+' : ''}${_e.ajustEtageAuto.toStringAsFixed(0)}%',
                       ),
                     if (_e.decoteCharges < 0)
@@ -385,6 +585,33 @@ class _Section6ScreenState extends State<Section6Screen> {
                 ),
                 const SizedBox(height: 4),
                 const Text('−8 000 € sans parking · +5 000 € avec parking supplémentaire', style: TextStyle(fontSize: 10, color: kLightGrey)),
+                // Suggestion parking automatique
+                Builder(builder: (ctx) {
+                  final rec = _e.recommendedAjustParking;
+                  if (rec == 0 || _e.ajustParking == rec) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: GestureDetector(
+                      onTap: () => _update(_e.copyWith(ajustParking: rec)),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: kGreen.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: kGreen.withOpacity(0.35)),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          const Icon(Icons.auto_fix_high_rounded, size: 11, color: kGreen),
+                          const SizedBox(width: 5),
+                          Text(
+                            'Conseillé : +${_fmt(rec.toDouble())} (${_e.garageType.isNotEmpty ? _e.garageType.join('/') : '${_e.garagePlaces} place${_e.garagePlaces > 1 ? 's' : ''}'}) — appuyer pour appliquer',
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: kGreen),
+                          ),
+                        ]),
+                      ),
+                    ),
+                  );
+                }),
               ]),
               const SizedBox(height: 14),
 
@@ -1733,7 +1960,7 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
   }
 }
 
-// ── Calibration locale (Ma base) ────────────────────────────────
+// ── Calibration locale — 3 états ────────────────────────────────
 class _CalibrationLocaleCard extends StatefulWidget {
   final Estimation estimation;
   final ValueChanged<Estimation> onChanged;
@@ -1744,7 +1971,9 @@ class _CalibrationLocaleCard extends StatefulWidget {
 }
 
 class _CalibrationLocaleCardState extends State<_CalibrationLocaleCard> {
-  Map<String, dynamic>? _calib;
+  static const _purple = Color(0xFF7B1FA2);
+
+  CalibrationSuggestion? _suggestion;
   bool _loading = true;
 
   @override
@@ -1761,128 +1990,237 @@ class _CalibrationLocaleCardState extends State<_CalibrationLocaleCard> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final c = await BaseLocaleService().getCalibration(widget.estimation.codeInsee);
-    if (mounted) setState(() { _calib = c; _loading = false; });
+    final s = await BaseLocaleService().getSuggestion(widget.estimation.codeInsee);
+    if (mounted) setState(() { _suggestion = s; _loading = false; });
+  }
+
+  void _apply() {
+    final s = _suggestion!;
+    widget.onChanged(widget.estimation.copyWith(
+      ajustCalibration: s.delta,
+      calibrationNbVentes: s.nbVentes,
+      calibrationScope: s.scope,
+    ));
+  }
+
+  void _reset() {
+    widget.onChanged(widget.estimation.copyWith(
+      ajustCalibration: 0,
+      calibrationNbVentes: 0,
+      calibrationScope: '',
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
     if (_loading) return const SizedBox.shrink();
-    final count = _calib?['count'] as int? ?? 0;
-    if (count == 0) return const SizedBox.shrink();
 
-    final countWithEstime = _calib?['countWithEstime'] as int? ?? 0;
-    final ecartMoyen = (_calib?['ecartMoyen'] as num?)?.toDouble() ?? 0.0;
-    final prixM2Moyen = (_calib?['prixM2Moyen'] as num?)?.toDouble() ?? 0.0;
-    final hasCalib = countWithEstime > 0 && ecartMoyen.abs() > 0.5;
+    final s = _suggestion;
+    final isApplied = widget.estimation.ajustCalibration != 0;
 
-    final calibColor = ecartMoyen > 3
-        ? kRed
-        : ecartMoyen < -3
-            ? kGreen
-            : kAmber;
+    // Pas de données du tout
+    if ((s == null || s.nbVentes == 0) && !isApplied) return const SizedBox.shrink();
 
-    // Suggestion d'ajustement conjoncture basée sur l'écart moyen
-    final suggestedDelta = -ecartMoyen.clamp(-4.0, 4.0);
+    // ── État B : calibration déjà appliquée ─────────────────────
+    if (isApplied) return _buildAppliedState();
 
+    // ── État A : suggestion disponible, non encore appliquée ────
+    if (s != null && s.hasData && s.delta.abs() >= 0.5) return _buildSuggestionState(s);
+
+    // ── État C : données présentes mais pas assez pour suggérer ─
+    if (s != null && s.nbVentes > 0) return _buildStatsOnlyState(s);
+
+    return const SizedBox.shrink();
+  }
+
+  // ── État A : suggestion à appliquer ──────────────────────────
+  Widget _buildSuggestionState(CalibrationSuggestion s) {
+    final deltaColor = s.delta > 0 ? kGreen : kRed;
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border(left: BorderSide(color: const Color(0xFF7B1FA2), width: 4)),
-        boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 2))],
-      ),
+      decoration: _cardDeco(),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          const Icon(Icons.bookmark_rounded, size: 16, color: Color(0xFF7B1FA2)),
-          const SizedBox(width: 8),
-          const Text('Calibration — Ma base locale', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal)),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-            decoration: BoxDecoration(color: const Color(0xFF7B1FA2).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-            child: Text('$count vente${count > 1 ? 's' : ''}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF7B1FA2))),
-          ),
-        ]),
+        _cardHeader('${s.nbVentes} vente${s.nbVentes > 1 ? 's' : ''}'),
         const SizedBox(height: 12),
-
-        // Stats
         Row(children: [
-          if (prixM2Moyen > 0) ...[
-            Expanded(child: _CalibStat(label: 'Prix m² moyen\n(mes ventes)', value: '${prixM2Moyen.round()} €/m²', color: const Color(0xFF7B1FA2))),
+          if (s.prixM2Median > 0) ...[
+            Expanded(child: _CalibStat(
+              label: 'Prix m² médian\n(${s.scope == 'commune' ? 'commune' : 'base globale'})',
+              value: '${s.prixM2Median.round()} €/m²',
+              color: _purple,
+            )),
             const SizedBox(width: 8),
           ],
-          if (hasCalib)
-            Expanded(child: _CalibStat(
-              label: 'Écart estimé/vendu\n($countWithEstime vente${countWithEstime > 1 ? 's' : ''})',
-              value: '${ecartMoyen >= 0 ? '+' : ''}${ecartMoyen.toStringAsFixed(1)}%',
-              color: calibColor,
-            )),
+          Expanded(child: _CalibStat(
+            label: 'Correction suggérée\n(${s.nbVentes} vente${s.nbVentes > 1 ? 's' : ''})',
+            value: '${s.delta >= 0 ? '+' : ''}${s.delta.toStringAsFixed(1)} %',
+            color: deltaColor,
+          )),
         ]),
-
-        if (hasCalib) ...[
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: calibColor.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: calibColor.withValues(alpha: 0.25)),
-            ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Icon(
-                  ecartMoyen > 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                  size: 14, color: calibColor,
-                ),
-                const SizedBox(width: 6),
-                Expanded(child: Text(
-                  ecartMoyen > 3
-                      ? 'Tendance : vos estimations sont en dessous du marché réel sur ce secteur.'
-                      : ecartMoyen < -3
-                          ? 'Tendance : vos estimations sont au-dessus du marché réel sur ce secteur.'
-                          : 'Estimations calibrées — écart moyen faible sur ce secteur.',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: calibColor),
-                )),
-              ]),
-              if (ecartMoyen.abs() > 2) ...[
-                const SizedBox(height: 8),
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Expanded(child: Text(
-                    'Ajustement suggéré sur la conjoncture : '
-                    '${suggestedDelta >= 0 ? '+' : ''}${suggestedDelta.toStringAsFixed(1)}%',
-                    style: TextStyle(fontSize: 11, color: calibColor),
-                  )),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () {
-                      final newConj = (widget.estimation.ajustConjoncture + suggestedDelta).clamp(-8.0, 2.0);
-                      widget.onChanged(widget.estimation.copyWith(ajustConjoncture: newConj));
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: calibColor,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text('Appliquer', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
-                    ),
-                  ),
-                ]),
-              ],
-            ]),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: deltaColor.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: deltaColor.withValues(alpha: 0.25)),
           ),
-        ],
-        const SizedBox(height: 4),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Icon(s.delta > 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                  size: 14, color: deltaColor),
+              const SizedBox(width: 6),
+              Expanded(child: Text(
+                s.delta > 0
+                    ? 'Vos estimations tendent à être en dessous des ventes réelles.'
+                    : 'Vos estimations tendent à être au-dessus des ventes réelles.',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: deltaColor),
+              )),
+            ]),
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(child: Text(
+                'Correction locale : ${s.delta >= 0 ? '+' : ''}${s.delta.toStringAsFixed(1)} % · '
+                '${s.scope == 'commune' ? widget.estimation.commune.isNotEmpty ? widget.estimation.commune : 'commune' : 'base globale'}',
+                style: TextStyle(fontSize: 11, color: deltaColor),
+              )),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: _apply,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(color: deltaColor, borderRadius: BorderRadius.circular(8)),
+                  child: const Text('Appliquer', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+                ),
+              ),
+            ]),
+          ]),
+        ),
+        const SizedBox(height: 6),
         Text(
-          'Basé sur vos ${count} vente${count > 1 ? 's' : ''} enregistrées · ${widget.estimation.commune.isNotEmpty ? widget.estimation.commune : 'ce secteur'}',
+          'Médiane sur ${s.nbVentes} vente${s.nbVentes > 1 ? 's' : ''} avec estimation · outliers > 20 % exclus',
           style: const TextStyle(fontSize: 10, color: kLightGrey, fontStyle: FontStyle.italic),
         ),
       ]),
     );
   }
+
+  // ── État B : calibration déjà appliquée ──────────────────────
+  Widget _buildAppliedState() {
+    final delta = widget.estimation.ajustCalibration;
+    final nb = widget.estimation.calibrationNbVentes;
+    final scope = widget.estimation.calibrationScope;
+    final deltaColor = delta > 0 ? kGreen : delta < 0 ? kRed : kGrey;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: _cardDeco(),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.bookmark_rounded, size: 16, color: _purple),
+          const SizedBox(width: 8),
+          const Text('Calibration — Ma base locale',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal)),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            decoration: BoxDecoration(
+                color: kGreen.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.check_circle_outline_rounded, size: 12, color: kGreen),
+              const SizedBox(width: 4),
+              const Text('Appliqué', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kGreen)),
+            ]),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: deltaColor.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: deltaColor.withValues(alpha: 0.25)),
+          ),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(
+                '${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(1)} % intégré à l\'estimation',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: deltaColor),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                nb > 0
+                    ? '$nb vente${nb > 1 ? 's' : ''} · ${scope.isNotEmpty ? scope : 'base locale'}'
+                    : 'base locale',
+                style: const TextStyle(fontSize: 10, color: kGrey),
+              ),
+            ]),
+            GestureDetector(
+              onTap: _reset,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: kLightGrey.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: kLightGrey.withValues(alpha: 0.4)),
+                ),
+                child: const Text('Réinitialiser',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kGrey)),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  // ── État C : prix m² dispo mais pas assez de ventes avec estim ──
+  Widget _buildStatsOnlyState(CalibrationSuggestion s) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: _cardDeco(),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _cardHeader('${s.nbVentes} vente${s.nbVentes > 1 ? 's' : ''}'),
+        const SizedBox(height: 12),
+        if (s.prixM2Median > 0) ...[
+          _CalibStat(
+            label: 'Prix m² médian (mes ventes)',
+            value: '${s.prixM2Median.round()} €/m²',
+            color: _purple,
+          ),
+          const SizedBox(height: 8),
+        ],
+        const Text(
+          'Ajoutez un prix estimé à vos références locales pour activer la calibration automatique.',
+          style: TextStyle(fontSize: 10, color: kLightGrey, fontStyle: FontStyle.italic),
+        ),
+      ]),
+    );
+  }
+
+  BoxDecoration _cardDeco() => BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: const Border(left: BorderSide(color: _purple, width: 4)),
+        boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 2))],
+      );
+
+  Widget _cardHeader(String badge) => Row(children: [
+        const Icon(Icons.bookmark_rounded, size: 16, color: _purple),
+        const SizedBox(width: 8),
+        const Text('Calibration — Ma base locale',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal)),
+        const Spacer(),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          decoration: BoxDecoration(
+              color: _purple.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(6)),
+          child: Text(badge,
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: _purple)),
+        ),
+      ]);
 }
 
 class _CalibStat extends StatelessWidget {
@@ -2413,5 +2751,62 @@ class _FactureCardState extends State<_FactureCard> {
     final euros = parts[0].replaceAllMapped(
         RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ');
     return '$euros,${parts[1]} €';
+  }
+}
+
+// ── Critère d'indice de confiance (bottom sheet) ─────────────────
+class _ConfianceCritere extends StatelessWidget {
+  final String label;
+  final String detail;
+  final int points;
+  final int maxPoints;
+  final Color color;
+  const _ConfianceCritere({
+    required this.label,
+    required this.detail,
+    required this.points,
+    required this.maxPoints,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final active = points > 0;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: active ? color.withValues(alpha: 0.06) : const Color(0xFFF5F5F5),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+            color: active ? color.withValues(alpha: 0.25) : const Color(0xFFE0E0E0)),
+      ),
+      child: Row(children: [
+        Icon(
+          active ? Icons.check_circle_outline_rounded : Icons.radio_button_unchecked_rounded,
+          size: 16, color: active ? color : kLightGrey,
+        ),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: TextStyle(
+              fontSize: 12, fontWeight: FontWeight.w700,
+              color: active ? kCharcoal : kGrey)),
+          const SizedBox(height: 1),
+          Text(detail, style: TextStyle(
+              fontSize: 10, color: active ? kGrey : kLightGrey, height: 1.3)),
+        ])),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+              color: active ? color.withValues(alpha: 0.12) : const Color(0xFFEEEEEE),
+              borderRadius: BorderRadius.circular(6)),
+          child: Text(
+            '$points / $maxPoints',
+            style: TextStyle(
+                fontSize: 11, fontWeight: FontWeight.w800,
+                color: active ? color : kLightGrey),
+          ),
+        ),
+      ]),
+    );
   }
 }

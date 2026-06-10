@@ -158,6 +158,18 @@ class _Section2ScreenState extends State<Section2Screen> {
                   Expanded(child: _AnnexeField(label: 'Terrasse', controller: _terrasseCtrl,
                       onChanged: (v) => _update(_e.copyWith(surfaceTerrasse: v)))),
                 ]),
+                // Avertissement plafonds pondération
+                if (_e.surfaceBalcon > 12 || _e.surfaceCave > 15 || _e.surfaceTerrasse > 20) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    [
+                      if (_e.surfaceBalcon > 12) 'Balcon : plafond 12 m²',
+                      if (_e.surfaceCave > 15) 'Cave : plafond 15 m²',
+                      if (_e.surfaceTerrasse > 20) 'Terrasse : plafond 20 m²',
+                    ].join('  ·  ') + ' — surplus non pondéré',
+                    style: const TextStyle(fontSize: 10, color: kAmber, fontStyle: FontStyle.italic),
+                  ),
+                ],
                 if (_e.surfacePonderee > _e.surfaceHabitable) ...[
                   const SizedBox(height: 10),
                   Container(
@@ -810,12 +822,33 @@ class _TerrainConstructibleWidgetState extends State<_TerrainConstructibleWidget
             Text('/ $excedent m²', style: const TextStyle(fontSize: 12, color: kGrey)),
           ]),
           const SizedBox(height: 4),
-          Text('Constructible × 80 €/m²  ·  Non-constructible × 8 €/m²',
-              style: const TextStyle(fontSize: 10, color: kLightGrey, fontStyle: FontStyle.italic)),
+          Text(
+            'Constructible × ${e.parcelleDivisible ? 280 : 100} €/m²  ·  Non-constructible × 8 €/m²',
+            style: const TextStyle(fontSize: 10, color: kLightGrey, fontStyle: FontStyle.italic),
+          ),
         ] else ...[
           const Text('Non précisé → 8 €/m² (zone agricole / naturelle)',
               style: TextStyle(fontSize: 10, color: kLightGrey, fontStyle: FontStyle.italic)),
         ],
+        const SizedBox(height: 10),
+        // Parcelle divisible
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          const Flexible(child: Text('Parcelle potentiellement divisible', style: TextStyle(fontSize: 12, color: kCharcoal))),
+          Transform.scale(
+            scale: 0.85,
+            alignment: Alignment.centerRight,
+            child: Switch(
+              value: e.parcelleDivisible,
+              activeColor: kGreen,
+              onChanged: (v) => widget.onChanged(e.copyWith(parcelleDivisible: v)),
+            ),
+          ),
+        ]),
+        if (e.parcelleDivisible)
+          const Text(
+            'Terrain à bâtir détachable → 280 €/m² (vs 100 €/m² non divisible)',
+            style: TextStyle(fontSize: 10, color: kGreen, fontStyle: FontStyle.italic),
+          ),
         if (prime > 0) ...[
           const SizedBox(height: 8),
           Container(

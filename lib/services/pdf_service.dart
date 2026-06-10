@@ -868,6 +868,7 @@ class PdfService {
         rows.add(_row('Fin du bail', e.dateFinBail));
       if (e.congeLocataire)
         rows.add(_row('Conge locataire', 'Oui - bien libre a echeance'));
+      rows.add(_row('Decote occupation', '${e.decoteOccupation.toInt()}%'));
     }
     return _card('ETAT & EQUIPEMENTS', rows);
   }
@@ -883,12 +884,15 @@ class PdfService {
       rows.add(_row('Surface', '${e.surfaceTerrain} m²'));
 
     if (e.terrainConstructibleM2 > 0) {
-      rows.add(_row('Constructible', '${e.terrainConstructibleM2} m²'));
+      rows.add(_row('Constructible',
+          '${e.terrainConstructibleM2} m²${e.parcelleDivisible ? ' (divisible - 280 EUR/m2)' : ''}'));
       if (e.terrainCos > 0)
         rows.add(_row('COS / CES', '${e.terrainCos} → SHON max ≈ ${(e.surfaceTerrain * e.terrainCos).round()} m²'));
     } else {
       rows.add(_row('Constructible', 'Non précisé'));
     }
+    if (e.parcelleDivisible)
+      rows.add(_row('Parcelle', 'Potentiellement divisible'));
 
     if (e.viabilisation.isNotEmpty)
       rows.add(_row('Viabilisation', e.viabilisation.join(', ')));
@@ -1156,9 +1160,28 @@ class PdfService {
       rows.add(pw.SizedBox(height: 10));
     }
 
-    rows.add(_row('Médiane DVF (${e.comparables.length} ventes)',
-        fmtM2(e.prixMoyen),
-        bold: true));
+    rows.add(_row(
+      e.actualisationActive && e.tauxEvolutionAnnuel != 0
+          ? 'Médiane DVF actualisée (${e.comparables.length} ventes)'
+          : 'Médiane DVF (${e.comparables.length} ventes)',
+      fmtM2(e.prixMoyen),
+      bold: true,
+    ));
+    if (e.actualisationActive && e.tauxEvolutionAnnuel != 0) {
+      rows.add(pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 4),
+        child: pw.Text(
+          'Les prix des comparables ont été actualisés à la tendance du marché communal : '
+          '${e.tauxEvolutionAnnuel >= 0 ? '+' : ''}${e.tauxEvolutionAnnuel.toStringAsFixed(1)} %/an '
+          '(médiane DVF · ${e.trendInfo}).',
+          style: pw.TextStyle(
+              fontSize: 8,
+              color: PdfColors.grey600,
+              fontStyle: pw.FontStyle.italic,
+              lineSpacing: 1.3),
+        ),
+      ));
+    }
     if (e.prixPricehubble > 0) {
       rows.add(_row(
         'PriceHubble (pondération ${e.ponderationPh}%)',
@@ -1242,12 +1265,29 @@ class PdfService {
         _row('Sans stationnement', '-${fmt((-e.ajustParking).toDouble())}'),
       if (e.ajustParking > 0)
         _row('Parking supplémentaire', '+${fmt(e.ajustParking.toDouble())}'),
+      if (!e.libreOccupation)
+        _row('Occupation (${e.typeBail})', '${e.decoteOccupation.toInt()}%'),
+      if (e.ajustEtageAuto != 0)
+        _row(
+          e.etage == 0
+              ? ((e.annexesActives['jardin'] ?? false) && e.jardinSurface > 0 ? 'Rez-de-jardin' : 'Rez-de-chaussee')
+              : e.dernierEtage ? 'Dernier etage' : 'Etage ${e.etage}',
+          '${e.ajustEtageAuto >= 0 ? '+' : ''}${e.ajustEtageAuto.toInt()}%',
+        ),
       if (e.ajustPiscine > 0)
         _row('Prime piscine', '+${fmt(e.ajustPiscine.toDouble())}'),
       if (e.primeTerrain > 0)
-        _row('Prime terrain (>500 m²)', '+${fmt(e.primeTerrain)}'),
+        _row(
+          'Prime terrain (>500 m²)${e.parcelleDivisible ? ' divisible' : ''}',
+          '+${fmt(e.primeTerrain)}',
+        ),
       if (e.ajustTravaux > 0)
         _row('Travaux', '-${fmt(e.ajustTravaux.toDouble())}'),
+      if (e.ajustCalibration != 0)
+        _row(
+          'Calibration base locale (${e.calibrationNbVentes} vente${e.calibrationNbVentes > 1 ? 's' : ''})',
+          '${e.ajustCalibration >= 0 ? '+' : ''}${e.ajustCalibration.toStringAsFixed(1)} %',
+        ),
       pw.Padding(
         padding: const pw.EdgeInsets.symmetric(vertical: 6),
         child: pw.Container(height: 0.5, color: PdfColors.grey300),
@@ -1258,6 +1298,31 @@ class PdfService {
           bold: true),
       _row('Fourchette', '${fmt(low)} — ${fmt(high)}'),
       _row('Validité', _fmtDate(e.validiteJusquau)),
+      pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(vertical: 6),
+        child: pw.Container(height: 0.5, color: PdfColors.grey300),
+      ),
+      _row('Indice de confiance',
+          '${e.niveauConfiance} (${e.scoreConfiance}/100)', bold: true),
+      pw.Padding(
+        padding: const pw.EdgeInsets.only(top: 2, bottom: 4),
+        child: pw.Text(
+          [
+            '${e.comparables.length} comparable${e.comparables.length > 1 ? 's' : ''}',
+            if (e.dispersionComparables > 0)
+              'dispersion ${e.dispersionComparables.toStringAsFixed(0)} %',
+            if (e.tauxEvolutionAnnuel != 0 || e.trendInfo.isNotEmpty)
+              'tendance marché intégrée',
+            if (e.calibrationNbVentes >= 3)
+              'calibration ${e.calibrationNbVentes} ventes locales',
+          ].join(' · '),
+          style: pw.TextStyle(
+              fontSize: 8,
+              color: PdfColors.grey600,
+              fontStyle: pw.FontStyle.italic,
+              lineSpacing: 1.3),
+        ),
+      ),
     ]);
   }
 
