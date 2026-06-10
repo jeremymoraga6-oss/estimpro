@@ -8,6 +8,7 @@ import '../widgets/shared.dart';
 import '../widgets/app_header.dart';
 import '../services/pdf_service.dart';
 import '../services/zip_service.dart';
+import '../models/carnet_note.dart';
 import 'annonce_ia_screen.dart';
 
 const _maxPhotos = 10;
@@ -328,6 +329,9 @@ class _Section7ScreenState extends State<Section7Screen> {
               ),
             ),
 
+            // Carnet de visite (lecture)
+            _CarnetCard(notes: _e.carnetNotes),
+
             const SizedBox(height: 16),
           ]),
         ),
@@ -474,4 +478,175 @@ class _PdfPreview extends StatelessWidget {
     const months = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
     return '${d.day} ${months[d.month - 1]} ${d.year}';
   }
+}
+
+// ── Carte carnet de visite (lecture seule, dépliable) ─────────────────────────
+
+class _CarnetCard extends StatefulWidget {
+  final List<CarnetNote> notes;
+  const _CarnetCard({required this.notes});
+
+  @override
+  State<_CarnetCard> createState() => _CarnetCardState();
+}
+
+class _CarnetCardState extends State<_CarnetCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.notes.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      decoration: kCardDecoration(),
+      clipBehavior: Clip.antiAlias,
+      child: Column(children: [
+        // En-tête dépliable
+        InkWell(
+          onTap: () => setState(() => _expanded = !_expanded),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(children: [
+              const Text('📓', style: TextStyle(fontSize: 18)),
+              const SizedBox(width: 8),
+              const Text('Carnet de visite',
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: kCharcoal)),
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: kGreen.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${widget.notes.length} note${widget.notes.length > 1 ? 's' : ''}',
+                  style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: kGreen),
+                ),
+              ),
+              const Spacer(),
+              Icon(
+                _expanded ? Icons.expand_less : Icons.expand_more,
+                color: kLightGrey,
+                size: 20,
+              ),
+            ]),
+          ),
+        ),
+
+        // Liste des notes
+        AnimatedCrossFade(
+          firstChild: const SizedBox.shrink(),
+          secondChild: Column(
+            children: widget.notes.map((note) {
+              final time =
+                  '${note.timestamp.hour.toString().padLeft(2, '0')}:${note.timestamp.minute.toString().padLeft(2, '0')}';
+              return Container(
+                margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8F8F8),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border(
+                    left: BorderSide(color: note.sectionColor, width: 3),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: note.sectionColor.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: Text(note.sectionLabel,
+                            style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: note.sectionColor)),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(time,
+                          style: const TextStyle(
+                              fontSize: 10, color: kLightGrey)),
+                      if (note.hasSketch) ...[
+                        const SizedBox(width: 6),
+                        const Icon(Icons.draw_outlined,
+                            size: 12, color: kLightGrey),
+                      ],
+                    ]),
+                    if (note.hasText) ...[
+                      const SizedBox(height: 5),
+                      Text(note.texte,
+                          style: const TextStyle(
+                              fontSize: 12, color: kCharcoal, height: 1.5)),
+                    ],
+                    if (note.hasSketch) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFFEEEEEE)),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: CustomPaint(
+                            painter: _MiniStrokePainter(
+                                strokes: note.strokes),
+                            size: Size.infinite,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+          crossFadeState:
+              _expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 200),
+        ),
+      ]),
+    );
+  }
+}
+
+class _MiniStrokePainter extends CustomPainter {
+  final List<List<Offset>> strokes;
+  const _MiniStrokePainter({required this.strokes});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = kGreen
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    for (final stroke in strokes) {
+      if (stroke.isEmpty) continue;
+      final path = Path();
+      bool first = true;
+      for (final pt in stroke) {
+        if (first) { path.moveTo(pt.dx, pt.dy); first = false; }
+        else { path.lineTo(pt.dx, pt.dy); }
+      }
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_MiniStrokePainter old) => false;
 }

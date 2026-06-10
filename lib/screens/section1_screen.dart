@@ -4,7 +4,6 @@ import '../theme.dart';
 import '../models/estimation.dart';
 import '../widgets/shared.dart';
 import '../widgets/app_header.dart';
-import '../widgets/mes_notes.dart';
 import '../widgets/adresse_field.dart';
 
 class Section1Screen extends StatefulWidget {
@@ -39,9 +38,7 @@ class _Section1ScreenState extends State<Section1Screen> {
     _emailCtrl = TextEditingController(text: _e.proprietaireEmail);
     _prixAchatCtrl = TextEditingController(text: _e.prixAchat > 0 ? _e.prixAchat.toString() : '');
     _anneeAchatCtrl = TextEditingController(text: _e.anneeAchat > 0 ? _e.anneeAchat.toString() : '');
-    _notesCtrl = TextEditingController(
-      text: (_e.notes['section1']?['general'] as String?) ?? '',
-    );
+    _notesCtrl = TextEditingController(text: _e.observationsBien);
   }
 
   @override
@@ -53,17 +50,11 @@ class _Section1ScreenState extends State<Section1Screen> {
   }
 
   void _save() {
-    // Fusionne les notes générales dans la map notes existante
-    final notesMap = Map<String, Map<String, dynamic>>.from(_e.notes);
-    final s1 = Map<String, dynamic>.from(notesMap['section1'] ?? {});
-    s1['general'] = _notesCtrl.text;
-    notesMap['section1'] = s1;
-
     final updated = _e.copyWith(
       proprietaireNom: _nomCtrl.text,
       proprietaireTel: _telCtrl.text,
       proprietaireEmail: _emailCtrl.text,
-      notes: notesMap,
+      observationsBien: _notesCtrl.text,
     );
     setState(() => _e = updated);
     widget.onChanged(updated);
@@ -197,16 +188,6 @@ class _Section1ScreenState extends State<Section1Screen> {
                   style: const TextStyle(fontSize: 13, color: kCharcoal),
                 ),
 
-                MesNotes(
-                  sectionKey: 'section1',
-                  initialData: _e.notes['section1'] ?? {},
-                  onChanged: (data) {
-                    final notes = Map<String, Map<String, dynamic>>.from(_e.notes);
-                    notes['section1'] = data;
-                    _e = _e.copyWith(notes: notes);
-                    _save();
-                  },
-                ),
               ])),
 
               // Propriétaire

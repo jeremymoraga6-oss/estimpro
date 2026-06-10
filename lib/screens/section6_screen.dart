@@ -4,7 +4,6 @@ import '../models/estimation.dart';
 import '../models/facture.dart';
 import '../widgets/shared.dart';
 import '../widgets/app_header.dart';
-import '../widgets/mes_notes.dart';
 import '../widgets/star_rating.dart';
 import '../services/base_locale_service.dart';
 import '../services/facture_service.dart';
@@ -833,10 +832,6 @@ class _Section6ScreenState extends State<Section6Screen> {
                 ]),
               ),
 
-              MesNotes(sectionKey: 'section6', initialData: _e.notes['section6'] ?? {}, onChanged: (data) {
-                final n = Map<String, Map<String, dynamic>>.from(_e.notes); n['section6'] = data;
-                _update(_e.copyWith(notes: n, prixFinal: rounded, fourchetteBasse: low, fourchetteHaute: high));
-              }),
             ])),
 
             const SizedBox(height: 16),

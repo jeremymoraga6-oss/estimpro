@@ -13,6 +13,7 @@ import 'section6_screen.dart';
 import 'section7_screen.dart';
 import 'note_vocale_screen.dart';
 import '../services/voice_service.dart';
+import '../widgets/carnet_visite.dart';
 
 class EstimationFlow extends StatefulWidget {
   final Estimation? existing;
@@ -128,16 +129,48 @@ class _EstimationFlowState extends State<EstimationFlow> {
     return Scaffold(
       resizeToAvoidBottomInset: true,
       body: SafeArea(child: _buildStep()),
-      floatingActionButton: _MicFab(
-        hasNote: _e.notesVendeur != null,
-        onTap: () async {
-          final note = await showNoteVocaleSheet(
-            context,
-            _e.notesVendeur,
-            onApplyBien: _applyBienExtraction,
-          );
-          if (note != null) await _onChanged(_e.copyWith(notesVendeur: note));
-        },
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Carnet de visite
+          FloatingActionButton.small(
+            heroTag: 'carnet',
+            tooltip: 'Carnet de visite',
+            backgroundColor: _e.carnetNotes.isNotEmpty
+                ? kGreen
+                : const Color(0xFF37474F),
+            onPressed: () => showCarnetVisite(context, _e, _step, (updated) {
+              setState(() => _e = updated);
+              _db.saveEstimation(updated);
+            }),
+            child: Stack(alignment: Alignment.center, children: [
+              const Icon(Icons.menu_book_rounded,
+                  color: Colors.white, size: 18),
+              if (_e.carnetNotes.isNotEmpty)
+                Positioned(
+                  top: 3, right: 3,
+                  child: Container(
+                    width: 7, height: 7,
+                    decoration: const BoxDecoration(
+                        color: Colors.white, shape: BoxShape.circle),
+                  ),
+                ),
+            ]),
+          ),
+          const SizedBox(height: 8),
+          // Note vocale vendeur (inchangée)
+          _MicFab(
+            hasNote: _e.notesVendeur != null,
+            onTap: () async {
+              final note = await showNoteVocaleSheet(
+                context,
+                _e.notesVendeur,
+                onApplyBien: _applyBienExtraction,
+              );
+              if (note != null) await _onChanged(_e.copyWith(notesVendeur: note));
+            },
+          ),
+        ],
       ),
     );
   }

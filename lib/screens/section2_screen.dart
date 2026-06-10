@@ -4,7 +4,6 @@ import '../theme.dart';
 import '../models/estimation.dart';
 import '../widgets/shared.dart';
 import '../widgets/app_header.dart';
-import '../widgets/mes_notes.dart';
 import '../widgets/star_rating.dart';
 import '../services/dpe_ocr_service.dart';
 
@@ -213,10 +212,6 @@ class _Section2ScreenState extends State<Section2Screen> {
                 ),
               ],
 
-              MesNotes(sectionKey: 'section2', initialData: _e.notes['section2'] ?? {}, onChanged: (data) {
-                final n = Map<String, Map<String, dynamic>>.from(_e.notes); n['section2'] = data;
-                _update(_e.copyWith(notes: n));
-              }),
             ])),
 
             // Caractéristiques du terrain — visible uniquement pour typeId == 'terrain'

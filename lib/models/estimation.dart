@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 import 'vendeur_note.dart';
+import 'carnet_note.dart';
 import '../services/georisques_service.dart';
 
 class Estimation {
@@ -173,8 +174,11 @@ class Estimation {
   // Détail surfaces par pièce [{nom: 'Séjour', surface: 30.0}, ...]
   List<Map<String, dynamic>> piecesSurfaces;
 
-  // Notes par section
-  Map<String, Map<String, dynamic>> notes;
+  // Observations libres section 1
+  String observationsBien;
+
+  // Carnet de visite : liste des notes multi-sections
+  List<CarnetNote> carnetNotes;
 
   // Documents cochés pour la mise en vente
   Map<String, bool> documentsChecked;
@@ -307,7 +311,8 @@ class Estimation {
     this.notesVendeur,
     List<Map<String, dynamic>>? historique,
     List<Map<String, dynamic>>? piecesSurfaces,
-    Map<String, Map<String, dynamic>>? notes,
+    this.observationsBien = '',
+    List<CarnetNote>? carnetNotes,
     Map<String, bool>? documentsChecked,
   })  : historique = historique ?? [],
         equipements = equipements ?? [],
@@ -335,7 +340,7 @@ class Estimation {
         validiteJusquau =
             validiteJusquau ?? DateTime.now().add(const Duration(days: 365)),
         photosPaths = photosPaths ?? [],
-        notes = notes ?? {},
+        carnetNotes = carnetNotes ?? [],
         diagnostics = diagnostics ?? {},
         documentsChecked = documentsChecked ?? {};
 
@@ -779,7 +784,8 @@ class Estimation {
         'notesVendeur': notesVendeur != null ? jsonEncode(notesVendeur!.toMap()) : null,
         'historique': jsonEncode(historique),
         'piecesSurfaces': jsonEncode(piecesSurfaces),
-        'notes': jsonEncode(notes),
+        'observationsBien': observationsBien,
+        'carnetNotes': jsonEncode(carnetNotes.map((n) => n.toMap()).toList()),
       };
 
   factory Estimation.fromMap(Map<String, dynamic> m) {
@@ -941,14 +947,52 @@ class Estimation {
           ? List<Map<String, dynamic>>.from(
               (jsonDecode(m['historique']) as List).map((e) => Map<String, dynamic>.from(e)))
           : [],
-      notes: m['notes'] != null
-          ? Map<String, Map<String, dynamic>>.from(
-              (jsonDecode(m['notes']) as Map).map(
-                (k, v) => MapEntry(k, Map<String, dynamic>.from(v)),
-              ),
-            )
-          : {},
+      observationsBien: m['observationsBien'] as String? ?? _migrateObservations(m['notes'] as String?),
+      carnetNotes: _migrateCarnetNotes(m['carnetNotes'] as String?, m['notes'] as String?),
     );
+  }
+
+  /// Migration : lit observations générales depuis l'ancienne map notes.
+  static String _migrateObservations(String? oldNotesJson) {
+    if (oldNotesJson == null) return '';
+    try {
+      final old = jsonDecode(oldNotesJson) as Map;
+      return (old['section1'] as Map?)?['general'] as String? ?? '';
+    } catch (_) { return ''; }
+  }
+
+  /// Migration : convertit l'ancienne map notes[sectionX][text] en carnetNotes.
+  static List<CarnetNote> _migrateCarnetNotes(
+      String? newJson, String? oldNotesJson) {
+    // Nouveau format
+    if (newJson != null) {
+      try {
+        final list = jsonDecode(newJson) as List;
+        return list
+            .map((x) => CarnetNote.fromMap(Map<String, dynamic>.from(x as Map)))
+            .toList();
+      } catch (_) { return []; }
+    }
+    // Migration depuis l'ancien format
+    if (oldNotesJson == null) return [];
+    final notes = <CarnetNote>[];
+    try {
+      final old = jsonDecode(oldNotesJson) as Map;
+      old.forEach((section, data) {
+        if (data is Map) {
+          final text = data['text'] as String? ?? '';
+          if (text.isNotEmpty) {
+            notes.add(CarnetNote(
+              id: '${section}_migrated',
+              timestamp: DateTime.now(),
+              sectionOrigine: section as String,
+              texte: text,
+            ));
+          }
+        }
+      });
+    } catch (_) {}
+    return notes;
   }
 
   Estimation copyWith({
@@ -1078,7 +1122,8 @@ class Estimation {
     bool clearNotesVendeur = false,
     List<Map<String, dynamic>>? historique,
     List<Map<String, dynamic>>? piecesSurfaces,
-    Map<String, Map<String, dynamic>>? notes,
+    String? observationsBien,
+    List<CarnetNote>? carnetNotes,
   }) {
     final copy = Estimation(
       id: id,
@@ -1209,7 +1254,8 @@ class Estimation {
       notesVendeur: clearNotesVendeur ? null : (notesVendeur ?? this.notesVendeur),
       historique: historique ?? List.from(this.historique),
       piecesSurfaces: piecesSurfaces ?? List.from(this.piecesSurfaces),
-      notes: notes ?? Map.from(this.notes),
+      observationsBien: observationsBien ?? this.observationsBien,
+      carnetNotes: carnetNotes ?? List.from(this.carnetNotes),
     );
     return copy;
   }
