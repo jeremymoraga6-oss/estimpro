@@ -477,8 +477,11 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
               );
             }
             // ── Page PDF avec zoom (Amélioration 3) ──────────────
+            // La clé inclut l'orientation : détruit/recrée l'état du zoom à
+            // chaque rotation, éliminant toute transformation périmée.
             return _ZoomablePage(
-              key: ValueKey(index),
+              key: ValueKey('$index-${MediaQuery.of(ctx).orientation}'),
+              isActive: index + 1 == _currentPage,
               onTap: _toggleUi,
               onLongPress: _openThumbs,
               onZoomChanged: (z) => setState(() => _zoomed = z),
@@ -831,12 +834,17 @@ class _ZoomablePage extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback onLongPress;
   final ValueChanged<bool> onZoomChanged;
+  /// Vrai quand cette page est la page courante du PageView.
+  /// Permet au State de remettre le zoom à l'identité dès que la page
+  /// redevient active (pages voisines conservées par allowImplicitScrolling).
+  final bool isActive;
 
   const _ZoomablePage({
     required this.child,
     required this.onTap,
     required this.onLongPress,
     required this.onZoomChanged,
+    this.isActive = false,
     super.key,
   });
 
@@ -849,6 +857,8 @@ class _ZoomablePageState extends State<_ZoomablePage>
   final TransformationController _tc = TransformationController();
   late final AnimationController _animCtrl;
   Animation<Matrix4>? _anim;
+  /// Dernière taille connue — pour détecter un changement hors-rotation.
+  Size? _lastSize;
 
   @override
   void initState() {
@@ -859,6 +869,33 @@ class _ZoomablePageState extends State<_ZoomablePage>
     )..addListener(() {
       if (_anim != null) _tc.value = _anim!.value;
     });
+  }
+
+  /// Remet le zoom à l'identité quand la page redevient la page courante,
+  /// afin de ne pas montrer une transformation périmée sur les pages voisines
+  /// conservées en vie par allowImplicitScrolling.
+  @override
+  void didUpdateWidget(_ZoomablePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.isActive && widget.isActive) {
+      _animCtrl.stop();
+      _tc.value = Matrix4.identity();
+      // _zoomed est déjà false côté parent (onPageChanged), pas besoin de rappeler onZoomChanged.
+    }
+  }
+
+  /// Filet de sécurité : remet à zéro si la taille de l'écran change
+  /// (split-screen, clavier, rotation sans changement d'orientation exacte).
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final size = MediaQuery.of(context).size;
+    if (_lastSize != null && size != _lastSize) {
+      _animCtrl.stop();
+      _tc.value = Matrix4.identity();
+      widget.onZoomChanged(false);
+    }
+    _lastSize = size;
   }
 
   @override
