@@ -460,6 +460,69 @@ class _Section6ScreenState extends State<Section6Screen> {
                 onChanged: (v) => _update(_e.copyWith(ajustConjoncture: v)),
               ),
 
+              // Époque de construction
+              _AdjRow(
+                label: 'Époque de construction (${_e.anneeConstruction})',
+                val: _e.ajustEpoque,
+                min: -3,
+                max: 3,
+                base: base,
+                note: _e.labelEpoque,
+                recommended: _e.recommendedAjustEpoque,
+                onChanged: (v) => _update(_e.copyWith(ajustEpoque: v)),
+                onReset: () => _update(_e.copyWith(ajustEpoque: _e.recommendedAjustEpoque)),
+              ),
+              // Note anti-double-comptage
+              if (_e.ajustDpe != 0 || _e.ajustEpoque != 0) ...[
+                Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.fromLTRB(10, 7, 10, 7),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0F4FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFBBCCFF)),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.info_outline_rounded, size: 12, color: Color(0xFF3F51B5)),
+                    const SizedBox(width: 6),
+                    const Expanded(child: Text(
+                      'Coefficient hors effet énergie — la performance énergétique est déjà comptée via le DPE.',
+                      style: TextStyle(fontSize: 9.5, color: Color(0xFF3F51B5), height: 1.4),
+                    )),
+                  ]),
+                ),
+              ],
+
+              // Gare Léman Express
+              _AdjRow(
+                label: 'Proximité gare Léman Express',
+                val: _e.ajustGare,
+                min: 0,
+                max: 4,
+                base: base,
+                note: _e.labelGare,
+                recommended: _e.latitude != 0 ? _e.recommendedAjustGare : null,
+                onChanged: (v) => _update(_e.copyWith(ajustGare: v)),
+                onReset: () => _update(_e.copyWith(ajustGare: _e.recommendedAjustGare)),
+              ),
+
+              // Géorisques
+              if (_e.risques != null && _e.risques!.hasData) ...[
+                _AdjRow(
+                  label: 'Géorisques — décote réglementaire',
+                  val: _e.ajustRisques,
+                  min: -6,
+                  max: 0,
+                  base: base,
+                  note: _e.labelRisques.isNotEmpty
+                      ? _e.labelRisques.join(' · ')
+                      : 'Aucun risque significatif retenu',
+                  recommended: _e.recommendedAjustRisques,
+                  onChanged: (v) => _update(_e.copyWith(ajustRisques: v)),
+                  onReset: () => _update(_e.copyWith(ajustRisques: _e.recommendedAjustRisques)),
+                ),
+              ],
+
               // Prime terrain (lecture seule si calculée automatiquement)
               if (_e.primeTerrain > 0) ...[
                 const SizedBox(height: 6),

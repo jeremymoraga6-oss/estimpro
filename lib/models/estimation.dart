@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'vendeur_note.dart';
 import 'carnet_note.dart';
 import '../services/georisques_service.dart';
+import '../services/gares_service.dart';
 
 class Estimation {
   final String id;
@@ -184,6 +185,11 @@ class Estimation {
   List<String> mutationsEcartees; // ids DVF rejetés manuellement
   String suiviVenteStatut;        // '' | 'aucune' | 'candidats' | 'confirmee'
 
+  // Ajustements micro-locaux
+  double ajustEpoque;   // % époque de construction (hors DPE)
+  double ajustGare;     // % proximité gare Léman Express
+  double ajustRisques;  // % décote géorisques (≤ 0)
+
   // Documents cochés pour la mise en vente
   Map<String, bool> documentsChecked;
 
@@ -319,6 +325,9 @@ class Estimation {
     List<CarnetNote>? carnetNotes,
     List<String>? mutationsEcartees,
     this.suiviVenteStatut = '',
+    this.ajustEpoque = 0,
+    this.ajustGare = 0,
+    this.ajustRisques = 0,
     Map<String, bool>? documentsChecked,
   })  : historique = historique ?? [],
         equipements = equipements ?? [],
@@ -399,6 +408,103 @@ class Estimation {
 
   double get recommendedAjustExposition =>
       Estimation.orientationCoefficient(orientations);
+
+  /// Extrait l'année représentative de anneeConstruction.
+  /// Gère : entier pur, plages "XXXX-YYYY", "Avant XXXX", "Après XXXX".
+  int? get _anneeInt {
+    final s = anneeConstruction.trim();
+    final lc = s.toLowerCase();
+    // "Avant XXXX" → XXXX - 1
+    final avantMatch = RegExp(r'avant\s+(\d{4})', caseSensitive: false).firstMatch(lc);
+    if (avantMatch != null) {
+      final y = int.tryParse(avantMatch.group(1)!);
+      return y != null ? y - 1 : null;
+    }
+    // "Après XXXX" / "Apres XXXX" → XXXX + 1
+    final apresMatch = RegExp(r'apr[eè]s\s+(\d{4})', caseSensitive: false).firstMatch(lc);
+    if (apresMatch != null) {
+      final y = int.tryParse(apresMatch.group(1)!);
+      return y != null ? y + 1 : null;
+    }
+    // Entier pur
+    final n = int.tryParse(s);
+    if (n != null) return n;
+    // Plage "XXXX-YYYY" → prend la première année
+    final rangeMatch = RegExp(r'(\d{4})').firstMatch(s);
+    return rangeMatch != null ? int.tryParse(rangeMatch.group(1)!) : null;
+  }
+
+  double get recommendedAjustEpoque {
+    final annee = _anneeInt;
+    if (annee == null) return 0.0;
+    if (annee <= 1948) return 0.0;
+    if (annee <= 1974) return -3.0;
+    if (annee <= 1989) return -1.0;
+    if (annee <= 2005) return 0.0;
+    if (annee <= 2012) return 1.0;
+    if (annee <= 2021) return 2.0;
+    return 3.0;
+  }
+
+  String get labelEpoque {
+    final annee = _anneeInt;
+    if (annee == null) return 'Année non renseignée';
+    if (annee <= 1948) return 'Bâti ancien : caractère et vétusté s\'équilibrent — préciser via l\'état';
+    if (annee <= 1974) return 'Construction d\'après-guerre : isolation et réseaux d\'origine faibles';
+    if (annee <= 1989) return 'Premières RT : isolation partielle';
+    if (annee <= 2005) return 'Standard correct';
+    if (annee <= 2012) return 'RT 2005 : bonne performance thermique';
+    if (annee <= 2021) return 'RT 2012 : très bonne isolation';
+    return 'RE 2020 : recherché, charges faibles';
+  }
+
+  double get recommendedAjustGare {
+    if (latitude == 0 || longitude == 0) return 0.0;
+    final proche = GaresService.garePlusProche(latitude, longitude);
+    if (proche == null) return 0.0;
+    if (proche.distanceM < 800) return 3.0;
+    if (proche.distanceM < 1500) return 1.5;
+    return 0.0;
+  }
+
+  String get labelGare {
+    if (latitude == 0 || longitude == 0) return 'Géolocalisation requise';
+    final proche = GaresService.garePlusProche(latitude, longitude);
+    if (proche == null) return '';
+    final d = proche.distanceM.round();
+    if (proche.distanceM < 800) return 'À $d m de la gare ${proche.gare.nom} — Léman Express direct Genève';
+    if (proche.distanceM < 1500) return 'À $d m de la gare ${proche.gare.nom} — Léman Express';
+    return 'Gare la plus proche : ${proche.gare.nom} ($d m)';
+  }
+
+  double get recommendedAjustRisques {
+    final r = risques;
+    if (r == null || !r.hasData) return 0.0;
+    double total = 0.0;
+    // Inondation (PPRI/PPRN)
+    final hasInond = r.risquesNaturels.any((s) => s.toLowerCase().contains('inond'));
+    if (hasInond) total -= 5.0;
+    // Argile
+    final argile = r.niveauArgile.toLowerCase();
+    if (argile.contains('fort')) total -= 2.0;
+    else if (argile.contains('moyen')) total -= 1.0;
+    // Cap à -6%
+    return total.clamp(-6.0, 0.0);
+  }
+
+  /// Liste des libellés retenus pour l'ajustement risques.
+  List<String> get labelRisques {
+    final r = risques;
+    if (r == null || !r.hasData) return [];
+    final items = <String>[];
+    final hasInond = r.risquesNaturels.any((s) => s.toLowerCase().contains('inond'));
+    if (hasInond) items.add('Zone inondable (PPRI/PPRN) : −5 %');
+    final argile = r.niveauArgile.toLowerCase();
+    if (argile.contains('fort')) items.add('Argiles fort (RGA) : −2 %');
+    else if (argile.contains('moyen')) items.add('Argiles moyen (RGA) : −1 %');
+    if (r.potentielRadon.toLowerCase().contains('important')) items.add('Radon zone 3 — informatif');
+    return items;
+  }
 
   double get scorePrestations =>
       noteCuisine * 0.15 + noteSol * 0.15 + noteSdb * 0.15 +
@@ -591,7 +697,8 @@ class Estimation {
   double get totalPctAjustements =>
       ajustVue + ajustEtat + ajustDpe + ajustExposition +
       ajustEnvironnement + ajustConjoncture + decoteSurface + decoteOccupation +
-      ajustEtageAuto + decoteCharges + ajustCalibration;
+      ajustEtageAuto + decoteCharges + ajustCalibration +
+      ajustEpoque + ajustGare + ajustRisques;
 
   double get prixCalcule {
     final impact = prixBase * totalPctAjustements / 100 - ajustTravaux + ajustParking + ajustPiscine + primeTerrain;
@@ -795,6 +902,9 @@ class Estimation {
         'carnetNotes': jsonEncode(carnetNotes.map((n) => n.toMap()).toList()),
         'mutationsEcartees': jsonEncode(mutationsEcartees),
         'suiviVenteStatut': suiviVenteStatut,
+        'ajustEpoque': ajustEpoque,
+        'ajustGare': ajustGare,
+        'ajustRisques': ajustRisques,
       };
 
   factory Estimation.fromMap(Map<String, dynamic> m) {
@@ -960,6 +1070,9 @@ class Estimation {
       carnetNotes: _migrateCarnetNotes(m['carnetNotes'] as String?, m['notes'] as String?),
       mutationsEcartees: decodeStrList(m['mutationsEcartees']),
       suiviVenteStatut: m['suiviVenteStatut'] as String? ?? '',
+      ajustEpoque: (m['ajustEpoque'] as num?)?.toDouble() ?? 0,
+      ajustGare: (m['ajustGare'] as num?)?.toDouble() ?? 0,
+      ajustRisques: (m['ajustRisques'] as num?)?.toDouble() ?? 0,
     );
   }
 
@@ -1137,6 +1250,9 @@ class Estimation {
     List<CarnetNote>? carnetNotes,
     List<String>? mutationsEcartees,
     String? suiviVenteStatut,
+    double? ajustEpoque,
+    double? ajustGare,
+    double? ajustRisques,
   }) {
     final copy = Estimation(
       id: id,
@@ -1271,6 +1387,9 @@ class Estimation {
       carnetNotes: carnetNotes != null ? List.from(carnetNotes) : List.from(this.carnetNotes),
       mutationsEcartees: mutationsEcartees != null ? List.from(mutationsEcartees) : List.from(this.mutationsEcartees),
       suiviVenteStatut: suiviVenteStatut ?? this.suiviVenteStatut,
+      ajustEpoque: ajustEpoque ?? this.ajustEpoque,
+      ajustGare: ajustGare ?? this.ajustGare,
+      ajustRisques: ajustRisques ?? this.ajustRisques,
     );
     return copy;
   }

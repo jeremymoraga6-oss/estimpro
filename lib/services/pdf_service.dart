@@ -10,6 +10,7 @@ import 'package:open_file/open_file.dart';
 import '../models/estimation.dart';
 import '../models/vendeur_note.dart';
 import 'georisques_service.dart';
+import 'gares_service.dart';
 import 'static_map_service.dart';
 import '../screens/section6_screen.dart' show requiredDocs;
 
@@ -1287,6 +1288,24 @@ class PdfService {
         _row(
           'Calibration base locale (${e.calibrationNbVentes} vente${e.calibrationNbVentes > 1 ? 's' : ''})',
           '${e.ajustCalibration >= 0 ? '+' : ''}${e.ajustCalibration.toStringAsFixed(1)} %',
+        ),
+      if (e.ajustEpoque != 0)
+        _row('Epoque construction (${e.anneeConstruction})',
+            '${e.ajustEpoque >= 0 ? '+' : ''}${e.ajustEpoque.toStringAsFixed(1)} %'),
+      if (e.ajustGare != 0)
+        _row(
+          () {
+            final proche = GaresService.garePlusProche(e.latitude, e.longitude);
+            return proche != null
+                ? 'Gare ${proche.gare.nom} a ${proche.distanceM.round()} m (Leman Express)'
+                : 'Gare Leman Express';
+          }(),
+          '+${e.ajustGare.toStringAsFixed(1)} %',
+        ),
+      if (e.ajustRisques != 0)
+        _row(
+          'Georisques (${e.labelRisques.where((s) => !s.contains("informatif")).join(", ")})',
+          '${e.ajustRisques.toStringAsFixed(1)} %',
         ),
       pw.Padding(
         padding: const pw.EdgeInsets.symmetric(vertical: 6),
