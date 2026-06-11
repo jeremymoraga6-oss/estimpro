@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'ai_client.dart';
 import 'app_settings.dart';
-import 'package:http/http.dart' as http;
 
 /// Résultat de la détection des matériaux de construction par vision IA.
 class MateriauxResult {
@@ -46,12 +46,9 @@ class MateriauxResult {
 
 /// Service de détection des matériaux de construction via Claude Vision.
 ///
-/// Envoie une photo de la façade à l'API Claude Messages avec un message
-/// structuré. Requiert une clé Anthropic dans AppSettings.
+/// Envoie une photo de la façade à l'API Claude Messages (via [AiClient])
+/// avec un message multipart image + texte. Requiert une clé Anthropic dans AppSettings.
 class MateriauxScanService {
-  static const _endpoint = 'https://api.anthropic.com/v1/messages';
-  static const _model = 'claude-sonnet-4-6';
-
   static const _prompt = '''Tu es un expert en estimation immobilière pour des maisons individuelles en France.
 Analyse cette photo de l'extérieur de la maison et identifie les matériaux visibles.
 Réponds UNIQUEMENT en JSON strict (aucun texte autour, pas de markdown).
@@ -75,8 +72,7 @@ Règles :
 - Sois concis, factuel, ne devine pas ce qui n'est pas visible''';
 
   Future<MateriauxResult> analyzeImage(String imagePath) async {
-    final key = AppSettings.instance.anthropicKey;
-    if (key.isEmpty) {
+    if (AppSettings.instance.anthropicKey.isEmpty) {
       return MateriauxResult(
         menuiseriesType: const [],
         vitrage: const [],
@@ -97,60 +93,24 @@ Règles :
             : 'image/jpeg';
 
     try {
-      final resp = await http
-          .post(
-            Uri.parse(_endpoint),
-            headers: {
-              'x-api-key': key,
-              'anthropic-version': '2023-06-01',
-              'content-type': 'application/json',
-            },
-            body: jsonEncode({
-              'model': _model,
-              'max_tokens': 512,
-              'messages': [
-                {
-                  'role': 'user',
-                  'content': [
-                    {
-                      'type': 'image',
-                      'source': {
-                        'type': 'base64',
-                        'media_type': mimeType,
-                        'data': b64,
-                      },
-                    },
-                    {
-                      'type': 'text',
-                      'text': _prompt,
-                    },
-                  ],
-                },
-              ],
-            }),
-          )
-          .timeout(const Duration(seconds: 30));
-
-      if (resp.statusCode != 200) {
-        debugPrint('[Materiaux] API error ${resp.statusCode}: ${resp.body}');
-        return MateriauxResult(
-          menuiseriesType: const [],
-          vitrage: const [],
-          rawResponse: resp.body,
-        );
-      }
-
-      final body = jsonDecode(resp.body) as Map<String, dynamic>;
-      final raw = (body['content'] as List).first['text'] as String;
-
-      // Tolérance markdown : retire ```json ... ```
-      final clean =
-          raw.replaceAll(RegExp(r'^```(?:json)?\s*|\s*```$', multiLine: true), '').trim();
-
-      debugPrint('[Materiaux] raw JSON: $clean');
-
-      final j = jsonDecode(clean) as Map<String, dynamic>;
-      return _parse(j, clean);
+      // Le prompt est passé en tant que texte du message utilisateur (multipart
+      // image + texte), sans system prompt — cohérent avec l'API d'origine.
+      final j = await AiClient.instance.callStructured(
+        systemPrompt: '',
+        userContent: _prompt,
+        maxTokens: 512,
+        imageBase64: b64,
+        imageMimeType: mimeType,
+      );
+      debugPrint('[Materiaux] parsed JSON: $j');
+      return _parse(j, j.toString());
+    } on AiParseException catch (e) {
+      debugPrint('[Materiaux] parse error: $e');
+      return MateriauxResult(
+        menuiseriesType: const [],
+        vitrage: const [],
+        rawResponse: e.rawResponse,
+      );
     } catch (e) {
       debugPrint('[Materiaux] error: $e');
       return MateriauxResult(

@@ -1,3 +1,7 @@
+import 'package:flutter/foundation.dart';
+import 'ai_client.dart';
+import 'app_settings.dart';
+
 /// Parses free-form text produced by Claude (the AI assistant) describing
 /// a property estimation. Works with the structured "ESTIMATION CLAUDE" format
 /// and also with looser conversational outputs.
@@ -203,5 +207,95 @@ class ClaudeEstimationParser {
   static double? _parseNum(String s) {
     final clean = s.replaceAll(RegExp(r'[\s ]'), '').replaceAll(',', '.');
     return double.tryParse(clean);
+  }
+
+  // ── Variante IA (avec fallback regex) ────────────────────────────────────
+
+  static const _kSystemPrompt = '''Tu es un assistant pour agent immobilier.
+Extrais les champs suivants du texte fourni et réponds UNIQUEMENT en JSON strict (pas de markdown) :
+{
+  "adresse": "...",
+  "commune": "...",
+  "code_insee": "XXXXX",
+  "type_id": "maison"|"appartement"|"chalet"|"terrain",
+  "surface": 120,
+  "dpe_classe": "A"|"B"|"C"|"D"|"E"|"F"|"G"|"NC",
+  "prix_estime": 280000,
+  "fourchette_basse": 260000,
+  "fourchette_haute": 300000,
+  "date": "JJ/MM/AAAA",
+  "notes": "..."
+}
+N'inclus que les champs présents dans le texte. prix_estime est obligatoire.''';
+
+  /// Variante asynchrone qui tente d'abord l'IA (si clé disponible), puis se
+  /// rabat sur le parsing regex. Loggue "[Parser] mode dégradé" si regex seul.
+  static Future<ClaudeEstimationResult?> parseAsync(String text) async {
+    if (text.trim().isEmpty) return null;
+
+    // Tentative IA
+    if (AppSettings.instance.hasAnthropicKey) {
+      try {
+        final j = await AiClient.instance.callStructured(
+          systemPrompt: _kSystemPrompt,
+          userContent: text,
+          maxTokens: 512,
+        );
+
+        final prixRaw = j['prix_estime'];
+        final prix = prixRaw is num
+            ? prixRaw.round()
+            : int.tryParse(prixRaw?.toString() ?? '') ?? 0;
+        if (prix <= 0) throw const FormatException('prix_estime manquant');
+
+        final foBasse = (j['fourchette_basse'] as num?)?.round() ?? 0;
+        final foHaute = (j['fourchette_haute'] as num?)?.round() ?? 0;
+        final surfaceRaw = j['surface'];
+        final surface = surfaceRaw is num
+            ? surfaceRaw.round()
+            : int.tryParse(surfaceRaw?.toString() ?? '') ?? 0;
+
+        return ClaudeEstimationResult(
+          adresse: j['adresse']?.toString() ?? '',
+          commune: j['commune']?.toString() ?? '',
+          codeInsee: j['code_insee']?.toString() ?? '',
+          typeId: _normalizeTypeId(j['type_id']?.toString()),
+          surface: surface,
+          dpeClasse: (j['dpe_classe']?.toString().toUpperCase()) ?? 'D',
+          prixEstime: prix,
+          fourchetteBasse: foBasse,
+          fourchetteHaute: foHaute,
+          dateVente: _parseDate(j['date']?.toString()),
+          notes: j['notes']?.toString() ?? '',
+        );
+      } catch (e) {
+        debugPrint('[Parser] AI extraction failed, fallback to regex: $e');
+      }
+    }
+
+    debugPrint('[Parser] mode dégradé (regex)');
+    return parse(text);
+  }
+
+  static String _normalizeTypeId(String? raw) {
+    if (raw == null) return 'maison';
+    const map = {
+      'appartement': 'appartement',
+      'chalet': 'chalet',
+      'terrain': 'terrain',
+      'maison': 'maison',
+    };
+    return map[raw.toLowerCase()] ?? 'maison';
+  }
+
+  static DateTime? _parseDate(String? s) {
+    if (s == null || s.isEmpty) return null;
+    final parts = s.split(RegExp(r'[/\-]'));
+    if (parts.length != 3) return null;
+    final day = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    final year = int.tryParse(parts[2]);
+    if (day == null || month == null || year == null) return null;
+    return DateTime(year, month, day);
   }
 }

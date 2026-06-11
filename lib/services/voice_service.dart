@@ -1,11 +1,10 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import '../models/vendeur_note.dart';
+import 'ai_client.dart';
 import 'app_settings.dart';
 
 const _kSystemPrompt = '''Tu es un assistant pour agent immobilier.
@@ -18,6 +17,34 @@ Extrait de cette note vocale les informations suivantes en JSON :
 - points_faibles (problèmes mentionnés, tableau)
 - situation_personnelle (infos personnelles utiles)
 Réponds uniquement en JSON, rien d'autre.''';
+
+const _kExtractPrompt = '''Tu es un assistant pour agent immobilier qui visite un bien.
+Extrait UNIQUEMENT les caractéristiques OBJECTIVES du bien depuis la description.
+Réponds en JSON strict (rien d'autre, pas de markdown), avec ces clés (toutes optionnelles — n'inclus que ce qui est clairement mentionné) :
+
+{
+  "vue_degagee": true|false,         // vue claire mentionnée (montagne, lac, dégagement)
+  "etat_general": 1|2|3|4,           // 1=très mauvais, 2=moyen/à rafraîchir, 3=bon, 4=excellent/refait à neuf
+  "note_cuisine": 1|2|3|4,           // état/équipement cuisine
+  "note_sol": 1|2|3|4,                // état/qualité des sols
+  "note_sdb": 1|2|3|4,                // état salle de bain
+  "note_fenetres": 1|2|3|4,           // double vitrage, état menuiseries
+  "note_chauffage": 1|2|3|4,          // type+état chauffage
+  "dpe_classe": "A"|"B"|"C"|"D"|"E"|"F"|"G",  // si classe explicitement mentionnée
+  "orientations": ["S","SE","O"...],  // orientations mentionnées (N, NE, E, SE, S, SO, O, NO)
+  "points_forts": ["...", "..."],     // arguments commerciaux
+  "points_faibles": ["...", "..."],   // axes à mentionner pour la vente
+  "travaux_a_prevoir": "résumé",      // courte phrase sur les travaux nécessaires
+  "ajust_environnement": -12|-9|-6|-3|0,  // % décote nuisances (route, voie ferrée, industrie)
+  "pieces_surfaces": [               // dictée pièce par pièce : une entrée par pièce mentionnée avec sa surface
+    {"nom": "Séjour", "surface": 28},
+    {"nom": "Cuisine", "surface": 12}
+  ]
+}
+
+Pour "pieces_surfaces" : capture chaque pièce nommée par l'agent avec sa surface en m² si elle est mentionnée (ex: "séjour de 28 mètres carrés", "chambre 1 de 14m²"). Mets "surface": null si la surface n'est pas précisée. N'invente jamais de surface. Utilise des noms de pièces clairs et capitalisés (Séjour, Cuisine, Chambre 1, Salle de bain, WC, Bureau, Dressing, Entrée, Garage…). Si aucune pièce n'est détaillée, n'inclus PAS la clé.
+
+Si une info n'est pas claire dans le texte, n'inclus PAS la clé.''';
 
 class VoiceService {
   VoiceService._();
@@ -106,34 +133,11 @@ class VoiceService {
     if (transcription.isEmpty || AppSettings.instance.anthropicKey.isEmpty) return base;
 
     try {
-      final resp = await http
-          .post(
-            Uri.parse('https://api.anthropic.com/v1/messages'),
-            headers: {
-              'x-api-key': AppSettings.instance.anthropicKey,
-              'anthropic-version': '2023-06-01',
-              'content-type': 'application/json',
-            },
-            body: jsonEncode({
-              'model': 'claude-sonnet-4-6',
-              'max_tokens': 1024,
-              'system': _kSystemPrompt,
-              'messages': [
-                {'role': 'user', 'content': transcription}
-              ],
-            }),
-          )
-          .timeout(const Duration(seconds: 20));
-
-      if (resp.statusCode != 200) {
-        debugPrint('[Voice] Claude API error ${resp.statusCode}: ${resp.body}');
-        return base;
-      }
-
-      final body = jsonDecode(resp.body) as Map<String, dynamic>;
-      final text = (body['content'] as List).first['text'] as String;
-      final raw = jsonDecode(text) as Map<String, dynamic>;
-
+      final raw = await AiClient.instance.callStructured(
+        systemPrompt: _kSystemPrompt,
+        userContent: transcription,
+        maxTokens: 1024,
+      );
       return base.copyWithStructure(
         motivationVente: raw['motivation_vente']?.toString() ?? '',
         delaiSouhaite: raw['delai_souhaite']?.toString() ?? '',
@@ -161,63 +165,12 @@ class VoiceService {
   Future<BienExtraction?> extractBienFields(String text) async {
     if (text.isEmpty || AppSettings.instance.anthropicKey.isEmpty) return null;
 
-    const prompt = '''Tu es un assistant pour agent immobilier qui visite un bien.
-Extrait UNIQUEMENT les caractéristiques OBJECTIVES du bien depuis la description.
-Réponds en JSON strict (rien d'autre, pas de markdown), avec ces clés (toutes optionnelles — n'inclus que ce qui est clairement mentionné) :
-
-{
-  "vue_degagee": true|false,         // vue claire mentionnée (montagne, lac, dégagement)
-  "etat_general": 1|2|3|4,           // 1=très mauvais, 2=moyen/à rafraîchir, 3=bon, 4=excellent/refait à neuf
-  "note_cuisine": 1|2|3|4,           // état/équipement cuisine
-  "note_sol": 1|2|3|4,                // état/qualité des sols
-  "note_sdb": 1|2|3|4,                // état salle de bain
-  "note_fenetres": 1|2|3|4,           // double vitrage, état menuiseries
-  "note_chauffage": 1|2|3|4,          // type+état chauffage
-  "dpe_classe": "A"|"B"|"C"|"D"|"E"|"F"|"G",  // si classe explicitement mentionnée
-  "orientations": ["S","SE","O"...],  // orientations mentionnées (N, NE, E, SE, S, SO, O, NO)
-  "points_forts": ["...", "..."],     // arguments commerciaux
-  "points_faibles": ["...", "..."],   // axes à mentionner pour la vente
-  "travaux_a_prevoir": "résumé",      // courte phrase sur les travaux nécessaires
-  "ajust_environnement": -12|-9|-6|-3|0,  // % décote nuisances (route, voie ferrée, industrie)
-  "pieces_surfaces": [               // dictée pièce par pièce : une entrée par pièce mentionnée avec sa surface
-    {"nom": "Séjour", "surface": 28},
-    {"nom": "Cuisine", "surface": 12}
-  ]
-}
-
-Pour "pieces_surfaces" : capture chaque pièce nommée par l'agent avec sa surface en m² si elle est mentionnée (ex: "séjour de 28 mètres carrés", "chambre 1 de 14m²"). Mets "surface": null si la surface n'est pas précisée. N'invente jamais de surface. Utilise des noms de pièces clairs et capitalisés (Séjour, Cuisine, Chambre 1, Salle de bain, WC, Bureau, Dressing, Entrée, Garage…). Si aucune pièce n'est détaillée, n'inclus PAS la clé.
-
-Si une info n'est pas claire dans le texte, n'inclus PAS la clé.''';
-
     try {
-      final resp = await http
-          .post(
-            Uri.parse('https://api.anthropic.com/v1/messages'),
-            headers: {
-              'x-api-key': AppSettings.instance.anthropicKey,
-              'anthropic-version': '2023-06-01',
-              'content-type': 'application/json',
-            },
-            body: jsonEncode({
-              'model': 'claude-sonnet-4-6',
-              'max_tokens': 1024,
-              'system': prompt,
-              'messages': [{'role': 'user', 'content': text}],
-            }),
-          )
-          .timeout(const Duration(seconds: 25));
-
-      if (resp.statusCode != 200) {
-        debugPrint('[Voice] extractBien error ${resp.statusCode}: ${resp.body}');
-        return null;
-      }
-
-      final body = jsonDecode(resp.body) as Map<String, dynamic>;
-      final raw = (body['content'] as List).first['text'] as String;
-      // Tolérance markdown : retire ```json ... ``` si présent
-      final clean = raw.replaceAll(RegExp(r'^```(?:json)?\s*|\s*```$', multiLine: true), '').trim();
-      final j = jsonDecode(clean) as Map<String, dynamic>;
-
+      final j = await AiClient.instance.callStructured(
+        systemPrompt: _kExtractPrompt,
+        userContent: text,
+        maxTokens: 1024,
+      );
       return BienExtraction(
         vueDegagee: j['vue_degagee'] as bool?,
         etatGeneral: _intRange(j['etat_general'], 1, 4),

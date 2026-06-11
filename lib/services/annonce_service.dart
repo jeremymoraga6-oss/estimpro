@@ -1,8 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import '../models/estimation.dart';
-import 'app_settings.dart';
+import 'ai_client.dart';
 
 /// Annonce immobilière générée par IA depuis les données d'une estimation.
 class AnnonceImmo {
@@ -136,52 +134,13 @@ Format de sortie : JSON STRICT (rien d'autre, pas de markdown), structure :
   /// Génère une annonce immobilière à partir d'une estimation.
   /// Renvoie un résultat avec annonce ou erreur.
   Future<AnnonceGenerationResult> generate(Estimation e) async {
-    final key = AppSettings.instance.anthropicKey;
-    if (key.isEmpty) {
-      return const AnnonceGenerationResult(
-        error: 'Clé API Anthropic manquante. Configure-la dans Profil.',
-      );
-    }
-
     final fiche = _buildFiche(e);
-
     try {
-      final resp = await http
-          .post(
-            Uri.parse('https://api.anthropic.com/v1/messages'),
-            headers: {
-              'x-api-key': key,
-              'anthropic-version': '2023-06-01',
-              'content-type': 'application/json',
-            },
-            body: jsonEncode({
-              'model': 'claude-sonnet-4-6',
-              'max_tokens': 2048,
-              'system': _systemPrompt,
-              'messages': [
-                {'role': 'user', 'content': fiche},
-              ],
-            }),
-          )
-          .timeout(const Duration(seconds: 45));
-
-      if (resp.statusCode == 401) {
-        return const AnnonceGenerationResult(error: 'Clé API invalide. Vérifie-la dans Profil.');
-      }
-      if (resp.statusCode == 529 || resp.statusCode == 503) {
-        return const AnnonceGenerationResult(error: 'API Anthropic surchargée. Réessaie dans quelques secondes.');
-      }
-      if (resp.statusCode != 200) {
-        return AnnonceGenerationResult(error: 'Erreur API (${resp.statusCode})');
-      }
-
-      final body = jsonDecode(resp.body) as Map<String, dynamic>;
-      final raw = (body['content'] as List).first['text'] as String;
-      final clean = raw
-          .replaceAll(RegExp(r'^```(?:json)?\s*|\s*```$', multiLine: true), '')
-          .trim();
-      final j = jsonDecode(clean) as Map<String, dynamic>;
-
+      final j = await AiClient.instance.callStructured(
+        systemPrompt: _systemPrompt,
+        userContent: fiche,
+        maxTokens: 2048,
+      );
       return AnnonceGenerationResult(
         annonce: AnnonceImmo(
           titre: (j['titre'] as String?) ?? '',
@@ -194,9 +153,15 @@ Format de sortie : JSON STRICT (rien d'autre, pas de markdown), structure :
           versionCourte: (j['version_courte'] as String?) ?? '',
         ),
       );
+    } on AiParseException catch (e) {
+      debugPrint('[Annonce] parse error: $e');
+      return const AnnonceGenerationResult(
+        error: 'L\'IA n\'a pas retourné de JSON valide. Réessaie.',
+      );
     } catch (e) {
       debugPrint('[Annonce] error: $e');
-      return AnnonceGenerationResult(error: 'Erreur : ${e.toString().split(':').last.trim()}');
+      final msg = e.toString().replaceFirst('Exception: ', '');
+      return AnnonceGenerationResult(error: msg);
     }
   }
 
