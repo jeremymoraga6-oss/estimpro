@@ -330,8 +330,21 @@ class _RefCard extends StatelessWidget {
                     style: const TextStyle(fontSize: 11, color: kGrey)),
               ])),
               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text(_fmt(ref.prixVente.toDouble()),
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: kGreen)),
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(_fmt(ref.prixVente.toDouble()),
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: kGreen)),
+                  if (ref.source == 'dvf-backfill')
+                    Container(
+                      margin: const EdgeInsets.only(left: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0288D1).withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: const Color(0xFF0288D1).withOpacity(0.4)),
+                      ),
+                      child: const Text('DVF', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF0288D1))),
+                    ),
+                ]),
                 Text('${ref.prixM2.round()} €/m²',
                     style: const TextStyle(fontSize: 11, color: kGrey)),
               ]),

@@ -12,6 +12,7 @@ class ReferenceLocale {
   int prixEstime; // prix estimé avant vente (0 = non renseigné)
   String notes;
   String estimationId; // id de l'estimation liée ('' si aucune)
+  String source; // 'manuelle' | 'dvf-backfill'
 
   ReferenceLocale({
     required this.id,
@@ -27,6 +28,7 @@ class ReferenceLocale {
     this.prixEstime = 0,
     this.notes = '',
     this.estimationId = '',
+    this.source = 'manuelle',
   });
 
   double get prixM2 => surface > 0 ? prixVente / surface : 0;
@@ -51,6 +53,7 @@ class ReferenceLocale {
         'prixEstime': prixEstime,
         'notes': notes,
         'estimationId': estimationId,
+        'source': source,
       };
 
   factory ReferenceLocale.fromMap(Map<String, dynamic> m) => ReferenceLocale(
@@ -68,6 +71,7 @@ class ReferenceLocale {
         prixEstime: m['prixEstime'] as int? ?? 0,
         notes: m['notes'] as String? ?? '',
         estimationId: m['estimationId'] as String? ?? '',
+        source: m['source'] as String? ?? 'manuelle',
       );
 
   // Convertit en comparable pour la section 5

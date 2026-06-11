@@ -180,6 +180,10 @@ class Estimation {
   // Carnet de visite : liste des notes multi-sections
   List<CarnetNote> carnetNotes;
 
+  // Suivi ventes DVF — backfill calibration
+  List<String> mutationsEcartees; // ids DVF rejetés manuellement
+  String suiviVenteStatut;        // '' | 'aucune' | 'candidats' | 'confirmee'
+
   // Documents cochés pour la mise en vente
   Map<String, bool> documentsChecked;
 
@@ -313,6 +317,8 @@ class Estimation {
     List<Map<String, dynamic>>? piecesSurfaces,
     this.observationsBien = '',
     List<CarnetNote>? carnetNotes,
+    List<String>? mutationsEcartees,
+    this.suiviVenteStatut = '',
     Map<String, bool>? documentsChecked,
   })  : historique = historique ?? [],
         equipements = equipements ?? [],
@@ -341,6 +347,7 @@ class Estimation {
             validiteJusquau ?? DateTime.now().add(const Duration(days: 365)),
         photosPaths = photosPaths ?? [],
         carnetNotes = carnetNotes ?? [],
+        mutationsEcartees = mutationsEcartees ?? [],
         diagnostics = diagnostics ?? {},
         documentsChecked = documentsChecked ?? {};
 
@@ -786,6 +793,8 @@ class Estimation {
         'piecesSurfaces': jsonEncode(piecesSurfaces),
         'observationsBien': observationsBien,
         'carnetNotes': jsonEncode(carnetNotes.map((n) => n.toMap()).toList()),
+        'mutationsEcartees': jsonEncode(mutationsEcartees),
+        'suiviVenteStatut': suiviVenteStatut,
       };
 
   factory Estimation.fromMap(Map<String, dynamic> m) {
@@ -949,6 +958,8 @@ class Estimation {
           : [],
       observationsBien: m['observationsBien'] as String? ?? _migrateObservations(m['notes'] as String?),
       carnetNotes: _migrateCarnetNotes(m['carnetNotes'] as String?, m['notes'] as String?),
+      mutationsEcartees: decodeStrList(m['mutationsEcartees']),
+      suiviVenteStatut: m['suiviVenteStatut'] as String? ?? '',
     );
   }
 
@@ -1124,6 +1135,8 @@ class Estimation {
     List<Map<String, dynamic>>? piecesSurfaces,
     String? observationsBien,
     List<CarnetNote>? carnetNotes,
+    List<String>? mutationsEcartees,
+    String? suiviVenteStatut,
   }) {
     final copy = Estimation(
       id: id,
@@ -1255,7 +1268,9 @@ class Estimation {
       historique: historique ?? List.from(this.historique),
       piecesSurfaces: piecesSurfaces ?? List.from(this.piecesSurfaces),
       observationsBien: observationsBien ?? this.observationsBien,
-      carnetNotes: carnetNotes ?? List.from(this.carnetNotes),
+      carnetNotes: carnetNotes != null ? List.from(carnetNotes) : List.from(this.carnetNotes),
+      mutationsEcartees: mutationsEcartees != null ? List.from(mutationsEcartees) : List.from(this.mutationsEcartees),
+      suiviVenteStatut: suiviVenteStatut ?? this.suiviVenteStatut,
     );
     return copy;
   }

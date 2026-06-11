@@ -13,6 +13,7 @@ import 'pricehubble_screen.dart';
 import 'carte_de_visite_screen.dart';
 import 'fiches_acquereurs_screen.dart';
 import 'simulateurs_screen.dart';
+import 'suivi_ventes_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -304,6 +305,37 @@ class _HomeTab extends StatelessWidget {
                       ]),
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  // Suivi des ventes
+                  GestureDetector(
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SuiviVentesScreen())),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF00796B), Color(0xFF004D40)],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(children: [
+                        Container(
+                          width: 42, height: 42,
+                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                          child: const Icon(Icons.fact_check_rounded, color: Colors.white, size: 22),
+                        ),
+                        const SizedBox(width: 14),
+                        const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('Suivi des ventes', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+                          SizedBox(height: 2),
+                          Text('Alimente ta calibration', style: TextStyle(color: Color(0xFFB2DFDB), fontSize: 12)),
+                        ])),
+                        const Icon(Icons.chevron_right, color: Colors.white70, size: 20),
+                      ]),
+                    ),
+                  ),
+
                   const SizedBox(height: 10),
 
                   // Carte de visite
