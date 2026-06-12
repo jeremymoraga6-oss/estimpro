@@ -159,6 +159,7 @@ class Estimation {
   double fourchetteBasse;
   double fourchetteHaute;
   String conclusion;
+  String prochainesEtapes;   // plan d'action 3 étapes — affiché en synthèse PDF
   DateTime validiteJusquau;
 
   // Section 7 — Photos
@@ -320,6 +321,7 @@ class Estimation {
     this.fourchetteBasse = 0,
     this.fourchetteHaute = 0,
     this.conclusion = '',
+    this.prochainesEtapes = '',
     DateTime? validiteJusquau,
     List<String>? photosPaths,
     this.risques,
@@ -900,6 +902,7 @@ class Estimation {
         'fourchetteBasse': fourchetteBasse,
         'fourchetteHaute': fourchetteHaute,
         'conclusion': conclusion,
+        'prochainesEtapes': prochainesEtapes,
         'validiteJusquau': validiteJusquau.toIso8601String(),
         'photosPaths': jsonEncode(photosPaths),
         'risques': risques != null ? jsonEncode(risques!.toMap()) : null,
@@ -1057,6 +1060,7 @@ class Estimation {
       fourchetteBasse: (m['fourchetteBasse'] as num?)?.toDouble() ?? 0,
       fourchetteHaute: (m['fourchetteHaute'] as num?)?.toDouble() ?? 0,
       conclusion: m['conclusion'] ?? '',
+      prochainesEtapes: m['prochainesEtapes'] as String? ?? '',
       validiteJusquau: DateTime.parse(
           m['validiteJusquau'] ?? DateTime.now().toIso8601String()),
       photosPaths: decodeStrList(m['photosPaths']),
@@ -1254,6 +1258,7 @@ class Estimation {
     double? fourchetteBasse,
     double? fourchetteHaute,
     String? conclusion,
+    String? prochainesEtapes,
     DateTime? validiteJusquau,
     List<String>? photosPaths,
     GeorisquesData? risques,
@@ -1395,6 +1400,7 @@ class Estimation {
       fourchetteBasse: fourchetteBasse ?? this.fourchetteBasse,
       fourchetteHaute: fourchetteHaute ?? this.fourchetteHaute,
       conclusion: conclusion ?? this.conclusion,
+      prochainesEtapes: prochainesEtapes ?? this.prochainesEtapes,
       validiteJusquau: validiteJusquau ?? this.validiteJusquau,
       photosPaths: photosPaths ?? List.from(this.photosPaths),
       risques: clearRisques ? null : (risques ?? this.risques),

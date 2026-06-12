@@ -32,9 +32,17 @@ class _Section7ScreenState extends State<Section7Screen> {
   bool _generatingR2 = false;
   bool _exportingZip = false;
   final _picker = ImagePicker();
+  late final TextEditingController _etapesCtrl;
 
   @override
-  void initState() { super.initState(); _e = widget.estimation; }
+  void initState() {
+    super.initState();
+    _e = widget.estimation;
+    _etapesCtrl = TextEditingController(text: _e.prochainesEtapes);
+  }
+
+  @override
+  void dispose() { _etapesCtrl.dispose(); super.dispose(); }
 
   void _update(Estimation e) { setState(() => _e = e); widget.onChanged(e); }
 
@@ -296,6 +304,25 @@ class _Section7ScreenState extends State<Section7Screen> {
                   if (i < checklist.length - 1) const Divider(height: 1, color: Color(0xFFF5F5F5)),
                 ]);
               }),
+            ])),
+
+            // Prochaines étapes (affiché en page de synthèse PDF)
+            SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const CardTitleRow(icon: Icons.checklist_outlined, label: 'Prochaines étapes'),
+              const SizedBox(height: 4),
+              const Text('Affiché en page de synthèse. Laisser vide pour le texte par défaut.',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF95A5A6))),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _etapesCtrl,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  hintText: '1. Validation du prix et signature du mandat\n2. Reportage photo + diffusion sous 7 jours\n3. Premier point hebdomadaire',
+                  hintStyle: TextStyle(fontSize: 12, color: Color(0xFFB2BEC3)),
+                ),
+                style: const TextStyle(fontSize: 13),
+                onChanged: (v) => _update(_e.copyWith(prochainesEtapes: v)),
+              ),
             ])),
 
             // PDF preview

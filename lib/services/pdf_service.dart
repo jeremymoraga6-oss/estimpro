@@ -184,6 +184,7 @@ class PdfService {
       footer: (ctx) => _footer(ctx),
       build: (ctx) => _buildBody(e, price, photoBytes, mapBytes, masquerPrix: masquerPrix),
     ));
+    doc.addPage(_synthesePage(e, price));
 
     final dir  = await getTemporaryDirectory();
     final file = File('${dir.path}/${e.reference}${masquerPrix ? '_R2' : ''}.pdf');
@@ -1681,6 +1682,181 @@ class PdfService {
         pw.SizedBox(height: 6),
         ...rows,
       ],
+    );
+  }
+
+  // ── Page de synthèse (pleine page) ─────────────────────────────────────────
+
+  pw.Page _synthesePage(Estimation e, double price) {
+    final low  = e.fourchetteBasse > 0 ? e.fourchetteBasse : price * 0.95;
+    final high = e.fourchetteHaute > 0 ? e.fourchetteHaute : price * 1.05;
+    final netVendeur = price;
+    final calibInfo = e.calibrationNbVentes >= 3
+        ? 'Modèle recalé sur ${e.calibrationNbVentes} ventes locales vérifiées'
+        : null;
+
+    // Étapes : défaut si champ vide
+    final rawEtapes = e.prochainesEtapes.trim();
+    final etapes = rawEtapes.isNotEmpty
+        ? rawEtapes.split(RegExp(r'\n|·|•')).map((s) => s.trim()).where((s) => s.isNotEmpty).toList()
+        : [
+            'Validation du prix et signature du mandat',
+            'Reportage photo + diffusion sur les portails sous 7 jours',
+            'Premier point hebdomadaire — suivi des visites',
+          ];
+
+    return pw.Page(
+      pageFormat: PdfPageFormat.a4,
+      margin: pw.EdgeInsets.zero,
+      build: (ctx) => pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          // Bandeau anthracite
+          pw.Container(
+            color: _kCharcoal,
+            padding: const pw.EdgeInsets.fromLTRB(40, 28, 40, 20),
+            child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+              pw.Text('SYNTHÈSE DE L\'AVIS DE VALEUR',
+                  style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.white, letterSpacing: 1.8)),
+              pw.SizedBox(height: 4),
+              pw.Text(e.adresseComplete.isNotEmpty ? e.adresseComplete : 'Réf. ${e.reference}',
+                  style: const pw.TextStyle(fontSize: 9, color: PdfColor.fromInt(0x99FFFFFF))),
+            ]),
+          ),
+
+          // Corps
+          pw.Expanded(
+            child: pw.Container(
+              color: PdfColors.white,
+              padding: const pw.EdgeInsets.fromLTRB(40, 32, 40, 28),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+
+                  // Prix recommandé
+                  pw.Center(
+                    child: pw.Column(children: [
+                      pw.Text(_fmtPrice(netVendeur),
+                          style: pw.TextStyle(fontSize: 44, fontWeight: pw.FontWeight.bold, color: _kGreen)),
+                      pw.SizedBox(height: 4),
+                      pw.Text('VALEUR ESTIMÉE — NET VENDEUR',
+                          style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold,
+                              color: _kCharcoal, letterSpacing: 1.2)),
+                      pw.SizedBox(height: 6),
+                      pw.Text('Fourchette : ${_fmtPrice(low)}  —  ${_fmtPrice(high)}',
+                          style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
+                    ]),
+                  ),
+
+                  pw.SizedBox(height: 20),
+                  pw.Container(height: 1, color: _kLightGreen),
+                  pw.SizedBox(height: 20),
+
+                  // Indice de confiance (pill)
+                  pw.Center(
+                    child: pw.Container(
+                      padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                      decoration: pw.BoxDecoration(
+                        color: _kLightGreen,
+                        borderRadius: pw.BorderRadius.circular(20),
+                        border: pw.Border.all(color: _kGreen, width: 1),
+                      ),
+                      child: pw.Column(children: [
+                        pw.Text('Indice de confiance — ${e.niveauConfiance}  (${e.scoreConfiance}/100)',
+                            style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _kGreen)),
+                        pw.SizedBox(height: 3),
+                        pw.Text(
+                          [
+                            '${e.comparables.length} comparable${e.comparables.length > 1 ? 's' : ''}',
+                            if (e.dispersionComparables > 0)
+                              'dispersion ${e.dispersionComparables.toStringAsFixed(0)} %',
+                            if (calibInfo != null) calibInfo,
+                          ].join('  ·  '),
+                          style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
+                        ),
+                      ]),
+                    ),
+                  ),
+
+                  pw.SizedBox(height: 24),
+
+                  // Mini-tableau prix
+                  pw.Container(
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
+                      borderRadius: pw.BorderRadius.circular(6),
+                    ),
+                    child: pw.Column(children: [
+                      pw.Container(
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: pw.BoxDecoration(
+                          color: const PdfColor.fromInt(0xFFF8F9FA),
+                          borderRadius: const pw.BorderRadius.only(
+                            topLeft: pw.Radius.circular(6), topRight: pw.Radius.circular(6)),
+                        ),
+                        child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+                          pw.Text('Prix de présentation conseillé (mandat)',
+                              style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+                          pw.Text(_fmtPrice(e.prixMandat),
+                              style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _kCharcoal)),
+                        ]),
+                      ),
+                      pw.Container(
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+                          pw.Text('Prix net vendeur estimé',
+                              style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+                          pw.Text(_fmtPrice(netVendeur),
+                              style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _kGreen)),
+                        ]),
+                      ),
+                    ]),
+                  ),
+
+                  pw.SizedBox(height: 24),
+
+                  // Prochaines étapes
+                  pw.Text('PROCHAINES ÉTAPES',
+                      style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold,
+                          color: _kGreen, letterSpacing: 0.8)),
+                  pw.SizedBox(height: 8),
+                  ...etapes.asMap().entries.map((entry) => pw.Padding(
+                    padding: const pw.EdgeInsets.only(bottom: 6),
+                    child: pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                      pw.Container(
+                        width: 18, height: 18,
+                        decoration: pw.BoxDecoration(color: _kGreen, shape: pw.BoxShape.circle),
+                        child: pw.Center(
+                          child: pw.Text('${entry.key + 1}',
+                              style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold,
+                                  color: PdfColors.white)),
+                        ),
+                      ),
+                      pw.SizedBox(width: 8),
+                      pw.Expanded(
+                        child: pw.Text(entry.value,
+                            style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey800,
+                                lineSpacing: 1.2)),
+                      ),
+                    ]),
+                  )),
+
+                  pw.Expanded(child: pw.SizedBox()),
+
+                  // Footer référence
+                  pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+                    pw.Text('Réf. ${e.reference}  ·  ${_fmtDate(e.dateVisite)}',
+                        style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey)),
+                    pw.Text('Validité : ${_fmtDate(e.validiteJusquau)}',
+                        style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey)),
+                  ]),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
