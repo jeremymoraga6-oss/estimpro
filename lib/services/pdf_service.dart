@@ -136,153 +136,22 @@ class PdfService {
     }
   }
 
-  Future<File> generateFile(Estimation e) async {
-    await _loadAssets();
-    final photoBytes = await _preparePhotos(e.photosPaths);
-    final mapBytes = await _prepareMarketMap(e);
-    final doc = pw.Document(theme: _theme);
-    final price = e.prixFinal > 0 ? e.prixFinal : e.prixCalcule;
+  // ── Public API ──────────────────────────────────────────────────────────────
 
-    doc.addPage(_buildCoverPage(e, price, photoBytes));
-    doc.addPage(pw.MultiPage(
-      pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.all(32),
-      header: (ctx) => _header(e),
-      footer: (ctx) => _footer(ctx),
-      build: (ctx) => [
-        _titleSection(e, price),
-        pw.SizedBox(height: 20),
-        _infoSection(e),
-        pw.SizedBox(height: 20),
-        _descSection(e),
-        if (e.typeId == 'terrain') ...[
-          pw.SizedBox(height: 20),
-          _terrainSection(e),
-        ],
-        pw.SizedBox(height: 20),
-        _etatSection(e),
-        pw.SizedBox(height: 20),
-        _chargesSection(e),
-        pw.SizedBox(height: 20),
-        _diagnosticsSection(e),
-        pw.SizedBox(height: 20),
-        _marcheSection(e, mapBytes),
-        pw.SizedBox(height: 20),
-        _prestationsSection(e),
-        pw.SizedBox(height: 20),
-        _estimationSection(e, price),
-        pw.SizedBox(height: 20),
-        _simulationAcquereurSection(e),
-        if (e.risques != null && e.risques!.hasData) ...[
-          pw.SizedBox(height: 20),
-          _risquesSection(e.risques!),
-        ],
-        pw.SizedBox(height: 20),
-        _plusValueSection(e),
-        pw.SizedBox(height: 20),
-        _documentsSection(e),
-        if (e.conclusion.isNotEmpty) ...[
-          pw.SizedBox(height: 20),
-          _conclusionSection(e),
-        ],
-        if (photoBytes.isNotEmpty) ...[
-          pw.SizedBox(height: 20),
-          _photosSection(photoBytes),
-        ],
-        if (e.notesVendeur != null) ...[
-          pw.SizedBox(height: 20),
-          _notesVendeurSection(e.notesVendeur!),
-        ],
-        if (_hasPathologiesSignalees(e)) ...[
-          pw.SizedBox(height: 20),
-          _pathologiesSection(e),
-        ],
-      ],
-    ));
-
-    final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/${e.reference}.pdf');
-    await file.writeAsBytes(await doc.save());
+  /// PDF complet — partage immédiat.
+  Future<File> generate(Estimation e) async {
+    final file = await _generate(e, masquerPrix: false, openAfter: true);
     return file;
   }
 
-  Future<File> generate(Estimation e) async {
-    await _loadAssets();
-    final photoBytes = await _preparePhotos(e.photosPaths);
-    final mapBytes = await _prepareMarketMap(e);
-    final doc = pw.Document(theme: _theme);
-    final price = e.prixFinal > 0 ? e.prixFinal : e.prixCalcule;
+  /// PDF complet — sauvegarde fichier uniquement (pas d'ouverture).
+  Future<File> generateFile(Estimation e) async {
+    return _generate(e, masquerPrix: false, openAfter: false);
+  }
 
-    doc.addPage(_buildCoverPage(e, price, photoBytes));
-    doc.addPage(pw.MultiPage(
-      pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.all(32),
-      header: (ctx) => _header(e),
-      footer: (ctx) => _footer(ctx),
-      build: (ctx) => [
-        _titleSection(e, price),
-        pw.SizedBox(height: 20),
-        _infoSection(e),
-        pw.SizedBox(height: 20),
-        _descSection(e),
-        if (e.typeId == 'terrain') ...[
-          pw.SizedBox(height: 20),
-          _terrainSection(e),
-        ],
-        pw.SizedBox(height: 20),
-        _etatSection(e),
-        pw.SizedBox(height: 20),
-        _chargesSection(e),
-        pw.SizedBox(height: 20),
-        _diagnosticsSection(e),
-        pw.SizedBox(height: 20),
-        _marcheSection(e, mapBytes),
-        pw.SizedBox(height: 20),
-        _prestationsSection(e),
-        pw.SizedBox(height: 20),
-        _estimationSection(e, price),
-        pw.SizedBox(height: 20),
-        _simulationAcquereurSection(e),
-        if (e.risques != null && e.risques!.hasData) ...[
-          pw.SizedBox(height: 20),
-          _risquesSection(e.risques!),
-        ],
-        pw.SizedBox(height: 20),
-        _plusValueSection(e),
-        pw.SizedBox(height: 20),
-        _documentsSection(e),
-        if (e.conclusion.isNotEmpty) ...[
-          pw.SizedBox(height: 20),
-          _conclusionSection(e),
-        ],
-        if (photoBytes.isNotEmpty) ...[
-          pw.SizedBox(height: 20),
-          _photosSection(photoBytes),
-        ],
-        if (e.notesVendeur != null) ...[
-          pw.SizedBox(height: 20),
-          _notesVendeurSection(e.notesVendeur!),
-        ],
-        if (_hasPathologiesSignalees(e)) ...[
-          pw.SizedBox(height: 20),
-          _pathologiesSection(e),
-        ],
-      ],
-    ));
-
-    final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/${e.reference}.pdf');
-    await file.writeAsBytes(await doc.save());
-
-    debugPrint('[PdfService] PDF généré : ${file.path}');
-    debugPrint('[PdfService] Fichier existe : ${file.existsSync()} — taille : ${file.lengthSync()} octets');
-
-    final result = await OpenFile.open(file.path);
-    if (result.type != ResultType.done) {
-      debugPrint('[PdfService] Erreur ouverture : ${result.message}');
-    }
-
-    return file;
+  /// PDF mode présentation R2 — couverture sans prix, estimation en fin.
+  Future<File> generatePresentation(Estimation e) async {
+    return _generate(e, masquerPrix: true, openAfter: true);
   }
 
   Future<void> sendByEmail(Estimation e) async {
@@ -298,9 +167,76 @@ class PdfService {
     );
   }
 
+  // ── Builder interne ─────────────────────────────────────────────────────────
+
+  Future<File> _generate(Estimation e, {required bool masquerPrix, required bool openAfter}) async {
+    await _loadAssets();
+    final photoBytes = await _preparePhotos(e.photosPaths);
+    final mapBytes   = await _prepareMarketMap(e);
+    final doc   = pw.Document(theme: _theme);
+    final price = e.prixFinal > 0 ? e.prixFinal : e.prixCalcule;
+
+    doc.addPage(_buildCoverPage(e, price, photoBytes, masquerPrix: masquerPrix));
+    doc.addPage(pw.MultiPage(
+      pageFormat: PdfPageFormat.a4,
+      margin: const pw.EdgeInsets.all(32),
+      header: (ctx) => _header(e),
+      footer: (ctx) => _footer(ctx),
+      build: (ctx) => _buildBody(e, price, photoBytes, mapBytes, masquerPrix: masquerPrix),
+    ));
+
+    final dir  = await getTemporaryDirectory();
+    final file = File('${dir.path}/${e.reference}${masquerPrix ? '_R2' : ''}.pdf');
+    await file.writeAsBytes(await doc.save());
+
+    if (openAfter) {
+      debugPrint('[PdfService] PDF généré : ${file.path}');
+      final result = await OpenFile.open(file.path);
+      if (result.type != ResultType.done) {
+        debugPrint('[PdfService] Erreur ouverture : ${result.message}');
+      }
+    }
+    return file;
+  }
+
+  List<pw.Widget> _buildBody(
+    Estimation e, double price,
+    List<Uint8List> photoBytes, Uint8List? mapBytes,
+    {bool masquerPrix = false}
+  ) {
+    final body = <pw.Widget>[];
+    void add(pw.Widget w) { body.add(w); body.add(pw.SizedBox(height: 20)); }
+
+    // Arc narratif : bien → état → marché → méthode → prix → projection
+    add(_titleSection(e, price, masquerPrix: masquerPrix));
+    add(_infoSection(e));
+    add(_descSection(e));
+    if (e.typeId == 'terrain') add(_terrainSection(e));
+    add(_etatSection(e));
+    add(_prestationsSection(e));
+    add(_diagnosticsSection(e));
+    add(_chargesSection(e));
+    add(_marcheSection(e, mapBytes));
+    // En mode R2 : l'estimation arrive après le marché (révélation dramaturgique)
+    add(_estimationSection(e, price));
+    add(_simulationAcquereurSection(e));
+    if (e.risques != null && e.risques!.hasData) add(_risquesSection(e.risques!));
+    // Plus-value seulement si résidence secondaire ou locative
+    if (!e.residencePrincipale) add(_plusValueSection(e));
+    add(_documentsSection(e));
+    if (e.conclusion.isNotEmpty) add(_conclusionSection(e));
+    if (photoBytes.isNotEmpty) add(_photosSection(photoBytes));
+    if (e.notesVendeur != null) add(_notesVendeurSection(e.notesVendeur!));
+    if (_hasPathologiesSignalees(e)) add(_pathologiesSection(e));
+
+    // Retire le SizedBox trailing final
+    if (body.isNotEmpty && body.last is pw.SizedBox) body.removeLast();
+    return body;
+  }
+
   // ── Page de garde ───────────────────────────────────────────────────────────
 
-  pw.Page _buildCoverPage(Estimation e, double price, List<Uint8List> photoBytes) {
+  pw.Page _buildCoverPage(Estimation e, double price, List<Uint8List> photoBytes, {bool masquerPrix = false}) {
     final low  = e.fourchetteBasse > 0 ? e.fourchetteBasse : price * 0.95;
     final high = e.fourchetteHaute > 0 ? e.fourchetteHaute : price * 1.05;
     final typeLabel = e.typeId.isNotEmpty
@@ -310,8 +246,8 @@ class PdfService {
       pageFormat: PdfPageFormat.a4,
       margin: pw.EdgeInsets.zero,
       build: (ctx) => photoBytes.isNotEmpty
-          ? _buildPhotoCover(e, price, low, high, typeLabel, photoBytes.first)
-          : _buildDefaultCover(e, price, low, high, typeLabel),
+          ? _buildPhotoCover(e, price, low, high, typeLabel, photoBytes.first, masquerPrix: masquerPrix)
+          : _buildDefaultCover(e, price, low, high, typeLabel, masquerPrix: masquerPrix),
     );
   }
 
@@ -319,6 +255,7 @@ class PdfService {
   pw.Widget _buildPhotoCover(
     Estimation e, double price, double low, double high,
     String typeLabel, Uint8List photoData,
+    {bool masquerPrix = false}
   ) {
     return pw.Stack(
       children: [
@@ -434,7 +371,7 @@ class PdfService {
                       color: PdfColors.white),
                 ),
                 pw.SizedBox(height: 16),
-                // ── Encadré prix ──────────────────────────────
+                // ── Encadré prix / présentation ────────────────
                 pw.Container(
                   padding: const pw.EdgeInsets.fromLTRB(18, 14, 18, 14),
                   decoration: pw.BoxDecoration(
@@ -443,54 +380,67 @@ class PdfService {
                         color: PdfColor.fromInt(0x664DA050), width: 1.5),
                     borderRadius: pw.BorderRadius.circular(8),
                   ),
-                  child: pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: pw.CrossAxisAlignment.end,
-                    children: [
-                      pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                        pw.Text('VALEUR ESTIMÉE (NET VENDEUR)',
-                            style: const pw.TextStyle(fontSize: 7,
-                                color: PdfColor.fromInt(0x99FFFFFF), letterSpacing: 0.8)),
-                        pw.SizedBox(height: 5),
-                        pw.Text(_fmtPrice(price),
-                            style: pw.TextStyle(fontSize: 30, fontWeight: pw.FontWeight.bold,
-                                color: _kGreen)),
-                        pw.SizedBox(height: 7),
-                        pw.Row(children: [
-                          pw.Text('Fourchette : ',
-                              style: const pw.TextStyle(fontSize: 9,
+                  child: masquerPrix
+                      ? pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                          pw.Text('AVIS DE VALEUR IMMOBILIÈRE',
+                              style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold,
+                                  color: _kGreen, letterSpacing: 1.2)),
+                          pw.SizedBox(height: 6),
+                          pw.Text('Présenté en rendez-vous',
+                              style: const pw.TextStyle(fontSize: 11, color: PdfColors.white)),
+                          pw.SizedBox(height: 4),
+                          pw.Text('Réf. ${e.reference}  ·  Visite : ${_fmtDate(e.dateVisite)}',
+                              style: const pw.TextStyle(fontSize: 8,
                                   color: PdfColor.fromInt(0x88FFFFFF))),
-                          pw.Text('${_fmtPrice(low)}  —  ${_fmtPrice(high)}',
-                              style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold,
-                                  color: PdfColors.white)),
-                        ]),
-                        pw.SizedBox(height: 3),
-                        pw.Row(children: [
-                          pw.Text('Prix de mandat : ',
-                              style: const pw.TextStyle(fontSize: 9,
-                                  color: PdfColor.fromInt(0x88FFFFFF))),
-                          pw.Text(_fmtPrice(e.prixMandat),
-                              style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold,
-                                  color: PdfColors.white)),
-                        ]),
-                      ]),
-                      pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
-                        pw.Text('${e.prixMoyen.round()}',
-                            style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold,
-                                color: _kGreen)),
-                        pw.Text('EUR / m²',
-                            style: const pw.TextStyle(fontSize: 8,
-                                color: PdfColor.fromInt(0x88FFFFFF))),
-                        pw.SizedBox(height: 10),
-                        pw.Text('Réf. ${e.reference}',
-                            style: const pw.TextStyle(fontSize: 8,
-                                color: PdfColor.fromInt(0x66FFFFFF))),
-                        pw.Text('Visite : ${_fmtDate(e.dateVisite)}',
-                            style: const pw.TextStyle(fontSize: 8,
-                                color: PdfColor.fromInt(0x66FFFFFF))),
-                      ]),
-                    ],
-                  ),
+                        ])
+                      : pw.Row(
+                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: pw.CrossAxisAlignment.end,
+                          children: [
+                            pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                              pw.Text('VALEUR ESTIMÉE (NET VENDEUR)',
+                                  style: const pw.TextStyle(fontSize: 7,
+                                      color: PdfColor.fromInt(0x99FFFFFF), letterSpacing: 0.8)),
+                              pw.SizedBox(height: 5),
+                              pw.Text(_fmtPrice(price),
+                                  style: pw.TextStyle(fontSize: 30, fontWeight: pw.FontWeight.bold,
+                                      color: _kGreen)),
+                              pw.SizedBox(height: 7),
+                              pw.Row(children: [
+                                pw.Text('Fourchette : ',
+                                    style: const pw.TextStyle(fontSize: 9,
+                                        color: PdfColor.fromInt(0x88FFFFFF))),
+                                pw.Text('${_fmtPrice(low)}  —  ${_fmtPrice(high)}',
+                                    style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold,
+                                        color: PdfColors.white)),
+                              ]),
+                              pw.SizedBox(height: 3),
+                              pw.Row(children: [
+                                pw.Text('Prix de mandat : ',
+                                    style: const pw.TextStyle(fontSize: 9,
+                                        color: PdfColor.fromInt(0x88FFFFFF))),
+                                pw.Text(_fmtPrice(e.prixMandat),
+                                    style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold,
+                                        color: PdfColors.white)),
+                              ]),
+                            ]),
+                            pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+                              pw.Text('${e.prixMoyen.round()}',
+                                  style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold,
+                                      color: _kGreen)),
+                              pw.Text('EUR / m²',
+                                  style: const pw.TextStyle(fontSize: 8,
+                                      color: PdfColor.fromInt(0x88FFFFFF))),
+                              pw.SizedBox(height: 10),
+                              pw.Text('Réf. ${e.reference}',
+                                  style: const pw.TextStyle(fontSize: 8,
+                                      color: PdfColor.fromInt(0x66FFFFFF))),
+                              pw.Text('Visite : ${_fmtDate(e.dateVisite)}',
+                                  style: const pw.TextStyle(fontSize: 8,
+                                      color: PdfColor.fromInt(0x66FFFFFF))),
+                            ]),
+                          ],
+                        ),
                 ),
               ],
             ),
@@ -503,6 +453,7 @@ class PdfService {
   // Couverture sans photo (design bandeau vert — inchangé)
   pw.Widget _buildDefaultCover(
     Estimation e, double price, double low, double high, String typeLabel,
+    {bool masquerPrix = false}
   ) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
@@ -571,7 +522,7 @@ class PdfService {
                 ),
                 pw.SizedBox(height: 28),
 
-                // Encadré prix
+                // Encadré prix / présentation
                 pw.Container(
                   padding: const pw.EdgeInsets.all(20),
                   decoration: pw.BoxDecoration(
@@ -579,32 +530,40 @@ class PdfService {
                     borderRadius: pw.BorderRadius.circular(8),
                     border: pw.Border.all(color: _kGreen, width: 1.5),
                   ),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text('Valeur estimée (net vendeur)',
-                          style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
-                      pw.SizedBox(height: 8),
-                      pw.Text(_fmtPrice(price),
-                          style: pw.TextStyle(fontSize: 34, fontWeight: pw.FontWeight.bold, color: _kGreen)),
-                      pw.SizedBox(height: 10),
-                      pw.Container(height: 0.5, color: const PdfColor.fromInt(0xFFB2DFDB)),
-                      pw.SizedBox(height: 10),
-                      pw.Row(children: [
-                        pw.Text('Fourchette :  ',
-                            style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
-                        pw.Text('${_fmtPrice(low)}  —  ${_fmtPrice(high)}',
-                            style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: _kCharcoal)),
-                      ]),
-                      pw.SizedBox(height: 5),
-                      pw.Row(children: [
-                        pw.Text('Prix de mandat :  ',
-                            style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
-                        pw.Text(_fmtPrice(e.prixMandat),
-                            style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: _kCharcoal)),
-                      ]),
-                    ],
-                  ),
+                  child: masquerPrix
+                      ? pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                          pw.Text('Avis de valeur immobilière',
+                              style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: _kGreen)),
+                          pw.SizedBox(height: 8),
+                          pw.Text('Présenté en rendez-vous',
+                              style: pw.TextStyle(fontSize: 16, color: _kCharcoal)),
+                        ])
+                      : pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text('Valeur estimée (net vendeur)',
+                                style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+                            pw.SizedBox(height: 8),
+                            pw.Text(_fmtPrice(price),
+                                style: pw.TextStyle(fontSize: 34, fontWeight: pw.FontWeight.bold, color: _kGreen)),
+                            pw.SizedBox(height: 10),
+                            pw.Container(height: 0.5, color: const PdfColor.fromInt(0xFFB2DFDB)),
+                            pw.SizedBox(height: 10),
+                            pw.Row(children: [
+                              pw.Text('Fourchette :  ',
+                                  style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+                              pw.Text('${_fmtPrice(low)}  —  ${_fmtPrice(high)}',
+                                  style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: _kCharcoal)),
+                            ]),
+                            pw.SizedBox(height: 5),
+                            pw.Row(children: [
+                              pw.Text('Prix de mandat :  ',
+                                  style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+                              pw.Text(_fmtPrice(e.prixMandat),
+                                  style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: _kCharcoal)),
+                            ]),
+                          ],
+                        ),
                 ),
                 pw.SizedBox(height: 24),
 
@@ -763,7 +722,7 @@ class PdfService {
 
   // ── Sections ────────────────────────────────────────────────────────────────
 
-  pw.Widget _titleSection(Estimation e, double price) {
+  pw.Widget _titleSection(Estimation e, double price, {bool masquerPrix = false}) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(16),
       decoration: pw.BoxDecoration(
@@ -776,15 +735,16 @@ class PdfService {
             pw.Text('Réf. ${e.reference}',
                 style: const pw.TextStyle(fontSize: 9, color: PdfColors.white)),
             pw.SizedBox(height: 4),
-            pw.Text(_fmtPrice(price),
-                style: pw.TextStyle(
-                    fontSize: 28,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.white)),
-            pw.SizedBox(height: 2),
-            pw.Text(
-                'Net vendeur — mandat : ${_fmtPrice(e.prixMandat)}',
-                style: const pw.TextStyle(fontSize: 9, color: PdfColors.white)),
+            masquerPrix
+                ? pw.Text('Avis de valeur — présenté en rendez-vous',
+                    style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: PdfColors.white))
+                : pw.Text(_fmtPrice(price),
+                    style: pw.TextStyle(fontSize: 28, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
+            if (!masquerPrix) ...[
+              pw.SizedBox(height: 2),
+              pw.Text('Net vendeur — mandat : ${_fmtPrice(e.prixMandat)}',
+                  style: const pw.TextStyle(fontSize: 9, color: PdfColors.white)),
+            ],
           ]),
           pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
             pw.Text('${e.prixMoyen.round()} EUR/m²',

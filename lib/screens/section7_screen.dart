@@ -29,6 +29,7 @@ class _Section7ScreenState extends State<Section7Screen> {
   late Estimation _e;
   bool _generating = false;
   bool _generated = false;
+  bool _generatingR2 = false;
   bool _exportingZip = false;
   final _picker = ImagePicker();
 
@@ -45,6 +46,17 @@ class _Section7ScreenState extends State<Section7Screen> {
     } catch (e) {
       setState(() => _generating = false);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur PDF : $e')));
+    }
+  }
+
+  Future<void> _generatePdfR2() async {
+    setState(() => _generatingR2 = true);
+    try {
+      await PdfService().generatePresentation(_e);
+      setState(() => _generatingR2 = false);
+    } catch (e) {
+      setState(() => _generatingR2 = false);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur PDF R2 : $e')));
     }
   }
 
@@ -359,7 +371,24 @@ class _Section7ScreenState extends State<Section7Screen> {
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity, height: 44,
+            child: OutlinedButton.icon(
+              onPressed: _generatingR2 ? null : _generatePdfR2,
+              icon: _generatingR2
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF7B1FA2)))
+                  : const Icon(Icons.slideshow_outlined, size: 18),
+              label: Text(_generatingR2 ? 'Génération…' : 'PDF présentation R2 (sans prix)',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF7B1FA2),
+                side: const BorderSide(color: Color(0xFFCE93D8), width: 1.5),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           Row(children: [
             Expanded(
               child: OutlinedButton.icon(
