@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:open_file/open_file.dart';
 import '../models/estimation.dart';
+import '../models/pathologie_item.dart';
 import '../models/vendeur_note.dart';
 import 'georisques_service.dart';
 import 'gares_service.dart';
@@ -166,6 +167,10 @@ class PdfService {
           pw.SizedBox(height: 20),
           _notesVendeurSection(e.notesVendeur!),
         ],
+        if (_hasPathologiesSignalees(e)) ...[
+          pw.SizedBox(height: 20),
+          _pathologiesSection(e),
+        ],
       ],
     ));
 
@@ -231,6 +236,10 @@ class PdfService {
         if (e.notesVendeur != null) ...[
           pw.SizedBox(height: 20),
           _notesVendeurSection(e.notesVendeur!),
+        ],
+        if (_hasPathologiesSignalees(e)) ...[
+          pw.SizedBox(height: 20),
+          _pathologiesSection(e),
         ],
       ],
     ));
@@ -1690,6 +1699,77 @@ class PdfService {
   }
 
   // ── Composants UI ───────────────────────────────────────────────────────────
+
+  bool _hasPathologiesSignalees(Estimation e) =>
+      e.pathologies.any((p) => p.signale);
+
+  pw.Widget _pathologiesSection(Estimation e) {
+    const etatLabels = {1: 'OK', 2: 'À surveiller', 3: 'Défaut constaté'};
+    const etatColors = {
+      1: PdfColors.green700,
+      2: PdfColor.fromInt(0xFFFB8C00),
+      3: PdfColors.red700,
+    };
+    fmt(int v) => '${v.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} EUR';
+
+    final rows = <pw.Widget>[];
+    for (final p in e.pathologies) {
+      if (!p.signale) continue;
+      rows.add(pw.Container(
+        decoration: const pw.BoxDecoration(
+          border: pw.Border(bottom: pw.BorderSide(color: PdfColor.fromInt(0xFFF0F0F0), width: 0.5)),
+        ),
+        padding: const pw.EdgeInsets.symmetric(vertical: 5),
+        child: pw.Row(children: [
+          pw.Expanded(
+            flex: 3,
+            child: pw.Text(p.libelle, style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey800)),
+          ),
+          pw.Expanded(
+            flex: 2,
+            child: pw.Text(
+              etatLabels[p.etat] ?? '',
+              style: pw.TextStyle(fontSize: 10, color: etatColors[p.etat] ?? PdfColors.grey700),
+            ),
+          ),
+          pw.Expanded(
+            flex: 2,
+            child: pw.Text(
+              p.provision > 0 ? fmt(p.provision) : '—',
+              style: const pw.TextStyle(fontSize: 10, color: _kCharcoal),
+              textAlign: pw.TextAlign.right,
+            ),
+          ),
+        ]),
+      ));
+      if (p.note.isNotEmpty) {
+        rows.add(pw.Padding(
+          padding: const pw.EdgeInsets.only(left: 4, bottom: 4),
+          child: pw.Text(p.note,
+              style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600, fontStyle: pw.FontStyle.italic)),
+        ));
+      }
+    }
+
+    final totalProv = e.pathologies.fold<int>(0, (sum, p) => sum + (p.signale ? p.provision : 0));
+    if (totalProv > 0) {
+      rows.add(pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(vertical: 6),
+        child: pw.Container(height: 0.5, color: PdfColors.grey300),
+      ));
+      rows.add(pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text('Total provisions retenues',
+              style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _kCharcoal)),
+          pw.Text(fmt(totalProv),
+              style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _kGreen)),
+        ],
+      ));
+    }
+
+    return _card('OBSERVATIONS TECHNIQUES — GRILLE MORAGA', rows);
+  }
 
   pw.Widget _card(String title, List<pw.Widget> rows) => pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,

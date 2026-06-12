@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'vendeur_note.dart';
 import 'carnet_note.dart';
+import 'pathologie_item.dart';
 import '../services/georisques_service.dart';
 import '../services/gares_service.dart';
 
@@ -190,6 +191,10 @@ class Estimation {
   double ajustGare;     // % proximité gare Léman Express
   double ajustRisques;  // % décote géorisques (≤ 0)
 
+  // Checklist pathologies bâti
+  List<PathologieItem> pathologies;       // liste des 13 points (vide = non initialisée)
+  int pathologiesLastReport;              // dernier total reporté dans ajustTravaux (pour diff.)
+
   // Documents cochés pour la mise en vente
   Map<String, bool> documentsChecked;
 
@@ -328,8 +333,11 @@ class Estimation {
     this.ajustEpoque = 0,
     this.ajustGare = 0,
     this.ajustRisques = 0,
+    List<PathologieItem>? pathologies,
+    this.pathologiesLastReport = 0,
     Map<String, bool>? documentsChecked,
-  })  : historique = historique ?? [],
+  })  : pathologies = pathologies ?? [],
+        historique = historique ?? [],
         equipements = equipements ?? [],
         viabilisation = viabilisation ?? [],
         piecesSurfaces = piecesSurfaces ?? [],
@@ -905,6 +913,8 @@ class Estimation {
         'ajustEpoque': ajustEpoque,
         'ajustGare': ajustGare,
         'ajustRisques': ajustRisques,
+        'pathologies': jsonEncode(pathologies.map((p) => p.toMap()).toList()),
+        'pathologiesLastReport': pathologiesLastReport,
       };
 
   factory Estimation.fromMap(Map<String, dynamic> m) {
@@ -1073,6 +1083,12 @@ class Estimation {
       ajustEpoque: (m['ajustEpoque'] as num?)?.toDouble() ?? 0,
       ajustGare: (m['ajustGare'] as num?)?.toDouble() ?? 0,
       ajustRisques: (m['ajustRisques'] as num?)?.toDouble() ?? 0,
+      pathologies: m['pathologies'] != null
+          ? List<PathologieItem>.from(
+              (jsonDecode(m['pathologies'] as String) as List)
+                  .map((e) => PathologieItem.fromMap(Map<String, dynamic>.from(e as Map))))
+          : [],
+      pathologiesLastReport: m['pathologiesLastReport'] as int? ?? 0,
     );
   }
 
@@ -1253,6 +1269,8 @@ class Estimation {
     double? ajustEpoque,
     double? ajustGare,
     double? ajustRisques,
+    List<PathologieItem>? pathologies,
+    int? pathologiesLastReport,
   }) {
     final copy = Estimation(
       id: id,
@@ -1390,6 +1408,8 @@ class Estimation {
       ajustEpoque: ajustEpoque ?? this.ajustEpoque,
       ajustGare: ajustGare ?? this.ajustGare,
       ajustRisques: ajustRisques ?? this.ajustRisques,
+      pathologies: pathologies != null ? List.from(pathologies) : List.from(this.pathologies),
+      pathologiesLastReport: pathologiesLastReport ?? this.pathologiesLastReport,
     );
     return copy;
   }

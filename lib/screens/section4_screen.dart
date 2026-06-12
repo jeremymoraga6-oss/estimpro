@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../theme.dart';
 import '../models/estimation.dart';
+import '../models/pathologie_item.dart';
 import '../widgets/shared.dart';
 import '../widgets/app_header.dart';
 import '../services/materiaux_scan_service.dart';
@@ -30,6 +31,12 @@ class _Section4ScreenState extends State<Section4Screen> {
     super.initState();
     _e = widget.estimation;
     _anneeCtrl = TextEditingController(text: '${_e.anneeChaudiere}');
+    // Initialize pathologies from referentiel if empty
+    if (_e.pathologies.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _update(_e.copyWith(pathologies: buildPathologiesReferentiel()));
+      });
+    }
   }
 
   @override
@@ -223,7 +230,13 @@ class _Section4ScreenState extends State<Section4Screen> {
               onChanged: (docs) => _update(_e.copyWith(documentsChecked: docs)),
             ),
 
-            const SizedBox(height: 16),
+            // Pathologies bâti
+            _PathologiesCard(
+              estimation: _e,
+              onChanged: _update,
+            ),
+
+            const SizedBox(height: 80),
           ]),
         ),
       ),
@@ -981,4 +994,314 @@ class _DiagnosticsCardState extends State<_DiagnosticsCard> {
       default:          return 'Non renseigne';
     }
   }
+}
+
+// ── Checklist pathologies ──────────────────────────────────────────────────
+
+class _PathologiesCard extends StatefulWidget {
+  final Estimation estimation;
+  final ValueChanged<Estimation> onChanged;
+  const _PathologiesCard({required this.estimation, required this.onChanged});
+  @override
+  State<_PathologiesCard> createState() => _PathologiesCardState();
+}
+
+class _PathologiesCardState extends State<_PathologiesCard> {
+  late List<PathologieItem> _items;
+  late Map<String, TextEditingController> _noteCtrlMap;
+  late Map<String, TextEditingController> _provCtrlMap;
+
+  @override
+  void initState() {
+    super.initState();
+    _items = List.from(widget.estimation.pathologies.isNotEmpty
+        ? widget.estimation.pathologies
+        : buildPathologiesReferentiel());
+    _noteCtrlMap = {for (final p in _items) p.id: TextEditingController(text: p.note)};
+    _provCtrlMap = {for (final p in _items) p.id: TextEditingController(text: '${p.provision}')};
+  }
+
+  @override
+  void didUpdateWidget(_PathologiesCard old) {
+    super.didUpdateWidget(old);
+    if (widget.estimation.pathologies != old.estimation.pathologies) {
+      _items = List.from(widget.estimation.pathologies.isNotEmpty
+          ? widget.estimation.pathologies
+          : buildPathologiesReferentiel());
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final c in _noteCtrlMap.values) c.dispose();
+    for (final c in _provCtrlMap.values) c.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    widget.onChanged(widget.estimation.copyWith(pathologies: List.from(_items)));
+  }
+
+  void _setEtat(int idx, int etat) {
+    setState(() {
+      final item = _items[idx];
+      final newProvision = etat == 3 && item.provision == 0
+          ? item.provisionBasse
+          : (etat != 3 ? 0 : item.provision);
+      _items[idx] = item.copyWith(etat: etat, provision: newProvision);
+      // Sync provision controller
+      if (etat == 3 && item.provision == 0) {
+        _provCtrlMap[item.id]?.text = '${item.provisionBasse}';
+      } else if (etat != 3) {
+        _provCtrlMap[item.id]?.text = '0';
+      }
+    });
+    _save();
+  }
+
+  int get _totalProvisions => _items.fold(0, (s, p) => s + (p.defaut ? p.provision : 0));
+  int get _nbVerifies => _items.where((p) => p.verifie).length;
+
+  void _showAide(BuildContext context, PathologieItem item) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(Icons.construction_rounded, size: 18, color: kGreen),
+            const SizedBox(width: 8),
+            Expanded(child: Text(item.libelle,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: kCharcoal))),
+          ]),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: const Color(0xFFF7F9F6), borderRadius: BorderRadius.circular(10)),
+            child: Text(item.aideMemo,
+                style: const TextStyle(fontSize: 13, color: kCharcoal, height: 1.6)),
+          ),
+          if (item.provisionHaute > 0) ...[
+            const SizedBox(height: 12),
+            Row(children: [
+              const Icon(Icons.euro_rounded, size: 14, color: kAmber),
+              const SizedBox(width: 6),
+              Text(
+                'Provision si défaut : ${_fmtEuro(item.provisionBasse)} – ${_fmtEuro(item.provisionHaute)}',
+                style: const TextStyle(fontSize: 12, color: kAmber, fontWeight: FontWeight.w600),
+              ),
+            ]),
+          ],
+        ]),
+      ),
+    );
+  }
+
+  String _fmtEuro(int n) => '${n.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}\u202f')} €';
+
+  @override
+  Widget build(BuildContext context) {
+    final totalProv = _totalProvisions;
+    final estimation = widget.estimation;
+
+    return SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const CardTitleRow(icon: Icons.checklist_rounded, label: 'Lecture du bâti — Méthode Moraga'),
+      const Text(
+        'Grille d\'observation visuelle — 13 points de contrôle. Sans sondage destructif.',
+        style: TextStyle(fontSize: 11, color: kGrey, height: 1.4),
+      ),
+      const SizedBox(height: 12),
+
+      // Liste des 13 points
+      ...List.generate(_items.length, (i) {
+        final item = _items[i];
+        final isDefaut = item.defaut;
+        final isSurveiller = item.etat == 2;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+          decoration: BoxDecoration(
+            color: isDefaut
+                ? kRed.withOpacity(0.04)
+                : isSurveiller
+                    ? kAmber.withOpacity(0.04)
+                    : const Color(0xFFFAFBFA),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isDefaut
+                  ? kRed.withOpacity(0.25)
+                  : isSurveiller
+                      ? kAmber.withOpacity(0.25)
+                      : const Color(0xFFECEFEC),
+            ),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Ligne principale : libellé + aide + boutons segmentés
+            Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+              Expanded(child: Text(item.libelle,
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kCharcoal))),
+              // Bouton aide-mémoire
+              GestureDetector(
+                onTap: () => _showAide(context, item),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsets.all(4),
+                  child: const Icon(Icons.info_outline_rounded, size: 16, color: kLightGrey),
+                ),
+              ),
+              // Boutons segmentés OK / Surveiller / Défaut
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                _EtatBtn(label: '✓', active: item.etat == 1, activeColor: kGreen,
+                    onTap: () => _setEtat(i, item.etat == 1 ? 0 : 1)),
+                const SizedBox(width: 4),
+                _EtatBtn(label: '👁', active: item.etat == 2, activeColor: kAmber,
+                    onTap: () => _setEtat(i, item.etat == 2 ? 0 : 2)),
+                const SizedBox(width: 4),
+                _EtatBtn(label: '⚠', active: item.etat == 3, activeColor: kRed,
+                    onTap: () => _setEtat(i, item.etat == 3 ? 0 : 3)),
+              ]),
+            ]),
+
+            // Note (si surveiller ou défaut)
+            if (isSurveiller || isDefaut) ...[
+              const SizedBox(height: 6),
+              TextField(
+                controller: _noteCtrlMap[item.id],
+                onChanged: (v) {
+                  setState(() { _items[i] = _items[i].copyWith(note: v); });
+                  _save();
+                },
+                decoration: InputDecoration(
+                  hintText: isDefaut ? 'Note / observation...' : 'Observation...',
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  isDense: true,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: isDefaut ? kRed.withOpacity(0.3) : kAmber.withOpacity(0.3))),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: isDefaut ? kRed.withOpacity(0.3) : kAmber.withOpacity(0.3))),
+                ),
+                style: const TextStyle(fontSize: 11, color: kCharcoal),
+                maxLines: 2,
+              ),
+            ],
+
+            // Provision (si défaut uniquement)
+            if (isDefaut) ...[
+              const SizedBox(height: 6),
+              Row(children: [
+                const Icon(Icons.euro_rounded, size: 12, color: kRed),
+                const SizedBox(width: 4),
+                const Text('Provision :', style: TextStyle(fontSize: 11, color: kRed, fontWeight: FontWeight.w600)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _provCtrlMap[item.id],
+                    keyboardType: TextInputType.number,
+                    onChanged: (v) {
+                      final parsed = int.tryParse(v.replaceAll(RegExp(r'[^\d]'), '')) ?? item.provisionBasse;
+                      setState(() { _items[i] = _items[i].copyWith(provision: parsed); });
+                      _save();
+                    },
+                    decoration: InputDecoration(
+                      suffix: const Text('€', style: TextStyle(fontSize: 11, color: kRed)),
+                      hintText: '${item.provisionBasse}',
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      isDense: true,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: kRed, width: 1)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: kRed.withOpacity(0.35))),
+                    ),
+                    style: const TextStyle(fontSize: 11, color: kRed, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'fourchette : ${_fmtEuro(item.provisionBasse)}–${_fmtEuro(item.provisionHaute)}',
+                  style: const TextStyle(fontSize: 9, color: kLightGrey),
+                ),
+              ]),
+            ],
+          ]),
+        );
+      }),
+
+      const CardDivider(),
+
+      // Footer : compteur + total + bouton report
+      Row(children: [
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('$_nbVerifies/13 vérifiés',
+              style: const TextStyle(fontSize: 11, color: kGrey, fontWeight: FontWeight.w600)),
+          if (totalProv > 0)
+            Text('Total provisions : ${_fmtEuro(totalProv)}',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kRed)),
+        ]),
+        const Spacer(),
+        if (totalProv > 0)
+          GestureDetector(
+            onTap: () {
+              final last = estimation.pathologiesLastReport;
+              final newTravaux = estimation.ajustTravaux - last + totalProv;
+              widget.onChanged(estimation.copyWith(
+                pathologies: List.from(_items),
+                ajustTravaux: newTravaux.clamp(0, 999999),
+                pathologiesLastReport: totalProv,
+              ));
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text('${_fmtEuro(totalProv)} reportés dans Travaux à prévoir'),
+                duration: const Duration(seconds: 2),
+              ));
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: kRed,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                'Reporter ${_fmtEuro(totalProv)} dans Travaux',
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
+              ),
+            ),
+          ),
+      ]),
+    ]));
+  }
+}
+
+class _EtatBtn extends StatelessWidget {
+  final String label;
+  final bool active;
+  final Color activeColor;
+  final VoidCallback onTap;
+  const _EtatBtn({required this.label, required this.active, required this.activeColor, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      width: 36,
+      height: 28,
+      decoration: BoxDecoration(
+        color: active ? activeColor.withOpacity(0.12) : const Color(0xFFF5F5F5),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: active ? activeColor.withOpacity(0.5) : const Color(0xFFE0E0E0),
+          width: 1.5,
+        ),
+      ),
+      child: Center(
+        child: Text(label,
+            style: TextStyle(
+              fontSize: active ? 13 : 12,
+              color: active ? activeColor : kLightGrey,
+            )),
+      ),
+    ),
+  );
 }
