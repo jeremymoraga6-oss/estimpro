@@ -15,13 +15,17 @@ import 'gares_service.dart';
 import 'static_map_service.dart';
 import '../screens/section6_screen.dart' show requiredDocs;
 
-const _kGreen      = PdfColor.fromInt(0xFF4CAF50);
-const _kLightGreen = PdfColor.fromInt(0xFFE8F5E9);
-const _kCharcoal   = PdfColor.fromInt(0xFF2C3E50);
+const _kGreen      = PdfColor.fromInt(0xFF4DA050);
+const _kLightGreen = PdfColor.fromInt(0xFFEDF6EE);
+const _kCharcoal   = PdfColor.fromInt(0xFF1C2830);
 
 class PdfService {
   pw.MemoryImage? _logoImage;
   pw.MemoryImage? _agenceImage;
+  pw.Font? _fontRegular;
+  pw.Font? _fontBold;
+  pw.Font? _fontItalic;
+  pw.Font? _fontBoldItalic;
 
   Future<void> _loadAssets() async {
     try {
@@ -32,6 +36,28 @@ class PdfService {
       final data = await rootBundle.load('assets/images/agence.jpg');
       _agenceImage = pw.MemoryImage(data.buffer.asUint8List());
     } catch (_) {}
+    try {
+      final r  = await rootBundle.load('assets/fonts/Lato-Regular.ttf');
+      final b  = await rootBundle.load('assets/fonts/Lato-Bold.ttf');
+      final i  = await rootBundle.load('assets/fonts/Lato-Italic.ttf');
+      final bi = await rootBundle.load('assets/fonts/Lato-BoldItalic.ttf');
+      _fontRegular    = pw.Font.ttf(r);
+      _fontBold       = pw.Font.ttf(b);
+      _fontItalic     = pw.Font.ttf(i);
+      _fontBoldItalic = pw.Font.ttf(bi);
+    } catch (e) {
+      debugPrint('[PdfService] font load error: $e');
+    }
+  }
+
+  pw.ThemeData? get _theme {
+    if (_fontRegular == null) return null;
+    return pw.ThemeData.withFont(
+      base:       _fontRegular!,
+      bold:       _fontBold       ?? _fontRegular!,
+      italic:     _fontItalic     ?? _fontRegular!,
+      boldItalic: _fontBoldItalic ?? _fontBold ?? _fontRegular!,
+    );
   }
 
   /// Compresse une photo pour l'intégration PDF (max 800px, PNG).
@@ -114,7 +140,7 @@ class PdfService {
     await _loadAssets();
     final photoBytes = await _preparePhotos(e.photosPaths);
     final mapBytes = await _prepareMarketMap(e);
-    final doc = pw.Document();
+    final doc = pw.Document(theme: _theme);
     final price = e.prixFinal > 0 ? e.prixFinal : e.prixCalcule;
 
     doc.addPage(_buildCoverPage(e, price, photoBytes));
@@ -184,7 +210,7 @@ class PdfService {
     await _loadAssets();
     final photoBytes = await _preparePhotos(e.photosPaths);
     final mapBytes = await _prepareMarketMap(e);
-    final doc = pw.Document();
+    final doc = pw.Document(theme: _theme);
     final price = e.prixFinal > 0 ? e.prixFinal : e.prixCalcule;
 
     doc.addPage(_buildCoverPage(e, price, photoBytes));
@@ -414,7 +440,7 @@ class PdfService {
                   decoration: pw.BoxDecoration(
                     color: PdfColor.fromInt(0xBB0D0D0D),
                     border: pw.Border.all(
-                        color: PdfColor.fromInt(0x664CAF50), width: 1.5),
+                        color: PdfColor.fromInt(0x664DA050), width: 1.5),
                     borderRadius: pw.BorderRadius.circular(8),
                   ),
                   child: pw.Row(
