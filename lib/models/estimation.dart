@@ -656,12 +656,19 @@ class Estimation {
   }
 
   /// Libellé lisible de la situation locative pour l'UI.
+  /// Miroir exact de la hiérarchie de decoteOccupation.
   String get labelOccupation {
     if (libreOccupation) return 'Bien libre';
     final pct = decoteOccupation.toInt();
     if (typeBail == 'Commercial') return 'Bail commercial ($pct%)';
     if (congeLocataire) return 'Congé donné ($pct%)';
-    if (decoteOccupation == -6.0) return 'Fin bail ≤ 12 mois ($pct%)';
+    if (dateFinBail.isNotEmpty) {
+      final mtch = RegExp(r'^(\d{1,2})/(\d{4})$').firstMatch(dateFinBail);
+      if (mtch != null) {
+        final fin = DateTime(int.parse(mtch.group(2)!), int.parse(mtch.group(1)!));
+        if (fin.difference(DateTime.now()).inDays <= 365) return 'Fin bail ≤ 12 mois ($pct%)';
+      }
+    }
     if (typeBail == 'Meublé') return 'Bail meublé ($pct%)';
     return 'Bail vide standard ($pct%)';
   }
@@ -700,8 +707,28 @@ class Estimation {
 
   // Calcul net vendeur réel et coût acquéreur
   double get fraisAgenceEstimes => prixMandat * tauxAgence / 100;
-  double get fraisNotaireAcquereur => prixMandat * 0.08;
+  double get fraisNotaireAcquereur => calcFraisNotaire(prixMandat);
   double get budgetTotalAcquereur => prixMandat + fraisNotaireAcquereur;
+
+  /// Frais de notaire exacts — régime ancien, dep. 74 (LF 2025).
+  /// Émoluments arrêté 28/02/2020 + TVA 20 % (plancher 90 €).
+  /// DMTO 6,32 % · CSI 0,10 % (min 15 €) · débours forfait 1 300 €.
+  static double calcFraisNotaire(double prix) {
+    if (prix <= 0) return 0;
+    const tranches = [
+      (0.0,     6500.0,          0.03870),
+      (6500.0,  17000.0,         0.01596),
+      (17000.0, 60000.0,         0.01064),
+      (60000.0, double.infinity, 0.00799),
+    ];
+    double emo = 0;
+    for (final (mn, mx, t) in tranches) {
+      if (prix > mn) emo += (prix < mx ? prix - mn : mx - mn) * t;
+    }
+    emo = math.max(emo * 1.20, 90.0);
+    final csi = math.max(prix * 0.001, 15.0);
+    return prix * 0.0632 + emo + csi + 1300;
+  }
 
   /// Somme de tous les ajustements en % (hors corrections monétaires travaux/parking/piscine).
   double get totalPctAjustements =>

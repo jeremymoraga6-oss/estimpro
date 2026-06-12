@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../models/estimation.dart';
@@ -408,7 +409,7 @@ class _Section6ScreenState extends State<Section6Screen> {
               _AdjRow(
                 label: 'Performance énergétique (DPE ${_e.dpeClasse})',
                 val: _e.ajustDpe,
-                min: -8,
+                min: math.min(_e.recommendedAjustDpe, -8.0),
                 max: 3,
                 base: base,
                 note: 'DPE ${_e.dpeClasse} · ${_e.ajustDpe < 0 ? 'décote' : _e.ajustDpe > 0 ? 'bonus' : 'neutre'}',
@@ -548,6 +549,25 @@ class _Section6ScreenState extends State<Section6Screen> {
                       _PriceDetailRow('  Non-constructible :', '${_e.surfaceTerrain - 500 - _e.terrainConstructibleM2} m² × 8 €/m²'),
                     ] else
                       _PriceDetailRow('  Zone non précisée :', '${_e.surfaceTerrain - 500} m² × 8 €/m²'),
+                    if (_e.terrainConstructibleM2.clamp(0, math.max(0, _e.surfaceTerrain - 500)) > 800) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                        decoration: BoxDecoration(
+                          color: kAmber.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: kAmber.withOpacity(0.45)),
+                        ),
+                        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          const Icon(Icons.warning_amber_rounded, size: 15, color: kAmber),
+                          const SizedBox(width: 7),
+                          const Expanded(child: Text(
+                            'Excédent constructible important — la valorisation linéaire atteint ses limites, prévoir une approche par lots.',
+                            style: TextStyle(fontSize: 10, color: kAmber, height: 1.4),
+                          )),
+                        ]),
+                      ),
+                    ],
                   ]),
                 ),
                 const SizedBox(height: 6),
@@ -795,6 +815,33 @@ class _Section6ScreenState extends State<Section6Screen> {
                   ]),
                 ]),
               ),
+              // Avertissement cumul ajustements élevé
+              if (totalPct.abs() > 20) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                  decoration: BoxDecoration(
+                    color: kAmber.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: kAmber.withOpacity(0.45)),
+                  ),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Icon(Icons.warning_amber_rounded, size: 16, color: kAmber),
+                    const SizedBox(width: 8),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(
+                        'Cumul d\'ajustements élevé (${totalPct.toStringAsFixed(0)} %)',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kAmber),
+                      ),
+                      const SizedBox(height: 3),
+                      const Text(
+                        'Vérifie le choix des comparables avant de valider ce prix.',
+                        style: TextStyle(fontSize: 10.5, color: kAmber, height: 1.4),
+                      ),
+                    ])),
+                  ]),
+                ),
+              ],
               const CardDivider(),
               Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Text(_fmt(low), style: const TextStyle(fontSize: 14, color: Color(0xFF95A5A6))),
@@ -1370,6 +1417,27 @@ class _PrixMandatCard extends StatelessWidget {
         const Text('20%', style: TextStyle(fontSize: 10, color: kLightGrey)),
       ]),
       const SizedBox(height: 14),
+
+      // Avertissement marge hors fourchette
+      if (e.margeNegociation > e.fourchettePctAuto) ...[
+        Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          decoration: BoxDecoration(
+            color: kAmber.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: kAmber.withOpacity(0.45)),
+          ),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Icon(Icons.warning_amber_rounded, size: 16, color: kAmber),
+            const SizedBox(width: 8),
+            const Expanded(child: Text(
+              'Le prix de présentation sort de la fourchette de valeur annoncée.',
+              style: TextStyle(fontSize: 10.5, color: kAmber, height: 1.4),
+            )),
+          ]),
+        ),
+      ],
 
       // Prix mandat — hero
       Container(
