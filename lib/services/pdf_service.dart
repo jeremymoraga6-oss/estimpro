@@ -13,6 +13,7 @@ import '../models/vendeur_note.dart';
 import 'georisques_service.dart';
 import 'gares_service.dart';
 import 'static_map_service.dart';
+import 'app_settings.dart';
 import '../screens/section6_screen.dart' show requiredDocs;
 
 const _kGreen      = PdfColor.fromInt(0xFF4DA050);
@@ -185,6 +186,7 @@ class PdfService {
       build: (ctx) => _buildBody(e, price, photoBytes, mapBytes, masquerPrix: masquerPrix),
     ));
     doc.addPage(_synthesePage(e, price));
+    doc.addPage(_agenceFinalePage(e));
 
     final dir  = await getTemporaryDirectory();
     final file = File('${dir.path}/${e.reference}${masquerPrix ? '_R2' : ''}.pdf');
@@ -1911,6 +1913,173 @@ class PdfService {
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Page finale agence + QR codes ──────────────────────────────────────────
+
+  pw.Page _agenceFinalePage(Estimation e) {
+    final url = AppSettings.instance.estimationUrl;
+
+    final vCard = [
+      'BEGIN:VCARD',
+      'VERSION:3.0',
+      'FN:Jeremy Moraga',
+      'TEL:0668036403',
+      'EMAIL:jeremy.moraga@efficity.com',
+      'ORG:Faucigny Immobilier by Efficity',
+      'TITLE:Conseiller immobilier',
+      'END:VCARD',
+    ].join('\n');
+
+    pw.Widget _qrBlock(String data, String label) => pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.center,
+      children: [
+        pw.Container(
+          width: 100, height: 100,
+          decoration: pw.BoxDecoration(
+            border: pw.Border.all(color: PdfColors.grey300, width: 1),
+            borderRadius: pw.BorderRadius.circular(6),
+          ),
+          padding: const pw.EdgeInsets.all(6),
+          child: pw.BarcodeWidget(
+            barcode: pw.Barcode.qrCode(),
+            data: data,
+            drawText: false,
+            color: _kCharcoal,
+          ),
+        ),
+        pw.SizedBox(height: 6),
+        pw.Text(label,
+            style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold,
+                color: _kCharcoal, letterSpacing: 0.5)),
+      ],
+    );
+
+    return pw.Page(
+      pageFormat: PdfPageFormat.a4,
+      margin: pw.EdgeInsets.zero,
+      build: (ctx) => pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          // Bandeau anthracite
+          pw.Container(
+            color: _kCharcoal,
+            padding: const pw.EdgeInsets.fromLTRB(40, 28, 40, 20),
+            child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+              pw.Text('VOTRE CONSEILLER IMMOBILIER',
+                  style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.white, letterSpacing: 1.8)),
+              pw.SizedBox(height: 4),
+              pw.Text('Faucigny Immobilier by Efficity — Vallée de l\'Arve & Faucigny',
+                  style: const pw.TextStyle(fontSize: 9, color: PdfColor.fromInt(0x99FFFFFF))),
+            ]),
+          ),
+
+          // Corps principal
+          pw.Expanded(
+            child: pw.Container(
+              color: PdfColors.white,
+              padding: const pw.EdgeInsets.fromLTRB(40, 36, 40, 28),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+
+                  // Bloc contact
+                  pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                    // Cercle initiales
+                    pw.Container(
+                      width: 64, height: 64,
+                      decoration: pw.BoxDecoration(color: _kGreen, shape: pw.BoxShape.circle),
+                      child: pw.Center(
+                        child: pw.Text('JM',
+                            style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold,
+                                color: PdfColors.white)),
+                      ),
+                    ),
+                    pw.SizedBox(width: 20),
+                    pw.Expanded(
+                      child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                        pw.Text('Jérémy Moraga',
+                            style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold,
+                                color: _kCharcoal)),
+                        pw.SizedBox(height: 4),
+                        pw.Text('Conseiller immobilier — Méthode Moraga',
+                            style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey600)),
+                        pw.SizedBox(height: 10),
+                        pw.Row(children: [
+                          pw.Text('06 68 03 64 03',
+                              style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold,
+                                  color: _kCharcoal)),
+                          pw.SizedBox(width: 20),
+                          pw.Text('jeremy.moraga@efficity.com',
+                              style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700)),
+                        ]),
+                        pw.SizedBox(height: 6),
+                        pw.Container(
+                          padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: pw.BoxDecoration(
+                            color: _kLightGreen,
+                            borderRadius: pw.BorderRadius.circular(4),
+                          ),
+                          child: pw.Text('Faucigny & vallée de l\'Arve',
+                              style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold,
+                                  color: _kGreen)),
+                        ),
+                      ]),
+                    ),
+                  ]),
+
+                  pw.SizedBox(height: 32),
+                  pw.Container(height: 1, color: _kLightGreen),
+                  pw.SizedBox(height: 32),
+
+                  // QR codes
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.center,
+                    children: [
+                      if (url.isNotEmpty) ...[
+                        _qrBlock(url, 'VOTRE ESTIMATION EN LIGNE'),
+                        pw.SizedBox(width: 48),
+                      ],
+                      _qrBlock(vCard, 'MES COORDONNÉES'),
+                    ],
+                  ),
+
+                  pw.SizedBox(height: 32),
+                  pw.Container(height: 1, color: _kLightGreen),
+                  pw.SizedBox(height: 20),
+
+                  // Mention légale + accroche
+                  pw.Center(
+                    child: pw.Text(
+                      'Ce rapport a été établi selon la méthode comparative — il est valable 3 mois à compter de la date de visite.',
+                      style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey, lineSpacing: 1.4),
+                      textAlign: pw.TextAlign.center,
+                    ),
+                  ),
+
+                  pw.Expanded(child: pw.SizedBox()),
+
+                  // Footer référence
+                  pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+                    pw.Text('Réf. ${e.reference}',
+                        style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey)),
+                    if (_logoImage != null)
+                      pw.Image(_logoImage!, width: 60),
+                  ]),
+                ],
+              ),
+            ),
+          ),
+
+          // Bande verte basse
+          pw.Container(
+            color: _kGreen,
+            height: 6,
           ),
         ],
       ),

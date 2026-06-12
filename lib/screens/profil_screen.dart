@@ -225,6 +225,9 @@ class _ProfilScreenState extends State<ProfilScreen> {
             const SizedBox(height: 12),
             // Configuration clé API Anthropic (pour features IA)
             _ApiKeyCard(onChanged: () => setState(() {})),
+            const SizedBox(height: 8),
+            // URL widget d'estimation en ligne (QR code page finale PDF)
+            _EstimationUrlCard(onChanged: () => setState(() {})),
             const SizedBox(height: 12),
             // Bouton journal de débogage
             Container(
@@ -533,6 +536,113 @@ class _CarteDeVisiteCardState extends State<_CarteDeVisiteCard> {
         ),
       ),
     ]);
+  }
+}
+
+class _EstimationUrlCard extends StatefulWidget {
+  final VoidCallback onChanged;
+  const _EstimationUrlCard({required this.onChanged});
+  @override
+  State<_EstimationUrlCard> createState() => _EstimationUrlCardState();
+}
+
+class _EstimationUrlCardState extends State<_EstimationUrlCard> {
+  Future<void> _edit() async {
+    final ctrl = TextEditingController(text: AppSettings.instance.estimationUrl);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('URL estimation en ligne'),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text(
+            'URL de votre widget d\'estimation Netlify ou autre. Affichée sous forme de QR code sur la dernière page du rapport PDF.',
+            style: TextStyle(fontSize: 12, color: kGrey),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: ctrl,
+            autocorrect: false,
+            enableSuggestions: false,
+            keyboardType: TextInputType.url,
+            decoration: InputDecoration(
+              hintText: 'https://estimation.faucigny-immo.fr',
+              hintStyle: const TextStyle(fontSize: 12, color: kLightGrey),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            style: const TextStyle(fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Laisser vide pour ne pas afficher le QR code.',
+            style: TextStyle(fontSize: 10, color: kLightGrey, fontStyle: FontStyle.italic),
+          ),
+        ]),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null),
+            child: const Text('Annuler', style: TextStyle(color: kGrey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: kGreen, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('Enregistrer'),
+          ),
+        ],
+      ),
+    );
+    if (result != null) {
+      await AppSettings.instance.setEstimationUrl(result);
+      if (mounted) {
+        setState(() {});
+        widget.onChanged();
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasUrl = AppSettings.instance.estimationUrl.isNotEmpty;
+    return Container(
+      decoration: kCardDecoration(),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: _edit,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(children: [
+            Container(
+              width: 32, height: 32,
+              decoration: BoxDecoration(
+                color: (hasUrl ? kGreen : kGrey).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.qr_code_rounded, size: 18, color: hasUrl ? kGreen : kGrey),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('URL estimation en ligne',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kCharcoal)),
+                SizedBox(height: 2),
+                Text('QR code sur la dernière page du rapport PDF',
+                    style: TextStyle(fontSize: 11, color: kGrey)),
+              ]),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: (hasUrl ? kGreen : kGrey).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(hasUrl ? 'Configurée' : 'Non définie',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: hasUrl ? kGreen : kGrey)),
+            ),
+            const SizedBox(width: 6),
+            const Icon(Icons.chevron_right, color: kLightGrey, size: 22),
+          ]),
+        ),
+      ),
+    );
   }
 }
 

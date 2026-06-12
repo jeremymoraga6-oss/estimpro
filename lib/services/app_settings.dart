@@ -25,6 +25,7 @@ class AppSettings {
   // ── État ──────────────────────────────────────────────────────────────────
   String _anthropicKey = '';
   int _dvfCacheVersion = 0;
+  String _estimationUrl = '';
   bool _loaded = false;
 
   // ── Fichier JSON (préférences non-sensibles) ──────────────────────────────
@@ -49,6 +50,7 @@ class AppSettings {
       }
 
       _dvfCacheVersion = (data['dvfCacheVersion'] as int?) ?? 0;
+      _estimationUrl   = (data['estimationUrl']   as String?) ?? '';
 
       // 1. Lire la clé depuis le stockage sécurisé
       _anthropicKey = await _secure.read(key: _kApiKeyId) ?? '';
@@ -80,6 +82,7 @@ class AppSettings {
       // Ne stocke PAS la clé API dans le JSON
       await f.writeAsString(jsonEncode({
         'dvfCacheVersion': _dvfCacheVersion,
+        'estimationUrl':   _estimationUrl,
       }));
     } catch (e) {
       debugPrint('[Settings] save error: $e');
@@ -112,6 +115,15 @@ class AppSettings {
 
   Future<void> setDvfCacheVersion(int v) async {
     _dvfCacheVersion = v;
+    await save();
+  }
+
+  // ── URL d'estimation en ligne ─────────────────────────────────────────────
+
+  String get estimationUrl => _estimationUrl;
+
+  Future<void> setEstimationUrl(String url) async {
+    _estimationUrl = url.trim();
     await save();
   }
 }
