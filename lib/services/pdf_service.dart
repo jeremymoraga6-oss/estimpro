@@ -206,31 +206,31 @@ class PdfService {
     {bool masquerPrix = false}
   ) {
     final body = <pw.Widget>[];
-    void add(pw.Widget w) { body.add(w); body.add(pw.SizedBox(height: 20)); }
+    // _b = bloc insécable (Container non splittable par MultiPage)
+    // _s = section longue (Column splittable) — utilisé pour marché et photos
+    void _b(pw.Widget w) { body.add(pw.Container(child: w)); body.add(pw.SizedBox(height: 20)); }
+    void _s(pw.Widget w) { body.add(w); body.add(pw.SizedBox(height: 20)); }
 
     // Arc narratif : bien → état → marché → méthode → prix → projection
-    add(_titleSection(e, price, masquerPrix: masquerPrix));
-    add(_infoSection(e));
-    add(_descSection(e));
-    if (e.typeId == 'terrain') add(_terrainSection(e));
-    add(_etatSection(e));
-    add(_prestationsSection(e));
-    add(_diagnosticsSection(e));
-    add(_chargesSection(e));
-    add(_marcheSection(e, mapBytes));
-    // En mode R2 : l'estimation arrive après le marché (révélation dramaturgique)
-    add(_estimationSection(e, price));
-    add(_simulationAcquereurSection(e));
-    if (e.risques != null && e.risques!.hasData) add(_risquesSection(e.risques!));
-    // Plus-value seulement si résidence secondaire ou locative
-    if (!e.residencePrincipale) add(_plusValueSection(e));
-    add(_documentsSection(e));
-    if (e.conclusion.isNotEmpty) add(_conclusionSection(e));
-    if (photoBytes.isNotEmpty) add(_photosSection(photoBytes));
-    if (e.notesVendeur != null) add(_notesVendeurSection(e.notesVendeur!));
-    if (_hasPathologiesSignalees(e)) add(_pathologiesSection(e));
+    _b(_titleSection(e, price, masquerPrix: masquerPrix));
+    _b(_infoSection(e));
+    _b(_descSection(e));
+    if (e.typeId == 'terrain') _b(_terrainSection(e));
+    _b(_etatSection(e));
+    _b(_prestationsSection(e));
+    _b(_diagnosticsSection(e));
+    _b(_chargesSection(e));
+    _s(_marcheSection(e, mapBytes));   // long, géré en interne (header insécable)
+    _b(_estimationSection(e, price));
+    _b(_simulationAcquereurSection(e));
+    if (e.risques != null && e.risques!.hasData) _b(_risquesSection(e.risques!));
+    if (!e.residencePrincipale) _b(_plusValueSection(e));
+    _b(_documentsSection(e));
+    if (e.conclusion.isNotEmpty) _b(_conclusionSection(e));
+    if (photoBytes.isNotEmpty) _s(_photosSection(photoBytes)); // potentiellement long
+    if (e.notesVendeur != null) _b(_notesVendeurSection(e.notesVendeur!));
+    if (_hasPathologiesSignalees(e)) _b(_pathologiesSection(e));
 
-    // Retire le SizedBox trailing final
     if (body.isNotEmpty && body.last is pw.SizedBox) body.removeLast();
     return body;
   }
@@ -1203,7 +1203,64 @@ class PdfService {
       bold: true,
     ));
 
-    return _card('ANALYSE DU MARCHE — REFERENCES DVF', rows);
+    // Garde le titre avec au minimum les 3 premières lignes (insécable).
+    // Si tout tient (≤ 6 comparables + pas de carte), rester atomique.
+    const anchorCount = 3; // header cols + 2 data rows
+    final anchorRows = rows.take(rows.length.clamp(0, anchorCount)).toList();
+    final tailRows   = rows.skip(anchorRows.length).toList();
+
+    if (tailRows.isEmpty) {
+      return pw.Container(child: _card('ANALYSE DU MARCHE — REFERENCES DVF', rows));
+    }
+
+    const cardTitle = 'ANALYSE DU MARCHE — REFERENCES DVF';
+    pw.Widget cardHeader() => pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: pw.BoxDecoration(
+        color: _kGreen,
+        borderRadius: const pw.BorderRadius.only(
+          topLeft: pw.Radius.circular(6), topRight: pw.Radius.circular(6)),
+      ),
+      child: pw.Text(cardTitle,
+          style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold,
+              color: PdfColors.white, letterSpacing: 0.8)),
+    );
+
+    return pw.Column(children: [
+      // Bloc insécable : titre + premières lignes (no bottom border)
+      pw.Container(
+        child: pw.Column(children: [
+          cardHeader(),
+          pw.Container(
+            padding: const pw.EdgeInsets.fromLTRB(12, 10, 12, 0),
+            decoration: const pw.BoxDecoration(
+              border: pw.Border(
+                left:  pw.BorderSide(color: PdfColors.grey300, width: 0.5),
+                right: pw.BorderSide(color: PdfColors.grey300, width: 0.5),
+                top:   pw.BorderSide(color: PdfColors.grey300, width: 0.5),
+              ),
+            ),
+            child: pw.Column(children: anchorRows),
+          ),
+        ]),
+      ),
+      // Continuation (atomique mais peut aller sur la page suivante)
+      pw.Container(
+        padding: const pw.EdgeInsets.fromLTRB(12, 0, 12, 6),
+        decoration: pw.BoxDecoration(
+          border: const pw.Border(
+            left:   pw.BorderSide(color: PdfColors.grey300, width: 0.5),
+            right:  pw.BorderSide(color: PdfColors.grey300, width: 0.5),
+            bottom: pw.BorderSide(color: PdfColors.grey300, width: 0.5),
+          ),
+          borderRadius: const pw.BorderRadius.only(
+            bottomLeft:  pw.Radius.circular(6),
+            bottomRight: pw.Radius.circular(6),
+          ),
+        ),
+        child: pw.Column(children: tailRows),
+      ),
+    ]);
   }
 
   pw.Widget _mapLegendDot(PdfColor color) => pw.Container(
