@@ -1543,7 +1543,7 @@ class _PrixMandatCard extends StatelessWidget {
           ]),
           const SizedBox(height: 8),
           _PriceDetailRow('Prix de vente (FAI) :', _fmt(mandat)),
-          _PriceDetailRow('Frais de notaire (~8%) :', '+${_fmt(fraisNotaire)}'),
+          _PriceDetailRow('Frais de notaire (exact, dep. 74) :', '+${_fmt(fraisNotaire)}'),
           const Divider(height: 12),
           _PriceDetailRow('Budget total acquéreur :', _fmt(budgetAcquereur), bold: true),
           const SizedBox(height: 4),
@@ -1750,8 +1750,8 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
   // Capacité bancaire (35% des revenus = règle HCSF)
   double get _mensualiteMax => _revenus * 0.35;
 
-  // Frais de notaire ancien 2026 : ~8% (DMTO majoré 74 + émoluments + débours)
-  double get _fraisNotaire => widget.prixMandat * 0.08;
+  // Frais de notaire exacts — délègue au même calcul que fraisNotaireAcquereur
+  double get _fraisNotaire => Estimation.calcFraisNotaire(widget.prixMandat);
   // Coût total acquéreur = prix + frais notaire (ce que la banque évalue)
   double get _coutTotal => widget.prixMandat + _fraisNotaire;
 
@@ -2024,7 +2024,7 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
                   ]),
                   const SizedBox(height: 4),
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    const Text('Frais de notaire (~8%) :', style: TextStyle(fontSize: 12, color: kGrey)),
+                    const Text('Frais de notaire (exact, dep. 74) :', style: TextStyle(fontSize: 12, color: kGrey)),
                     Text(_fmt(_fraisNotaire), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
                   ]),
                   const SizedBox(height: 4),

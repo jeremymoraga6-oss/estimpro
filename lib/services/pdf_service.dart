@@ -1404,7 +1404,7 @@ class PdfService {
     fmt(double v) => '${v.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} EUR';
     return _card('SIMULATION COUT ACQUEREUR', [
       _row('Prix de mandat', fmt(e.prixMandat), bold: true),
-      _row('Frais de notaire (~8%, ancien Haute-Savoie)', '+${fmt(e.fraisNotaireAcquereur)}'),
+      _row('Frais de notaire (exact, dep. 74)', '+${fmt(e.fraisNotaireAcquereur)}'),
       pw.Padding(
         padding: const pw.EdgeInsets.symmetric(vertical: 6),
         child: pw.Container(height: 0.5, color: PdfColors.grey300),
