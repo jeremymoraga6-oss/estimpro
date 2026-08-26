@@ -854,25 +854,17 @@ class _Section6ScreenState extends State<Section6Screen> {
               Row(children: [
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   const FieldLabel('Fourchette basse'),
-                  TextField(
-                    controller: TextEditingController(text: _fmt(low)),
-                    keyboardType: TextInputType.number,
-                    onChanged: (v) => _update(_e.copyWith(fourchetteBasse: _parsePrice(v))),
-                    decoration: InputDecoration(contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5))),
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kCharcoal),
+                  _PriceField(
+                    value: low,
+                    onChanged: (v) => _update(_e.copyWith(fourchetteBasse: v)),
                   ),
                 ])),
                 const SizedBox(width: 10),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   const FieldLabel('Fourchette haute'),
-                  TextField(
-                    controller: TextEditingController(text: _fmt(high)),
-                    keyboardType: TextInputType.number,
-                    onChanged: (v) => _update(_e.copyWith(fourchetteHaute: _parsePrice(v))),
-                    decoration: InputDecoration(contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: kBorderColor, width: 1.5))),
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kCharcoal),
+                  _PriceField(
+                    value: high,
+                    onChanged: (v) => _update(_e.copyWith(fourchetteHaute: v)),
                   ),
                 ])),
               ]),
@@ -955,8 +947,6 @@ class _Section6ScreenState extends State<Section6Screen> {
     ]);
   }
 
-  double _parsePrice(String s) => double.tryParse(s.replaceAll(RegExp(r'[^\d]'), '')) ?? 0;
-
   String _fmtDate(DateTime d) {
     const months = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
     return '${d.day} ${months[d.month - 1]} ${d.year}';
@@ -990,6 +980,72 @@ class _AdjLegend extends StatelessWidget {
         const SizedBox(width: 5),
         Text(label, style: const TextStyle(fontSize: 10.5, color: Color(0xFF7F8C8D), fontWeight: FontWeight.w600)),
       ]);
+}
+
+/// Champ prix éditable (fourchette).
+///
+/// Possède son `TextEditingController` : le recréer à chaque `build()` remettait
+/// le curseur en fin de ligne et réécrivait la valeur par-dessus la saisie en
+/// cours. Le texte n'est resynchronisé que si la valeur externe change *et* que
+/// le champ n'a pas le focus.
+class _PriceField extends StatefulWidget {
+  final double value;
+  final ValueChanged<double> onChanged;
+  const _PriceField({required this.value, required this.onChanged});
+
+  @override
+  State<_PriceField> createState() => _PriceFieldState();
+}
+
+class _PriceFieldState extends State<_PriceField> {
+  late final TextEditingController _ctrl;
+  final _focus = FocusNode();
+
+  static String _fmt(double n) =>
+      '${n.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} €';
+
+  static double _parse(String s) =>
+      double.tryParse(s.replaceAll(RegExp(r'[^\d]'), '')) ?? 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: _fmt(widget.value));
+    // Reformate proprement dès que l'utilisateur quitte le champ.
+    _focus.addListener(() {
+      if (!_focus.hasFocus) _ctrl.text = _fmt(widget.value);
+    });
+  }
+
+  @override
+  void didUpdateWidget(_PriceField old) {
+    super.didUpdateWidget(old);
+    if (!_focus.hasFocus && widget.value != old.value) {
+      _ctrl.text = _fmt(widget.value);
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => TextField(
+        controller: _ctrl,
+        focusNode: _focus,
+        keyboardType: TextInputType.number,
+        onChanged: (v) => widget.onChanged(_parse(v)),
+        decoration: InputDecoration(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: kBorderColor, width: 1.5)),
+        ),
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kCharcoal),
+      );
 }
 
 class _AdjRow extends StatelessWidget {

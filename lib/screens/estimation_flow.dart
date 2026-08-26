@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
@@ -23,14 +24,22 @@ class EstimationFlow extends StatefulWidget {
   State<EstimationFlow> createState() => _EstimationFlowState();
 }
 
-class _EstimationFlowState extends State<EstimationFlow> {
+class _EstimationFlowState extends State<EstimationFlow>
+    with WidgetsBindingObserver {
   late Estimation _e;
   int _step = 0;
   final _db = DatabaseService();
 
+  /// Sauvegarde différée : la saisie déclenche un `onChanged` par caractère,
+  /// on regroupe les rafales pour ne pas réécrire tout le fichier à chaque
+  /// frappe. Toujours vidé (flush) avant de quitter ou de passer en arrière-plan.
+  Timer? _saveTimer;
+  static const _saveDelay = Duration(milliseconds: 600);
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (widget.existing != null) {
       _e = widget.existing!;
     } else {
@@ -49,9 +58,40 @@ class _EstimationFlowState extends State<EstimationFlow> {
     }
   }
 
+  @override
+  void dispose() {
+    // L'écran disparaît : on écrit sans attendre (le service sérialise en
+    // interne, l'écriture aboutit même après le dispose du widget).
+    _saveTimer?.cancel();
+    _db.saveEstimation(_e);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Android peut tuer l'app en arrière-plan sans autre préavis.
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _flushSave();
+    }
+  }
+
   Future<void> _onChanged(Estimation updated) async {
     setState(() => _e = updated);
-    await _db.saveEstimation(_e);
+    _scheduleSave();
+  }
+
+  void _scheduleSave() {
+    _saveTimer?.cancel();
+    _saveTimer = Timer(_saveDelay, () => _db.saveEstimation(_e));
+  }
+
+  /// Force l'écriture immédiate de toute sauvegarde en attente.
+  Future<void> _flushSave() {
+    _saveTimer?.cancel();
+    _saveTimer = null;
+    return _db.saveEstimation(_e);
   }
 
   /// Applique une extraction IA des champs du bien (depuis note vocale).
@@ -120,7 +160,7 @@ class _EstimationFlowState extends State<EstimationFlow> {
   }
 
   void _finish() {
-    _db.saveEstimation(_e);
+    _flushSave();
     Navigator.pop(context);
   }
 
@@ -141,7 +181,7 @@ class _EstimationFlowState extends State<EstimationFlow> {
                 : const Color(0xFF37474F),
             onPressed: () => showCarnetVisite(context, _e, _step, (updated) {
               setState(() => _e = updated);
-              _db.saveEstimation(updated);
+              _flushSave();
             }),
             child: Stack(alignment: Alignment.center, children: [
               const Icon(Icons.menu_book_rounded,
