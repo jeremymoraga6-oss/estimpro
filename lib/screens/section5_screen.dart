@@ -61,7 +61,9 @@ class _Section5ScreenState extends State<Section5Screen> {
 
   void _update(Estimation e) { setState(() => _e = e); widget.onChanged(e); }
 
-  Future<void> _loadDvf() async {
+  /// [forceReseau] ignore le cache disque — utilisé par le bouton « Actualiser »,
+  /// qui ne servirait sinon qu'à relire la même entrée.
+  Future<void> _loadDvf({bool forceReseau = false}) async {
     // Les ventes DVF résidentielles ne s'appliquent pas aux terrains nus
     if (_e.typeId == 'terrain') {
       setState(() { _loading = false; _result = null; });
@@ -75,6 +77,7 @@ class _Section5ScreenState extends State<Section5Screen> {
       radiusKm: _e.dvfRadiusKm > 0 ? _e.dvfRadiusKm : null,
       latitude: _e.latitude,
       longitude: _e.longitude,
+      forceReseau: forceReseau,
     );
     if (mounted) {
       setState(() { _result = r; _loading = false; });
@@ -258,6 +261,43 @@ class _Section5ScreenState extends State<Section5Screen> {
                 ]),
               )
             else if (_filtered.isNotEmpty) ...[
+              // Les données peuvent venir du cache disque (hors-ligne ou
+              // simple économie de requêtes) : on le dit plutôt que de laisser
+              // croire à des chiffres du jour.
+              if (_result?.avertissementFraicheur != null)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                  decoration: BoxDecoration(
+                    color: (_result!.modeSecours ? kAmber : kGrey).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                        color: (_result!.modeSecours ? kAmber : kGrey).withValues(alpha: 0.35)),
+                  ),
+                  child: Row(children: [
+                    Icon(_result!.modeSecours ? Icons.wifi_off_rounded : Icons.save_alt_rounded,
+                        size: 14, color: _result!.modeSecours ? kAmber : kGrey),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _result!.avertissementFraicheur!,
+                        style: TextStyle(
+                            fontSize: 10.5,
+                            height: 1.35,
+                            color: _result!.modeSecours ? kAmber : kGrey),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => _loadDvf(forceReseau: true),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: const Size(0, 28),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text('Actualiser', style: TextStyle(fontSize: 11)),
+                    ),
+                  ]),
+                ),
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [

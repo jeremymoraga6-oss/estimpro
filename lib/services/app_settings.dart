@@ -7,7 +7,7 @@ import 'package:path_provider/path_provider.dart';
 /// Stockage local des réglages de l'app.
 ///
 /// La clé API Anthropic est stockée dans le Keystore Android / Keychain iOS
-/// via [FlutterSecureStorage]. Les autres préférences (dvfCacheVersion, etc.)
+/// via [FlutterSecureStorage]. Les autres préférences (estimationUrl, etc.)
 /// restent dans un fichier JSON dans le répertoire documents.
 ///
 /// Migration silencieuse : si l'ancien JSON contient encore `anthropicKey`,
@@ -24,7 +24,6 @@ class AppSettings {
 
   // ── État ──────────────────────────────────────────────────────────────────
   String _anthropicKey = '';
-  int _dvfCacheVersion = 0;
   String _estimationUrl = '';
   bool _loaded = false;
 
@@ -49,7 +48,6 @@ class AppSettings {
         }
       }
 
-      _dvfCacheVersion = (data['dvfCacheVersion'] as int?) ?? 0;
       _estimationUrl   = (data['estimationUrl']   as String?) ?? '';
 
       // 1. Lire la clé depuis le stockage sécurisé
@@ -81,7 +79,6 @@ class AppSettings {
       final f = await _file;
       // Ne stocke PAS la clé API dans le JSON
       await f.writeAsString(jsonEncode({
-        'dvfCacheVersion': _dvfCacheVersion,
         'estimationUrl':   _estimationUrl,
       }));
     } catch (e) {
@@ -108,15 +105,6 @@ class AppSettings {
   }
 
   bool get hasAnthropicKey => _anthropicKey.isNotEmpty;
-
-  // ── Cache DVF ─────────────────────────────────────────────────────────────
-
-  int get dvfCacheVersion => _dvfCacheVersion;
-
-  Future<void> setDvfCacheVersion(int v) async {
-    _dvfCacheVersion = v;
-    await save();
-  }
 
   // ── URL d'estimation en ligne ─────────────────────────────────────────────
 

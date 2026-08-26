@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import '../theme.dart';
 import '../services/crash_reporter.dart';
 import '../services/app_settings.dart';
+import '../services/dvf_cache.dart';
 import 'carte_de_visite_screen.dart';
 
 class ProfilScreen extends StatefulWidget {
@@ -228,6 +229,9 @@ class _ProfilScreenState extends State<ProfilScreen> {
             const SizedBox(height: 8),
             // URL widget d'estimation en ligne (QR code page finale PDF)
             _EstimationUrlCard(onChanged: () => setState(() {})),
+            const SizedBox(height: 8),
+            // Cache DVF hors-ligne
+            const _DvfCacheCard(),
             const SizedBox(height: 12),
             // Bouton journal de débogage
             Container(
@@ -536,6 +540,105 @@ class _CarteDeVisiteCardState extends State<_CarteDeVisiteCard> {
         ),
       ),
     ]);
+  }
+}
+
+/// Cache DVF : rend visible ce qui est disponible hors-ligne, et permet de
+/// le vider si les données paraissent trop anciennes.
+class _DvfCacheCard extends StatefulWidget {
+  const _DvfCacheCard();
+  @override
+  State<_DvfCacheCard> createState() => _DvfCacheCardState();
+}
+
+class _DvfCacheCardState extends State<_DvfCacheCard> {
+  int _entrees = 0;
+  int _octets = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    final s = await DvfDiskCache.stats();
+    if (mounted) setState(() { _entrees = s.entrees; _octets = s.octets; });
+  }
+
+  String get _poids {
+    if (_octets < 1024) return '$_octets o';
+    if (_octets < 1024 * 1024) return '${(_octets / 1024).round()} Ko';
+    return '${(_octets / (1024 * 1024)).toStringAsFixed(1)} Mo';
+  }
+
+  Future<void> _vider() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Vider le cache DVF ?'),
+        content: const Text(
+          'Les ventes DVF enregistrées seront supprimées. Elles seront '
+          'retéléchargées à la prochaine estimation — il faudra donc du réseau.',
+          style: TextStyle(fontSize: 13, color: kGrey),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler', style: TextStyle(color: kGrey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: kRed, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Vider'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await DvfDiskCache.clear();
+      await _refresh();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final vide = _entrees == 0;
+    return Container(
+      decoration: kCardDecoration(),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: vide ? null : _vider,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(children: [
+            Container(
+              width: 32, height: 32,
+              decoration: BoxDecoration(
+                color: (vide ? kGrey : kGreen).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.cloud_off_rounded, size: 18, color: vide ? kGrey : kGreen),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Données DVF hors-ligne',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kCharcoal)),
+                const SizedBox(height: 2),
+                Text(
+                  vide
+                      ? 'Aucune commune enregistrée pour l\'instant'
+                      : '$_entrees commune${_entrees > 1 ? 's' : ''} · $_poids · appuyer pour vider',
+                  style: const TextStyle(fontSize: 11, color: kGrey),
+                ),
+              ]),
+            ),
+            if (!vide) const Icon(Icons.chevron_right, color: kLightGrey, size: 22),
+          ]),
+        ),
+      ),
+    );
   }
 }
 

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'dvf_cache.dart';
 import 'geo_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -97,9 +98,32 @@ class DvfCommuneStatsService {
   static final _cache = <String, DvfCommuneStats?>{};
 
   /// Récupère les stats pour une commune par code INSEE.
+  ///
+  /// Cache mémoire pour la session, puis cache disque : les stats restent
+  /// disponibles sans réseau une fois la commune consultée.
   static Future<DvfCommuneStats?> fetchByCodeInsee(String codeInsee) async {
     if (codeInsee.isEmpty) return null;
     if (_cache.containsKey(codeInsee)) return _cache[codeInsee];
+
+    final cacheKey = 'stats_$codeInsee';
+    final cached = await DvfDiskCache.read(cacheKey);
+    if (cached != null && !cached.perime && cached.data is Map) {
+      final stats = DvfCommuneStats.fromJson(
+          Map<String, dynamic>.from(cached.data as Map));
+      _cache[codeInsee] = stats;
+      return stats;
+    }
+
+    /// Sans réseau, une stat datée vaut mieux qu'une absence de prix au m².
+    DvfCommuneStats? secours() {
+      if (cached == null || cached.data is! Map) return null;
+      final stats = DvfCommuneStats.fromJson(
+          Map<String, dynamic>.from(cached.data as Map));
+      _cache[codeInsee] = stats;
+      debugPrint('[DVF stats] $codeInsee servi du cache de secours');
+      return stats;
+    }
+
     try {
       final uri = Uri.parse(_base).replace(queryParameters: {
         'code_geo__exact': codeInsee,
@@ -107,18 +131,23 @@ class DvfCommuneStatsService {
       });
       final resp =
           await http.get(uri).timeout(const Duration(seconds: 10));
-      if (resp.statusCode != 200) { _cache[codeInsee] = null; return null; }
+      if (resp.statusCode != 200) return secours();
       final body = jsonDecode(resp.body) as Map<String, dynamic>;
       final data = body['data'] as List?;
-      if (data == null || data.isEmpty) { _cache[codeInsee] = null; return null; }
-      final stats =
-          DvfCommuneStats.fromJson(data.first as Map<String, dynamic>);
+      if (data == null || data.isEmpty) {
+        // Commune réellement absente du jeu DVF : on mémorise l'absence.
+        final s = secours();
+        if (s == null) _cache[codeInsee] = null;
+        return s;
+      }
+      final raw = data.first as Map<String, dynamic>;
+      final stats = DvfCommuneStats.fromJson(raw);
       _cache[codeInsee] = stats;
+      await DvfDiskCache.write(cacheKey, raw);
       return stats;
     } catch (e) {
       debugPrint('[DVF stats] fetchByCodeInsee error: $e');
-      _cache[codeInsee] = null;
-      return null;
+      return secours();
     }
   }
 
@@ -173,6 +202,33 @@ class DvfTransaction {
     this.longitude = 0,
     this.distanceKm,
   });
+
+  /// Sérialisation pour le cache disque. `distanceKm` est volontairement omis :
+  /// il dépend du bien estimé, pas de la transaction, et est recalculé.
+  Map<String, dynamic> toCacheJson() => {
+        'd': dateMutation,
+        'v': valeurFonciere,
+        'a': adresse,
+        'cc': codeCommune,
+        'nc': nomCommune,
+        'tl': typeLocal,
+        's': surfaceReelleBati,
+        'lat': latitude,
+        'lon': longitude,
+      };
+
+  factory DvfTransaction.fromCacheJson(Map<String, dynamic> j) =>
+      DvfTransaction(
+        dateMutation: j['d'] as String? ?? '',
+        valeurFonciere: (j['v'] as num?)?.toDouble() ?? 0,
+        adresse: j['a'] as String? ?? '',
+        codeCommune: j['cc'] as String? ?? '',
+        nomCommune: j['nc'] as String? ?? '',
+        typeLocal: j['tl'] as String? ?? '',
+        surfaceReelleBati: (j['s'] as num?)?.toDouble() ?? 0,
+        latitude: (j['lat'] as num?)?.toDouble() ?? 0,
+        longitude: (j['lon'] as num?)?.toDouble() ?? 0,
+      );
 
   DvfTransaction withDistance(double km) => DvfTransaction(
         dateMutation: dateMutation,
@@ -247,6 +303,14 @@ class DvfFetchResult {
   final String? erreur;
   final DvfTrend? trend;
 
+  /// Date de la donnée la plus ancienne servie depuis le cache disque.
+  /// `null` = tout provient du réseau.
+  final DateTime? dateCache;
+
+  /// Vrai si le réseau était injoignable et que des données en cache,
+  /// éventuellement datées, ont pris le relais.
+  final bool modeSecours;
+
   const DvfFetchResult({
     required this.transactions,
     required this.codeInsee,
@@ -254,7 +318,23 @@ class DvfFetchResult {
     required this.nombreBrut,
     this.erreur,
     this.trend,
+    this.dateCache,
+    this.modeSecours = false,
   });
+
+  /// Message court à afficher quand les données ne sortent pas du réseau.
+  String? get avertissementFraicheur {
+    if (dateCache == null) return null;
+    final j = DateTime.now().difference(dateCache!).inDays;
+    final anciennete = j <= 0
+        ? "aujourd'hui"
+        : j == 1
+            ? 'hier'
+            : 'il y a $j jours';
+    return modeSecours
+        ? 'Réseau indisponible — données DVF enregistrées $anciennete.'
+        : 'Données DVF en cache, enregistrées $anciennete.';
+  }
 }
 
 /// Source DVF : fichiers CSV statiques par commune publiés par Etalab sur
@@ -319,6 +399,7 @@ class DvfService {
     double? radiusKm,
     double? latitude,
     double? longitude,
+    bool forceReseau = false,
   }) async {
     if (codeInsee.isEmpty) {
       return const DvfFetchResult(
@@ -385,18 +466,31 @@ class DvfService {
     // par commune, et le cutoff date filtre les transactions trop anciennes.
     final tasks = <Future<_YearResult>>[];
     for (final c in communeCodes) {
-      tasks.add(_fetchYear(year: 0, dep: _depFromInsee(c), codeInsee: c));
+      tasks.add(_fetchYear(
+          year: 0,
+          dep: _depFromInsee(c),
+          codeInsee: c,
+          forceReseau: forceReseau));
     }
     final results = await Future.wait(tasks);
 
     final allRows = <DvfTransaction>[];
     var totalBrut = 0;
     final errors = <String>[];
+    DateTime? dateCache;
+    var modeSecours = false;
 
     for (final r in results) {
       totalBrut += r.count;
       allRows.addAll(r.transactions);
       if (r.error != null) errors.add(r.error!);
+      if (r.secours) modeSecours = true;
+      // On retient la donnée la plus ancienne : c'est elle qui qualifie
+      // la fraîcheur de l'ensemble.
+      if (r.dateCache != null &&
+          (dateCache == null || r.dateCache!.isBefore(dateCache))) {
+        dateCache = r.dateCache;
+      }
     }
 
     if (allRows.isEmpty &&
@@ -473,6 +567,8 @@ class DvfService {
       urlUtilisee: firstUrl,
       nombreBrut: totalBrut,
       trend: trend,
+      dateCache: dateCache,
+      modeSecours: modeSecours,
     );
   }
 
@@ -480,10 +576,47 @@ class DvfService {
     required int year,
     required String dep,
     required String codeInsee,
+    bool forceReseau = false,
   }) async {
     // Source officielle Etalab via dvf-api.data.gouv.fr — API JSON utilisée
     // par app.dvf.etalab.gouv.fr. Plus fiable que files.data.gouv.fr qui passe
     // par un bucket S3 OVH avec problèmes de permissions intermittentes.
+
+    // Cache disque : les ventes DVF d'une commune ne bougent que quelques fois
+    // par an. Une entrée fraîche évite jusqu'à 50 requêtes réseau, et une
+    // entrée périmée sert de secours quand il n'y a pas de réseau du tout.
+    final cacheKey = 'tx_$codeInsee';
+    final cached = await DvfDiskCache.read(cacheKey);
+
+    List<DvfTransaction> depuisCache(DvfCacheEntry e) =>
+        (e.data as List? ?? [])
+            .map((m) =>
+                DvfTransaction.fromCacheJson(Map<String, dynamic>.from(m as Map)))
+            .toList();
+
+    if (cached != null && !cached.perime && !forceReseau) {
+      final txs = depuisCache(cached);
+      debugPrint('[DVF] $codeInsee servi du cache (${txs.length} ventes)');
+      return _YearResult(
+        transactions: txs,
+        count: txs.length,
+        dateCache: cached.date,
+      );
+    }
+
+    // Réseau indisponible : mieux vaut une donnée datée que rien du tout.
+    _YearResult secoursCache(String motif) {
+      if (cached == null) return _YearResult(error: motif);
+      final txs = depuisCache(cached);
+      debugPrint('[DVF] $codeInsee réseau KO ($motif) → cache du ${cached.date}');
+      return _YearResult(
+        transactions: txs,
+        count: txs.length,
+        dateCache: cached.date,
+        secours: true,
+      );
+    }
+
     final txs = <DvfTransaction>[];
     try {
       // Pagination 20 résultats/page → on récupère jusqu'à 1000 résultats max
@@ -495,7 +628,7 @@ class DvfService {
             .timeout(const Duration(seconds: 15));
         if (resp.statusCode != 200) {
           if (page == 1) {
-            return _YearResult(error: 'HTTP ${resp.statusCode} sur $year');
+            return secoursCache('HTTP ${resp.statusCode} sur $year');
           }
           break; // arrêt si fin de pagination (404 typique)
         }
@@ -527,10 +660,16 @@ class DvfService {
         if (data.length < 20) break; // dernière page
       }
       debugPrint('[DVF] $year etalab API : ${txs.length} ventes');
+      // On ne remplace le cache que par une réponse non vide : une commune
+      // temporairement vide côté API ne doit pas effacer un historique valide.
+      if (txs.isNotEmpty) {
+        await DvfDiskCache.write(
+            cacheKey, txs.map((t) => t.toCacheJson()).toList());
+      }
       return _YearResult(transactions: txs, count: txs.length);
     } catch (e) {
       debugPrint('[DVF] $year etalab API exception : $e');
-      return _YearResult(error: e.toString());
+      return secoursCache(e.toString());
     }
   }
 
@@ -638,10 +777,19 @@ class _YearResult {
   final int count;
   final String? error;
 
+  /// Date de la donnée si elle vient du cache disque (null = fraîchement
+  /// téléchargée).
+  final DateTime? dateCache;
+
+  /// Vrai si le réseau a échoué et qu'on a resservi une entrée périmée.
+  final bool secours;
+
   _YearResult({
     this.transactions = const [],
     this.count = 0,
     this.error,
+    this.dateCache,
+    this.secours = false,
   });
 
   factory _YearResult.empty() => _YearResult();
