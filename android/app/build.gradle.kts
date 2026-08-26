@@ -1,8 +1,25 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// Clé de signature de production.
+//
+// android/key.properties n'est JAMAIS versionné (cf. .gitignore) : il est créé
+// à la main en local, et reconstitué depuis les secrets GitHub en CI.
+// Sans lui, on retombe sur la clé de debug — utile pour `flutter run --release`,
+// mais un APK ainsi signé ne peut pas remplacer une installation existante.
+val keystorePropertiesFile = rootProject.file("key.properties")
+val hasReleaseKeystore = keystorePropertiesFile.exists()
+val keystoreProperties = Properties().apply {
+    if (hasReleaseKeystore) {
+        FileInputStream(keystorePropertiesFile).use { load(it) }
+    }
 }
 
 android {
@@ -47,9 +64,33 @@ android {
         }
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasReleaseKeystore) {
+                signingConfigs.getByName("release")
+            } else {
+                println(
+                    "\n" +
+                    "╔══════════════════════════════════════════════════════════════════╗\n" +
+                    "║  ATTENTION : build release signée avec la CLÉ DE DEBUG.          ║\n" +
+                    "║  android/key.properties est absent.                              ║\n" +
+                    "║  Cet APK ne pourra PAS remplacer une installation existante      ║\n" +
+                    "║  (il faudrait désinstaller, donc perdre les estimations).        ║\n" +
+                    "╚══════════════════════════════════════════════════════════════════╝\n"
+                )
+                signingConfigs.getByName("debug")
+            }
             isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
