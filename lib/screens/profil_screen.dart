@@ -161,7 +161,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                              color: kGreen.withOpacity(0.1),
+                              color: kGreen.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6)),
                           child: const Text('Faucigny Immobilier by Efficity',
                               style: TextStyle(
@@ -247,7 +247,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: kAmber.withOpacity(0.12),
+                        color: kAmber.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(Icons.bug_report_outlined,
@@ -369,7 +369,7 @@ class _ActionCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: trailingColor.withOpacity(0.1),
+              color: trailingColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(trailing, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: trailingColor)),
@@ -615,7 +615,7 @@ class _DvfCacheCardState extends State<_DvfCacheCard> {
             Container(
               width: 32, height: 32,
               decoration: BoxDecoration(
-                color: (vide ? kGrey : kGreen).withOpacity(0.12),
+                color: (vide ? kGrey : kGreen).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(Icons.cloud_off_rounded, size: 18, color: vide ? kGrey : kGreen),
@@ -716,7 +716,7 @@ class _EstimationUrlCardState extends State<_EstimationUrlCard> {
             Container(
               width: 32, height: 32,
               decoration: BoxDecoration(
-                color: (hasUrl ? kGreen : kGrey).withOpacity(0.12),
+                color: (hasUrl ? kGreen : kGrey).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(Icons.qr_code_rounded, size: 18, color: hasUrl ? kGreen : kGrey),
@@ -734,7 +734,7 @@ class _EstimationUrlCardState extends State<_EstimationUrlCard> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: (hasUrl ? kGreen : kGrey).withOpacity(0.1),
+                color: (hasUrl ? kGreen : kGrey).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(hasUrl ? 'Configurée' : 'Non définie',
@@ -835,7 +835,7 @@ class _ApiKeyCardState extends State<_ApiKeyCard> {
             Container(
               width: 32, height: 32,
               decoration: BoxDecoration(
-                color: (hasKey ? kGreen : kAmber).withOpacity(0.12),
+                color: (hasKey ? kGreen : kAmber).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(Icons.auto_awesome_rounded, size: 18, color: hasKey ? kGreen : kAmber),
@@ -853,7 +853,7 @@ class _ApiKeyCardState extends State<_ApiKeyCard> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: (hasKey ? kGreen : kAmber).withOpacity(0.1),
+                color: (hasKey ? kGreen : kAmber).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(hasKey ? 'Configurée' : 'À configurer',

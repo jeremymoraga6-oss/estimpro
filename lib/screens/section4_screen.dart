@@ -199,9 +199,9 @@ class _Section4ScreenState extends State<Section4Screen> {
               margin: const EdgeInsets.only(bottom: 14),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: kGreen.withOpacity(0.08),
+                color: kGreen.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: kGreen.withOpacity(0.25), width: 1.5),
+                border: Border.all(color: kGreen.withValues(alpha: 0.25), width: 1.5),
               ),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
@@ -732,9 +732,9 @@ class _ScanMateriauxButtonState extends State<_ScanMateriauxButton> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: kGreen.withOpacity(0.1),
+          color: kGreen.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: kGreen.withOpacity(0.3)),
+          border: Border.all(color: kGreen.withValues(alpha: 0.3)),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           if (_loading)
@@ -1126,16 +1126,16 @@ class _PathologiesCardState extends State<_PathologiesCard> {
           padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
           decoration: BoxDecoration(
             color: isDefaut
-                ? kRed.withOpacity(0.04)
+                ? kRed.withValues(alpha: 0.04)
                 : isSurveiller
-                    ? kAmber.withOpacity(0.04)
+                    ? kAmber.withValues(alpha: 0.04)
                     : const Color(0xFFFAFBFA),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: isDefaut
-                  ? kRed.withOpacity(0.25)
+                  ? kRed.withValues(alpha: 0.25)
                   : isSurveiller
-                      ? kAmber.withOpacity(0.25)
+                      ? kAmber.withValues(alpha: 0.25)
                       : const Color(0xFFECEFEC),
             ),
           ),
@@ -1180,9 +1180,9 @@ class _PathologiesCardState extends State<_PathologiesCard> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   isDense: true,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: isDefaut ? kRed.withOpacity(0.3) : kAmber.withOpacity(0.3))),
+                      borderSide: BorderSide(color: isDefaut ? kRed.withValues(alpha: 0.3) : kAmber.withValues(alpha: 0.3))),
                   enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: isDefaut ? kRed.withOpacity(0.3) : kAmber.withOpacity(0.3))),
+                      borderSide: BorderSide(color: isDefaut ? kRed.withValues(alpha: 0.3) : kAmber.withValues(alpha: 0.3))),
                 ),
                 style: const TextStyle(fontSize: 11, color: kCharcoal),
                 maxLines: 2,
@@ -1214,7 +1214,7 @@ class _PathologiesCardState extends State<_PathologiesCard> {
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
                           borderSide: const BorderSide(color: kRed, width: 1)),
                       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: kRed.withOpacity(0.35))),
+                          borderSide: BorderSide(color: kRed.withValues(alpha: 0.35))),
                     ),
                     style: const TextStyle(fontSize: 11, color: kRed, fontWeight: FontWeight.w700),
                   ),
@@ -1288,10 +1288,10 @@ class _EtatBtn extends StatelessWidget {
       width: 36,
       height: 28,
       decoration: BoxDecoration(
-        color: active ? activeColor.withOpacity(0.12) : const Color(0xFFF5F5F5),
+        color: active ? activeColor.withValues(alpha: 0.12) : const Color(0xFFF5F5F5),
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: active ? activeColor.withOpacity(0.5) : const Color(0xFFE0E0E0),
+          color: active ? activeColor.withValues(alpha: 0.5) : const Color(0xFFE0E0E0),
           width: 1.5,
         ),
       ),

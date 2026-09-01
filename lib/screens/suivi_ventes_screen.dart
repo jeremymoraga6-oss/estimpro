@@ -364,9 +364,9 @@ class _SuiviVentesScreenState extends State<SuiviVentesScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: kAmber.withOpacity(0.08),
+          color: kAmber.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: kAmber.withOpacity(0.25)),
+          border: Border.all(color: kAmber.withValues(alpha: 0.25)),
         ),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Icon(Icons.info_outline_rounded, color: kAmber, size: 18),
@@ -429,9 +429,9 @@ class _StatPill extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: (color ?? Colors.white).withOpacity(0.15),
+          color: (color ?? Colors.white).withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: (color ?? Colors.white).withOpacity(0.3)),
+          border: Border.all(color: (color ?? Colors.white).withValues(alpha: 0.3)),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Text(value,
@@ -461,7 +461,7 @@ class _GroupHeader extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
           decoration: BoxDecoration(
-              color: kGrey.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+              color: kGrey.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
           child: Text('$count',
               style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kGrey)),
         ),
@@ -479,7 +479,7 @@ class _CandidatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         margin: const EdgeInsets.only(bottom: 8),
-        decoration: kCardDecoration(borderColor: kAmber.withOpacity(0.4)),
+        decoration: kCardDecoration(borderColor: kAmber.withValues(alpha: 0.4)),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: onTap,
@@ -489,7 +489,7 @@ class _CandidatCard extends StatelessWidget {
               Container(
                 width: 36, height: 36,
                 decoration: BoxDecoration(
-                    color: kAmber.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+                    color: kAmber.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
                 child: const Icon(Icons.search_rounded, color: kAmber, size: 18),
               ),
               const SizedBox(width: 12),
@@ -512,7 +512,7 @@ class _CandidatCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
-                      color: kAmber.withOpacity(0.12),
+                      color: kAmber.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(4)),
                   child: const Text('À examiner',
                       style: TextStyle(
@@ -542,14 +542,14 @@ class _ConfirmeeCard extends StatelessWidget {
     final ecartColor = ecart.abs() <= 5 ? kGreen : ecart.abs() <= 10 ? kAmber : kRed;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      decoration: kCardDecoration(borderColor: kGreen.withOpacity(0.25)),
+      decoration: kCardDecoration(borderColor: kGreen.withValues(alpha: 0.25)),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Row(children: [
           Container(
             width: 36, height: 36,
             decoration: BoxDecoration(
-                color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                color: kGreen.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
             child: const Icon(Icons.check_circle_outline_rounded, color: kGreen, size: 18),
           ),
           const SizedBox(width: 12),
@@ -602,14 +602,14 @@ class _PasseeConfirmeeCard extends StatelessWidget {
     final ecartColor = ecart.abs() <= 5 ? kGreen : ecart.abs() <= 10 ? kAmber : kRed;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      decoration: kCardDecoration(borderColor: kGreen.withOpacity(0.25)),
+      decoration: kCardDecoration(borderColor: kGreen.withValues(alpha: 0.25)),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Row(children: [
           Container(
             width: 36, height: 36,
             decoration: BoxDecoration(
-                color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                color: kGreen.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
             child: const Icon(Icons.check_circle_outline_rounded, color: kGreen, size: 18),
           ),
           const SizedBox(width: 12),
@@ -757,9 +757,9 @@ class _CandidatsSheetState extends State<_CandidatsSheet> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: scoreColor.withOpacity(0.1),
+                  color: scoreColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: scoreColor.withOpacity(0.3)),
+                  border: Border.all(color: scoreColor.withValues(alpha: 0.3)),
                 ),
                 child: Text('Score ${c.scorePct.round()} %',
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: scoreColor)),
@@ -768,7 +768,7 @@ class _CandidatsSheetState extends State<_CandidatsSheet> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                 decoration: BoxDecoration(
-                    color: kLightGrey.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
+                    color: kLightGrey.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
                 child: Text('${c.distanceM.round()} m',
                     style: const TextStyle(fontSize: 11, color: kGrey, fontWeight: FontWeight.w600)),
               ),

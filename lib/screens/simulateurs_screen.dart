@@ -117,7 +117,7 @@ class SimulateursScreen extends StatelessWidget {
               child: Row(children: [
                 Container(
                   width: 48, height: 48,
-                  decoration: BoxDecoration(color: d.color.withOpacity(0.12), borderRadius: BorderRadius.circular(12)),
+                  decoration: BoxDecoration(color: d.color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
                   child: Icon(d.icon, color: d.color, size: 24),
                 ),
                 const SizedBox(width: 14),
@@ -276,11 +276,11 @@ class _BigResult extends StatelessWidget {
     padding: EdgeInsets.symmetric(horizontal: 18, vertical: compact ? 14 : 18),
     decoration: BoxDecoration(
       gradient: LinearGradient(
-        colors: [color.withOpacity(0.14), color.withOpacity(0.05)],
+        colors: [color.withValues(alpha: 0.14), color.withValues(alpha: 0.05)],
         begin: Alignment.topLeft, end: Alignment.bottomRight,
       ),
       borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: color.withOpacity(0.3)),
+      border: Border.all(color: color.withValues(alpha: 0.3)),
     ),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label.toUpperCase(),
@@ -290,7 +290,7 @@ class _BigResult extends StatelessWidget {
           style: TextStyle(fontSize: compact ? 22 : 28, fontWeight: FontWeight.w900, color: color, letterSpacing: -0.5)),
       if (note != null) ...[
         const SizedBox(height: 3),
-        Text(note!, style: TextStyle(fontSize: 11, color: color.withOpacity(0.75))),
+        Text(note!, style: TextStyle(fontSize: 11, color: color.withValues(alpha: 0.75))),
       ],
     ]),
   );
@@ -894,9 +894,9 @@ class _PlusValueScreenState extends State<_PlusValueScreen> {
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: kGreen.withOpacity(0.08),
+                  color: kGreen.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: kGreen.withOpacity(0.3)),
+                  border: Border.all(color: kGreen.withValues(alpha: 0.3)),
                 ),
                 child: const Column(children: [
                   Icon(Icons.check_circle_rounded, color: kGreen, size: 44),
@@ -922,9 +922,9 @@ class _PlusValueScreenState extends State<_PlusValueScreen> {
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: kGreen.withOpacity(0.08),
+                    color: kGreen.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: kGreen.withOpacity(0.3)),
+                    border: Border.all(color: kGreen.withValues(alpha: 0.3)),
                   ),
                   child: Row(children: [
                     Icon(Icons.check_circle_rounded, color: kGreen, size: 28),

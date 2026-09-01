@@ -274,7 +274,7 @@ class _AnnonceIaScreenState extends State<AnnonceIaScreen> {
               children: a.hashtags.map((h) => Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: kGreen.withOpacity(0.08),
+                  color: kGreen.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(h, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kGreen)),
@@ -327,7 +327,7 @@ class _AnnonceIaScreenState extends State<AnnonceIaScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Color(p.couleur).withOpacity(0.3), width: 1.5),
+            border: Border.all(color: Color(p.couleur).withValues(alpha: 0.3), width: 1.5),
           ),
           child: Row(children: [
             Container(

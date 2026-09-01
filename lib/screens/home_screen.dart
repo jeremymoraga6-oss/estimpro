@@ -154,7 +154,7 @@ class _HomeTab extends StatelessWidget {
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(color: kGreen.withOpacity(0.2), borderRadius: BorderRadius.circular(4)),
+                            decoration: BoxDecoration(color: kGreen.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4)),
                             child: const Text('v1.3.1', style: TextStyle(color: Color(0xFFB2DFDB), fontSize: 9, fontWeight: FontWeight.w600)),
                           ),
                         ]),
@@ -223,7 +223,7 @@ class _HomeTab extends StatelessWidget {
                       child: Row(children: [
                         Container(
                           width: 42, height: 42,
-                          decoration: BoxDecoration(color: kGreen.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                          decoration: BoxDecoration(color: kGreen.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
                           child: const Icon(Icons.menu_book_rounded, color: kGreen, size: 22),
                         ),
                         const SizedBox(width: 14),
@@ -256,7 +256,7 @@ class _HomeTab extends StatelessWidget {
                       child: Row(children: [
                         Container(
                           width: 42, height: 42,
-                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
                           child: const Icon(Icons.picture_as_pdf_rounded, color: Colors.white, size: 22),
                         ),
                         const SizedBox(width: 14),
@@ -290,7 +290,7 @@ class _HomeTab extends StatelessWidget {
                       child: Row(children: [
                         Container(
                           width: 42, height: 42,
-                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
                           child: const Icon(Icons.person_search_rounded, color: Colors.white, size: 22),
                         ),
                         const SizedBox(width: 14),
@@ -322,7 +322,7 @@ class _HomeTab extends StatelessWidget {
                       child: Row(children: [
                         Container(
                           width: 42, height: 42,
-                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
                           child: const Icon(Icons.fact_check_rounded, color: Colors.white, size: 22),
                         ),
                         const SizedBox(width: 14),
@@ -354,7 +354,7 @@ class _HomeTab extends StatelessWidget {
                       child: Row(children: [
                         Container(
                           width: 42, height: 42,
-                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
                           child: const Icon(Icons.contact_page_rounded, color: Colors.white, size: 22),
                         ),
                         const SizedBox(width: 14),
@@ -387,7 +387,7 @@ class _HomeTab extends StatelessWidget {
                       child: Row(children: [
                         Container(
                           width: 42, height: 42,
-                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
                           child: const Icon(Icons.calculate_rounded, color: Colors.white, size: 22),
                         ),
                         const SizedBox(width: 14),
@@ -429,7 +429,7 @@ class _HomeTab extends StatelessWidget {
                         child: Column(children: [
                           const Icon(Icons.home_work_outlined, size: 48, color: kLightGrey),
                           const SizedBox(height: 12),
-                          Text('Aucune estimation', style: TextStyle(color: kGrey.withOpacity(0.6), fontSize: 14)),
+                          Text('Aucune estimation', style: TextStyle(color: kGrey.withValues(alpha: 0.6), fontSize: 14)),
                           const SizedBox(height: 4),
                           const Text('Commencez par créer votre première estimation', style: TextStyle(color: kLightGrey, fontSize: 12), textAlign: TextAlign.center),
                         ]),
@@ -448,7 +448,7 @@ class _HomeTab extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: const Color(0xFFFFF9E6),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFF9A825).withOpacity(0.4)),
+                        border: Border.all(color: const Color(0xFFF9A825).withValues(alpha: 0.4)),
                       ),
                       child: Row(children: [
                         const Text('●', style: TextStyle(color: Color(0xFFF9A825), fontSize: 10)),
@@ -533,7 +533,7 @@ class _EstimationCard extends StatelessWidget {
           Container(
             width: 44, height: 44,
             decoration: BoxDecoration(
-              color: kGreen.withOpacity(0.1),
+              color: kGreen.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(_iconFor(estimation.typeId), color: kGreen, size: 22),

@@ -182,9 +182,9 @@ class _Section2ScreenState extends State<Section2Screen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: kGreen.withOpacity(0.07),
+                      color: kGreen.withValues(alpha: 0.07),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: kGreen.withOpacity(0.2)),
+                      border: Border.all(color: kGreen.withValues(alpha: 0.2)),
                     ),
                     child: Row(children: [
                       const Icon(Icons.calculate_outlined, size: 14, color: kGreen),
@@ -709,9 +709,9 @@ class _ScanDpeButtonState extends State<_ScanDpeButton> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: kGreen.withOpacity(0.1),
+          color: kGreen.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: kGreen.withOpacity(0.3)),
+          border: Border.all(color: kGreen.withValues(alpha: 0.3)),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           if (_loading)
@@ -770,9 +770,9 @@ class _TerrainConstructibleWidgetState extends State<_TerrainConstructibleWidget
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: kGreen.withOpacity(0.05),
+        color: kGreen.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: kGreen.withOpacity(0.25)),
+        border: Border.all(color: kGreen.withValues(alpha: 0.25)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
@@ -857,7 +857,7 @@ class _TerrainConstructibleWidgetState extends State<_TerrainConstructibleWidget
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(color: kGreen.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
+            decoration: BoxDecoration(color: kGreen.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
             child: Text('Prime terrain estimée : +${_fmt(prime)}',
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kGreen)),
           ),
@@ -941,7 +941,7 @@ class _PiecesSurfacesWidgetState extends State<_PiecesSurfacesWidget> {
                   const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                    decoration: BoxDecoration(color: kGreen.withOpacity(0.12), borderRadius: BorderRadius.circular(20)),
+                    decoration: BoxDecoration(color: kGreen.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
                     child: Text('${widget.pieces.length} pièces · ${total.toStringAsFixed(0)} m²',
                         style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: kGreen)),
                   ),
@@ -985,9 +985,9 @@ class _PiecesSurfacesWidgetState extends State<_PiecesSurfacesWidget> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
-                            color: kGreen.withOpacity(0.08),
+                            color: kGreen.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: kGreen.withOpacity(0.3)),
+                            border: Border.all(color: kGreen.withValues(alpha: 0.3)),
                           ),
                           child: Text('+ $s', style: const TextStyle(fontSize: 11, color: kGreen, fontWeight: FontWeight.w600)),
                         ),
@@ -1053,9 +1053,9 @@ class _PiecesSurfacesWidgetState extends State<_PiecesSurfacesWidget> {
                     margin: const EdgeInsets.only(top: 4),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: kGreen.withOpacity(0.08),
+                      color: kGreen.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: kGreen.withOpacity(0.2)),
+                      border: Border.all(color: kGreen.withValues(alpha: 0.2)),
                     ),
                     child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                       const Text('Total détaillé', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
@@ -1073,7 +1073,7 @@ class _PiecesSurfacesWidgetState extends State<_PiecesSurfacesWidget> {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: BoxDecoration(
-                    border: Border.all(color: kGreen.withOpacity(0.4), width: 1.5),
+                    border: Border.all(color: kGreen.withValues(alpha: 0.4), width: 1.5),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [

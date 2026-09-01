@@ -95,7 +95,7 @@ class EstimationsListScreen extends StatelessWidget {
                     child: Row(children: [
                       Container(
                         width: 44, height: 44,
-                        decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                        decoration: BoxDecoration(color: kGreen.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
                         child: Icon(_iconFor(e.typeId), color: kGreen, size: 22),
                       ),
                       const SizedBox(width: 12),

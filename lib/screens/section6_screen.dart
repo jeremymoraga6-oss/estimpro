@@ -147,7 +147,7 @@ class _Section6ScreenState extends State<Section6Screen> {
               decoration: BoxDecoration(
                 color: kGreen,
                 borderRadius: BorderRadius.circular(16),
-                boxShadow: [BoxShadow(color: kGreen.withOpacity(0.35), blurRadius: 20, offset: const Offset(0, 4))],
+                boxShadow: [BoxShadow(color: kGreen.withValues(alpha: 0.35), blurRadius: 20, offset: const Offset(0, 4))],
               ),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 const Text('VALEUR ESTIMÉE', style: TextStyle(fontSize: 10, color: Color(0xCCFFFFFF), fontWeight: FontWeight.w700, letterSpacing: 1.0)),
@@ -157,7 +157,7 @@ class _Section6ScreenState extends State<Section6Screen> {
                 Text('${_e.prixMoyen.round()} €/m² · Calculé depuis DVF',
                     style: const TextStyle(fontSize: 12, color: Color(0xCCFFFFFF))),
                 const SizedBox(height: 14),
-                Container(height: 1, color: Colors.white.withOpacity(0.25)),
+                Container(height: 1, color: Colors.white.withValues(alpha: 0.25)),
                 const SizedBox(height: 14),
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                   Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -175,7 +175,7 @@ class _Section6ScreenState extends State<Section6Screen> {
                 Center(
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.95), borderRadius: BorderRadius.circular(999)),
+                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.95), borderRadius: BorderRadius.circular(999)),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
                       const Icon(Icons.check, size: 11, color: kGreen),
                       const SizedBox(width: 4),
@@ -374,9 +374,9 @@ class _Section6ScreenState extends State<Section6Screen> {
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                   decoration: BoxDecoration(
-                    color: kAmber.withOpacity(0.08),
+                    color: kAmber.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: kAmber.withOpacity(0.45)),
+                    border: Border.all(color: kAmber.withValues(alpha: 0.45)),
                   ),
                   child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     const Icon(Icons.warning_amber_rounded, size: 16, color: kAmber),
@@ -530,9 +530,9 @@ class _Section6ScreenState extends State<Section6Screen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: kGreen.withOpacity(0.06),
+                    color: kGreen.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: kGreen.withOpacity(0.25)),
+                    border: Border.all(color: kGreen.withValues(alpha: 0.25)),
                   ),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     const Text('PRIME TERRAIN', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: kGreen, letterSpacing: 0.8)),
@@ -554,9 +554,9 @@ class _Section6ScreenState extends State<Section6Screen> {
                       Container(
                         padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                         decoration: BoxDecoration(
-                          color: kAmber.withOpacity(0.08),
+                          color: kAmber.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: kAmber.withOpacity(0.45)),
+                          border: Border.all(color: kAmber.withValues(alpha: 0.45)),
                         ),
                         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           const Icon(Icons.warning_amber_rounded, size: 15, color: kAmber),
@@ -582,7 +582,7 @@ class _Section6ScreenState extends State<Section6Screen> {
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFF9E6),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFF9A825).withOpacity(0.4)),
+                    border: Border.all(color: const Color(0xFFF9A825).withValues(alpha: 0.4)),
                   ),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     const Text('DÉCOTES / BONUS AUTOMATIQUES', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF7A5800), letterSpacing: 0.8)),
@@ -678,9 +678,9 @@ class _Section6ScreenState extends State<Section6Screen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: kGreen.withOpacity(0.08),
+                          color: kGreen.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: kGreen.withOpacity(0.35)),
+                          border: Border.all(color: kGreen.withValues(alpha: 0.35)),
                         ),
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
                           const Icon(Icons.auto_fix_high_rounded, size: 11, color: kGreen),
@@ -716,9 +716,9 @@ class _Section6ScreenState extends State<Section6Screen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
-                        color: kGreen.withOpacity(0.04),
+                        color: kGreen.withValues(alpha: 0.04),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: kGreen.withOpacity(0.2), width: 1.5)),
+                        border: Border.all(color: kGreen.withValues(alpha: 0.2), width: 1.5)),
                     child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                       GestureDetector(
                         onTap: () => _update(_e.copyWith(ajustPiscine: _e.ajustPiscine > 0 ? _e.ajustPiscine - 1000 : 0)),
@@ -821,9 +821,9 @@ class _Section6ScreenState extends State<Section6Screen> {
                 Container(
                   padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                   decoration: BoxDecoration(
-                    color: kAmber.withOpacity(0.08),
+                    color: kAmber.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: kAmber.withOpacity(0.45)),
+                    border: Border.all(color: kAmber.withValues(alpha: 0.45)),
                   ),
                   child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     const Icon(Icons.warning_amber_rounded, size: 16, color: kAmber),
@@ -922,7 +922,7 @@ class _Section6ScreenState extends State<Section6Screen> {
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(color: kGreen.withOpacity(0.07), borderRadius: BorderRadius.circular(10)),
+                decoration: BoxDecoration(color: kGreen.withValues(alpha: 0.07), borderRadius: BorderRadius.circular(10)),
                 child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                   Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     const Text('Valide jusqu\'au', style: TextStyle(fontSize: 11, color: kGrey)),
@@ -1094,7 +1094,7 @@ class _AdjRow extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.10),
+              color: color.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
@@ -1117,9 +1117,9 @@ class _AdjRow extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: kAmber.withOpacity(0.1),
+                color: kAmber.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: kAmber.withOpacity(0.4)),
+                border: Border.all(color: kAmber.withValues(alpha: 0.4)),
               ),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 const Icon(Icons.auto_fix_high_rounded, size: 11, color: kAmber),
@@ -1377,7 +1377,7 @@ class _AutoVigilanceCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFFFF8E1),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kAmber.withOpacity(0.3), width: 1.5),
+        border: Border.all(color: kAmber.withValues(alpha: 0.3), width: 1.5),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
@@ -1397,17 +1397,17 @@ class _AutoVigilanceCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: p.color.withOpacity(0.25)),
+              border: Border.all(color: p.color.withValues(alpha: 0.25)),
             ),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Icon(p.icon, size: 14, color: p.color),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(p.text,
-                    style: TextStyle(fontSize: 11, color: kCharcoal.withOpacity(0.85), height: 1.45)),
+                    style: TextStyle(fontSize: 11, color: kCharcoal.withValues(alpha: 0.85), height: 1.45)),
               ),
               const SizedBox(width: 6),
-              Icon(Icons.add_circle_outline_rounded, size: 16, color: p.color.withOpacity(0.7)),
+              Icon(Icons.add_circle_outline_rounded, size: 16, color: p.color.withValues(alpha: 0.7)),
             ]),
           ),
         )),
@@ -1454,7 +1454,7 @@ class _PrixMandatCard extends StatelessWidget {
         const Text('Marge de négociation', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kCharcoal)),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+          decoration: BoxDecoration(color: kGreen.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
           child: Text('+${marge.toInt()}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kGreen)),
         ),
       ]),
@@ -1464,7 +1464,7 @@ class _PrixMandatCard extends StatelessWidget {
         max: 20,
         divisions: 20,
         activeColor: kGreen,
-        inactiveColor: kGreen.withOpacity(0.15),
+        inactiveColor: kGreen.withValues(alpha: 0.15),
         onChanged: (v) => onChanged(e.copyWith(margeNegociation: v)),
       ),
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -1480,9 +1480,9 @@ class _PrixMandatCard extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
           decoration: BoxDecoration(
-            color: kAmber.withOpacity(0.08),
+            color: kAmber.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: kAmber.withOpacity(0.45)),
+            border: Border.all(color: kAmber.withValues(alpha: 0.45)),
           ),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Icon(Icons.warning_amber_rounded, size: 16, color: kAmber),
@@ -1499,9 +1499,9 @@ class _PrixMandatCard extends StatelessWidget {
       Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          gradient: LinearGradient(colors: [kGreen.withOpacity(0.08), kGreen.withOpacity(0.04)]),
+          gradient: LinearGradient(colors: [kGreen.withValues(alpha: 0.08), kGreen.withValues(alpha: 0.04)]),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: kGreen.withOpacity(0.3)),
+          border: Border.all(color: kGreen.withValues(alpha: 0.3)),
         ),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1534,7 +1534,7 @@ class _PrixMandatCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: const Color(0xFFF0F8FF),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFF2196F3).withOpacity(0.2)),
+          border: Border.all(color: const Color(0xFF2196F3).withValues(alpha: 0.2)),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Row(children: [
@@ -1548,14 +1548,14 @@ class _PrixMandatCard extends StatelessWidget {
             const Text('Honoraires agence', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kCharcoal)),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: const Color(0xFF1565C0).withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+              decoration: BoxDecoration(color: const Color(0xFF1565C0).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
               child: Text('${e.tauxAgence.toStringAsFixed(1)}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF1565C0))),
             ),
           ]),
           SliderTheme(
             data: SliderThemeData(
               activeTrackColor: const Color(0xFF1565C0),
-              inactiveTrackColor: const Color(0xFF1565C0).withOpacity(0.15),
+              inactiveTrackColor: const Color(0xFF1565C0).withValues(alpha: 0.15),
               thumbColor: Colors.white,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 9),
               overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
@@ -1589,7 +1589,7 @@ class _PrixMandatCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: const Color(0xFFFFF3E0),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: kAmber.withOpacity(0.3)),
+          border: Border.all(color: kAmber.withValues(alpha: 0.3)),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Row(children: [
@@ -1681,7 +1681,7 @@ class _HistoriqueCardState extends State<_HistoriqueCard> {
                 onTap: _snapshot,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                  decoration: BoxDecoration(color: kGreen.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
                   child: const Text('Snapshot', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kGreen)),
                 ),
               ),
@@ -1895,7 +1895,7 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
-                  color: (accessible ? kGreen : kRed).withOpacity(0.1),
+                  color: (accessible ? kGreen : kRed).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -1928,7 +1928,7 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
                 max: 12000,
                 divisions: 85,
                 activeColor: kGreen,
-                inactiveColor: kGreen.withOpacity(0.15),
+                inactiveColor: kGreen.withValues(alpha: 0.15),
                 onChanged: (v) => setState(() => _revenus = (v / 100).round() * 100),
               ),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -1962,7 +1962,7 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: _apport < _apportMin ? kRed.withOpacity(0.12) : kGreen.withOpacity(0.12),
+                        color: _apport < _apportMin ? kRed.withValues(alpha: 0.12) : kGreen.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text('${_apportPct.toStringAsFixed(0)}%',
@@ -1978,7 +1978,7 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
                 max: _apportMax,
                 divisions: (_apportMax / 5000).round().clamp(20, 100),
                 activeColor: kGreen,
-                inactiveColor: kGreen.withOpacity(0.15),
+                inactiveColor: kGreen.withValues(alpha: 0.15),
                 onChanged: (v) => setState(() => _apport = (v / 5000).round() * 5000),
               ),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -2026,7 +2026,7 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
                 max: 6.0,
                 divisions: 16,
                 activeColor: kGrey,
-                inactiveColor: kGrey.withOpacity(0.15),
+                inactiveColor: kGrey.withValues(alpha: 0.15),
                 onChanged: (v) => setState(() => _taux = (v * 4).round() / 4),
               ),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -2040,9 +2040,9 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: accessible ? kGreen.withOpacity(0.06) : kRed.withOpacity(0.05),
+                  color: accessible ? kGreen.withValues(alpha: 0.06) : kRed.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: (accessible ? kGreen : kRed).withOpacity(0.25)),
+                  border: Border.all(color: (accessible ? kGreen : kRed).withValues(alpha: 0.25)),
                 ),
                 child: Column(children: [
                   // Mensualité requise vs mensualité max — la comparaison clé
@@ -2113,7 +2113,7 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     decoration: BoxDecoration(
-                      color: (accessible ? kGreen : kRed).withOpacity(0.1),
+                      color: (accessible ? kGreen : kRed).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -2777,7 +2777,7 @@ class _FactureCardState extends State<_FactureCard> {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: _facture!.statut == 'payee'
-                ? kGreen.withOpacity(0.08)
+                ? kGreen.withValues(alpha: 0.08)
                 : const Color(0xFFFFF8E1),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(

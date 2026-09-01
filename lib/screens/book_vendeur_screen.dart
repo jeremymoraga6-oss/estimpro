@@ -545,7 +545,7 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
                     : Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                         decoration: BoxDecoration(
-                            color: kGreen.withOpacity(0.85), // Amélioration 6
+                            color: kGreen.withValues(alpha: 0.85), // Amélioration 6
                             borderRadius: BorderRadius.circular(20)),
                         child: Text('$_currentPage / $_totalPages',
                             style: const TextStyle(
@@ -567,7 +567,7 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: _thumbsVisible ? kGreen.withOpacity(0.6) : Colors.white24,
+                    color: _thumbsVisible ? kGreen.withValues(alpha: 0.6) : Colors.white24,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(Icons.grid_view_rounded, color: Colors.white, size: 20),
@@ -584,7 +584,7 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: _stretchMode ? kGreen.withOpacity(0.7) : Colors.white24,
+                    color: _stretchMode ? kGreen.withValues(alpha: 0.7) : Colors.white24,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(Icons.fit_screen_rounded, color: Colors.white, size: 20),
@@ -598,7 +598,7 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: _forceLandscape ? kGreen.withOpacity(0.6) : Colors.white24,
+                    color: _forceLandscape ? kGreen.withValues(alpha: 0.6) : Colors.white24,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(

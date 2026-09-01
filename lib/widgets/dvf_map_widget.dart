@@ -137,9 +137,9 @@ class _DvfMapWidgetState extends State<DvfMapWidget> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.92),
+                  color: Colors.white.withValues(alpha: 0.92),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: kBorderColor.withOpacity(0.6)),
+                  border: Border.all(color: kBorderColor.withValues(alpha: 0.6)),
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   _legendDot(const Color(0xFF27AE60)),
@@ -179,7 +179,7 @@ class _DvfMapWidgetState extends State<DvfMapWidget> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: _colorForPrice(_selected!.prixM2).withOpacity(0.4), width: 1.5),
+            border: Border.all(color: _colorForPrice(_selected!.prixM2).withValues(alpha: 0.4), width: 1.5),
           ),
           child: Row(children: [
             Container(
@@ -232,9 +232,9 @@ class _DvfMapWidgetState extends State<DvfMapWidget> {
         child: Container(
           width: 32, height: 32,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.95),
+            color: Colors.white.withValues(alpha: 0.95),
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: kBorderColor.withOpacity(0.6)),
+            border: Border.all(color: kBorderColor.withValues(alpha: 0.6)),
             boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 4, offset: Offset(0, 1))],
           ),
           child: Icon(icon, size: 18, color: kCharcoal),

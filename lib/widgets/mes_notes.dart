@@ -266,7 +266,7 @@ class _CanvasBtn extends StatelessWidget {
         child: Container(
           width: 36, height: 36,
           decoration: BoxDecoration(
-            color: active ? kGreen.withOpacity(0.1) : Colors.white,
+            color: active ? kGreen.withValues(alpha: 0.1) : Colors.white,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: active ? kGreen : const Color(0xFFE0E0E0), width: 1.5),
           ),

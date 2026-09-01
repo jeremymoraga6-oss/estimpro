@@ -399,7 +399,7 @@ class _NoteVocaleSheetState extends State<_NoteVocaleSheet>
             decoration: BoxDecoration(
               color: const Color(0xFFE3F2FD),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFF1976D2).withOpacity(0.25)),
+              border: Border.all(color: const Color(0xFF1976D2).withValues(alpha: 0.25)),
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Row(children: [

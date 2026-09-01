@@ -350,7 +350,7 @@ class _Section7ScreenState extends State<Section7Screen> {
                 child: Row(children: [
                   Container(
                     width: 42, height: 42,
-                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.18), borderRadius: BorderRadius.circular(10)),
+                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(10)),
                     child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 22),
                   ),
                   const SizedBox(width: 14),

@@ -188,7 +188,7 @@ class _MarcheScreenState extends State<MarcheScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: kGreen.withOpacity(0.1),
+                  color: kGreen.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Text('SOURCE OFFICIELLE · DGFIP',
@@ -327,7 +327,7 @@ class _TypeBlock extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: kGreen.withOpacity(0.1),
+              color: kGreen.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text('$nb ventes',
@@ -360,9 +360,9 @@ class _StatBox extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: primary ? kGreen.withOpacity(0.07) : const Color(0xFFF7F7F7),
+        color: primary ? kGreen.withValues(alpha: 0.07) : const Color(0xFFF7F7F7),
         borderRadius: BorderRadius.circular(10),
-        border: primary ? Border.all(color: kGreen.withOpacity(0.2)) : null,
+        border: primary ? Border.all(color: kGreen.withValues(alpha: 0.2)) : null,
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(label, style: TextStyle(fontSize: 10, color: primary ? kGreen : kGrey, fontWeight: FontWeight.w600)),

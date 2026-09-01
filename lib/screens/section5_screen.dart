@@ -185,7 +185,7 @@ class _Section5ScreenState extends State<Section5Screen> {
                   ]),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                    decoration: BoxDecoration(color: kGreen.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
                     child: const Text('SOURCE OFFICIELLE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: kGreen, letterSpacing: 0.8)),
                   ),
                 ]),
@@ -373,7 +373,7 @@ class _Section5ScreenState extends State<Section5Screen> {
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: kGreen.withOpacity(0.4), width: 2, style: BorderStyle.solid),
+                  border: Border.all(color: kGreen.withValues(alpha: 0.4), width: 2, style: BorderStyle.solid),
                 ),
                 child: Column(children: [
                   Container(
@@ -441,7 +441,7 @@ class _Section5ScreenState extends State<Section5Screen> {
                 decoration: BoxDecoration(
                   color: const Color(0xFFE8F5E9),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: kGreen.withOpacity(0.25), width: 1.5),
+                  border: Border.all(color: kGreen.withValues(alpha: 0.25), width: 1.5),
                 ),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(children: [
@@ -457,9 +457,9 @@ class _Section5ScreenState extends State<Section5Screen> {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: kAmber.withOpacity(0.1),
+                        color: kAmber.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: kAmber.withOpacity(0.35)),
+                        border: Border.all(color: kAmber.withValues(alpha: 0.35)),
                       ),
                       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         const Icon(Icons.warning_amber_rounded, color: kAmber, size: 15),
@@ -657,7 +657,7 @@ class _DvfCard extends StatelessWidget {
                     const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(color: kGreen.withOpacity(0.12), borderRadius: BorderRadius.circular(4)),
+                      decoration: BoxDecoration(color: kGreen.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(4)),
                       child: const Text('DVF', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: kGreen, letterSpacing: 0.6)),
                     ),
                   ]),
@@ -1168,7 +1168,7 @@ class _SynthesePondereeCardState extends State<_SynthesePondereeCard> {
           borderRadius: BorderRadius.circular(4),
           child: LinearProgressIndicator(
             value: total > 0 ? val / total : 0,
-            backgroundColor: color.withOpacity(0.1),
+            backgroundColor: color.withValues(alpha: 0.1),
             valueColor: AlwaysStoppedAnimation(color),
             minHeight: 6,
           ),
@@ -1196,7 +1196,7 @@ class _SynthesePondereeCardState extends State<_SynthesePondereeCard> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kGreen.withOpacity(0.3), width: 1.5),
+        border: Border.all(color: kGreen.withValues(alpha: 0.3), width: 1.5),
         boxShadow: const [BoxShadow(color: Color(0x12000000), blurRadius: 10, offset: Offset(0, 2))],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1207,7 +1207,7 @@ class _SynthesePondereeCardState extends State<_SynthesePondereeCard> {
           const Spacer(),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+            decoration: BoxDecoration(color: kGreen.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
             child: const Text('DVF · PH · ANNONCES', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: kGreen, letterSpacing: 0.6)),
           ),
         ]),
@@ -1237,9 +1237,9 @@ class _SynthesePondereeCardState extends State<_SynthesePondereeCard> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: const Color(0xFF5C6BC0).withOpacity(0.1),
+                color: const Color(0xFF5C6BC0).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFF5C6BC0).withOpacity(0.3)),
+                border: Border.all(color: const Color(0xFF5C6BC0).withValues(alpha: 0.3)),
               ),
               child: const Row(mainAxisSize: MainAxisSize.min, children: [
                 Icon(Icons.picture_as_pdf_rounded, size: 13, color: Color(0xFF5C6BC0)),
@@ -1653,7 +1653,7 @@ class _DvfCommuneStatsCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: kGreen.withOpacity(0.25)),
+        border: Border.all(color: kGreen.withValues(alpha: 0.25)),
         boxShadow: const [BoxShadow(color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 2))],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1671,7 +1671,7 @@ class _DvfCommuneStatsCard extends StatelessWidget {
           ]),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-            decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+            decoration: BoxDecoration(color: kGreen.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
             child: const Text('DVF · DGFIP', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: kGreen, letterSpacing: 0.5)),
           ),
         ]),
