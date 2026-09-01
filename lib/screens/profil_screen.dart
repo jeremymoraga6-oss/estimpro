@@ -184,7 +184,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
             const SizedBox(height: 12),
             _Section(title: 'Paramètres', items: [
               _Item(Icons.palette_outlined, 'Couleur accent',
-                  '#7CB342 (Vert Efficity)'),
+                  '#4DA050 (vert charte)'),
               _Item(Icons.notifications_outlined, 'Notifications', 'Activées'),
               _Item(Icons.cloud_sync_outlined, 'Sauvegarde', 'Automatique'),
             ]),

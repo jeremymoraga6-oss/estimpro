@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
-const kGreen = Color(0xFF7CB342);
-const kCharcoal = Color(0xFF2D3436);
-const kBackground = Color(0xFFF1F5F9);
+// Charte de marque — identique au rapport PDF (pdf_service.dart), pour que le
+// client et l'agent voient exactement les mêmes couleurs.
+const kGreen = Color(0xFF4DA050);
+const kCharcoal = Color(0xFF1C2830);
+const kBackground = Color(0xFFF7F8F8);
 const kCardBg = Colors.white;
-const kGrey = Color(0xFF636E72);
-const kLightGrey = Color(0xFFB2BEC3);
-const kBorderColor = Color(0xFFDFE6E9);
+const kGrey = Color(0xFF5F6B72);
+const kLightGrey = Color(0xFF9AA6AD);
+const kBorderColor = Color(0xFFE4E8E5);
 const kAmber = Color(0xFFFB8C00);
 const kRed = Color(0xFFE53935);
 
@@ -33,7 +35,7 @@ ThemeData buildTheme() => ThemeData(
       cardTheme: CardThemeData(
         color: kCardBg,
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         margin: EdgeInsets.zero,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -42,7 +44,7 @@ ThemeData buildTheme() => ThemeData(
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+          textStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -65,14 +67,17 @@ ThemeData buildTheme() => ThemeData(
       useMaterial3: true,
     );
 
-BoxDecoration kCardDecoration({double radius = 16, Color? borderColor}) =>
+/// Carte de contenu.
+///
+/// Filet fin plutôt qu'ombre portée : plus lisible en extérieur (une ombre
+/// « bave » en plein soleil) et visuellement plus actuel.
+BoxDecoration kCardDecoration({double radius = 14, Color? borderColor}) =>
     BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.circular(radius),
-      boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 12, offset: Offset(0, 2))],
-      border: borderColor != null ? Border.all(color: borderColor, width: 1.5) : null,
+      border: Border.all(color: borderColor ?? kBorderColor, width: 1),
     );
 
-TextStyle kLabel = const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: kGrey, letterSpacing: 0.3);
-TextStyle kCardTitle = const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: kCharcoal);
-TextStyle kSectionLabel = const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kGreen, letterSpacing: 0.6);
+TextStyle kLabel = const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: kGrey, letterSpacing: 0.1);
+TextStyle kCardTitle = const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: kCharcoal);
+TextStyle kSectionLabel = const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: kGreen, letterSpacing: 0.2);

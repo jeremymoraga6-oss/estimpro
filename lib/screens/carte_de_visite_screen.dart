@@ -178,7 +178,7 @@ class _CardWidget extends StatelessWidget {
               child: Container(
                 width: 180, height: 180,
                 decoration: const BoxDecoration(
-                  color: Color(0xFF7CB342),
+                  color: kGreen,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -214,7 +214,7 @@ class _CardWidget extends StatelessWidget {
             const SizedBox(height: 6),
             // Titre
             const Text('Consultant immobilier',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF7CB342))),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: kGreen)),
             const SizedBox(height: 20),
 
             // Téléphone
@@ -294,14 +294,14 @@ class _InfoRow extends StatelessWidget {
     Widget row = Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(icon, size: 16, color: const Color(0xFF7CB342)),
+        Icon(icon, size: 16, color: const kGreen),
         const SizedBox(width: 8),
         Text(text, style: TextStyle(
           fontSize: bold ? 17 : 14,
           fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
           color: const Color(0xFF2D3436),
           decoration: url != null ? TextDecoration.underline : null,
-          decorationColor: const Color(0xFF7CB342),
+          decorationColor: const kGreen,
         )),
       ],
     );
@@ -343,7 +343,7 @@ class _SocialBadge extends StatelessWidget {
 class _EfficityDots extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    const color = Color(0xFF7CB342);
+    const color = kGreen;
     const size = 6.0;
     const gap = 3.0;
     return Column(children: [
