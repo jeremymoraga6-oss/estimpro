@@ -28,14 +28,21 @@ class PdfService {
   pw.Font? _fontBoldItalic;
 
   Future<void> _loadAssets() async {
+    // Les echecs de chargement etaient avales en silence : agence.jpg a
+    // manque pendant des mois sans que rien ne le signale, et le bloc photo
+    // de la couverture ne s'affichait jamais.
     try {
       final data = await rootBundle.load('assets/images/logo.png');
       _logoImage = pw.MemoryImage(data.buffer.asUint8List());
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[PdfService] logo.png introuvable : $e');
+    }
     try {
       final data = await rootBundle.load('assets/images/agence.jpg');
       _agenceImage = pw.MemoryImage(data.buffer.asUint8List());
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[PdfService] agence.jpg introuvable : $e');
+    }
     try {
       final r  = await rootBundle.load('assets/fonts/Lato-Regular.ttf');
       final b  = await rootBundle.load('assets/fonts/Lato-Bold.ttf');
@@ -620,9 +627,13 @@ class PdfService {
                     ),
                   ),
                 ),
+                // Largeur calee sur le ratio de l'illustration (1100x614 ≈ 1,79)
+                // pour une bande de 90 pt : 90 x 1,79 ≈ 161. A 200 pt, le
+                // recadrage « cover » amputait ~19 % en hauteur, coupant le
+                // logo et le haut des visages.
                 if (_agenceImage != null)
                   pw.SizedBox(
-                    width: 200,
+                    width: 165,
                     child: pw.Image(_agenceImage!, fit: pw.BoxFit.cover),
                   ),
               ],
