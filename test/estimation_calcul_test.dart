@@ -157,7 +157,7 @@ void main() {
 
     test('inclut au minimum les DMTO et les débours', () {
       const prix = 300000.0;
-      final plancher = prix * 0.0632 + 1300;
+      const plancher = prix * 0.0632 + 1300;
       expect(Estimation.calcFraisNotaire(prix), greaterThan(plancher));
     });
   });
@@ -211,8 +211,14 @@ void main() {
   });
 
   group('totalPctAjustements', () {
-    test('bien neutre et libre : cumul nul', () {
-      expect(_bien().totalPctAjustements, 0);
+    test('bien neutre et libre : seule la conjoncture s\'applique', () {
+      final e = _bien();
+      // Le modèle applique -1 % de conjoncture par défaut : c'est voulu, et
+      // c'est le seul ajustement actif sur un bien sans caractéristique
+      // particulière. Si un autre poste devient non nul par défaut, ce test
+      // le signale.
+      expect(e.ajustConjoncture, -1.0);
+      expect(e.totalPctAjustements, e.ajustConjoncture);
     });
 
     test('la décote d\'occupation est bien intégrée au cumul', () {

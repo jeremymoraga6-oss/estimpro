@@ -148,8 +148,11 @@ class _EstimationFlowState extends State<EstimationFlow>
   }
 
   void _prev() {
-    if (_step > 0) setState(() => _step--);
-    else Navigator.pop(context);
+    if (_step > 0) {
+      setState(() => _step--);
+    } else {
+      Navigator.pop(context);
+    }
   }
 
   void _goToStep(int step) {

@@ -51,7 +51,7 @@ class AppHeader extends StatelessWidget {
                       color: Colors.white.withValues(alpha: 0.10),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: const [
+                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 14),
                       SizedBox(width: 4),
                       Text('Retour', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
@@ -127,7 +127,7 @@ class AppHeader extends StatelessWidget {
                           ),
                           alignment: Alignment.center,
                           child: isDone
-                              ? Icon(Icons.check_rounded, color: kGreen, size: 14)
+                              ? const Icon(Icons.check_rounded, color: kGreen, size: 14)
                               : Text(
                                   '${i + 1}',
                                   style: TextStyle(

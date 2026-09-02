@@ -67,7 +67,7 @@ class GeorisquesService {
     double? longitude,
   }) async {
     if (codeInsee.isEmpty) {
-      return GeorisquesData(
+      return const GeorisquesData(
           codeInsee: '', erreur: 'Code INSEE manquant');
     }
 

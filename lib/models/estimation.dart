@@ -496,8 +496,11 @@ class Estimation {
     if (hasInond) total -= 5.0;
     // Argile
     final argile = r.niveauArgile.toLowerCase();
-    if (argile.contains('fort')) total -= 2.0;
-    else if (argile.contains('moyen')) total -= 1.0;
+    if (argile.contains('fort')) {
+      total -= 2.0;
+    } else if (argile.contains('moyen')) {
+      total -= 1.0;
+    }
     // Cap à -6%
     return total.clamp(-6.0, 0.0);
   }
@@ -510,8 +513,11 @@ class Estimation {
     final hasInond = r.risquesNaturels.any((s) => s.toLowerCase().contains('inond'));
     if (hasInond) items.add('Zone inondable (PPRI/PPRN) : −5 %');
     final argile = r.niveauArgile.toLowerCase();
-    if (argile.contains('fort')) items.add('Argiles fort (RGA) : −2 %');
-    else if (argile.contains('moyen')) items.add('Argiles moyen (RGA) : −1 %');
+    if (argile.contains('fort')) {
+      items.add('Argiles fort (RGA) : −2 %');
+    } else if (argile.contains('moyen')) {
+      items.add('Argiles moyen (RGA) : −1 %');
+    }
     if (r.potentielRadon.toLowerCase().contains('important')) items.add('Radon zone 3 — informatif');
     return items;
   }

@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:pdfrx/pdfrx.dart';
@@ -311,7 +310,7 @@ class _EmptyState extends StatelessWidget {
 class _PdfViewerScreen extends StatelessWidget {
   final File   file;
   final String title;
-  const _PdfViewerScreen({required this.file, required this.title, super.key});
+  const _PdfViewerScreen({required this.file, required this.title});
 
   @override
   Widget build(BuildContext context) {
@@ -344,7 +343,7 @@ class _PdfViewerScreen extends StatelessWidget {
 class _HtmlViewerScreen extends StatelessWidget {
   final File   file;
   final String title;
-  const _HtmlViewerScreen({required this.file, required this.title, super.key});
+  const _HtmlViewerScreen({required this.file, required this.title});
 
   @override
   Widget build(BuildContext context) {

@@ -138,7 +138,7 @@ class _CarteDeVisiteScreenState extends State<CarteDeVisiteScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            Text('Appuyez sur la photo pour la modifier',
+            const Text('Appuyez sur la photo pour la modifier',
                 style: TextStyle(fontSize: 12, color: kGrey)),
           ]),
         ),
@@ -209,8 +209,8 @@ class _CardWidget extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
           child: Column(children: [
             // Nom
-            const Text('Jérémy', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w400, color: Color(0xFF2D3436), height: 1.2)),
-            const Text('Moraga', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Color(0xFF2D3436), height: 1.1)),
+            const Text('Jérémy', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w400, color: kCharcoal, height: 1.2)),
+            const Text('Moraga', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: kCharcoal, height: 1.1)),
             const SizedBox(height: 6),
             // Titre
             const Text('Consultant immobilier',
@@ -218,21 +218,21 @@ class _CardWidget extends StatelessWidget {
             const SizedBox(height: 20),
 
             // Téléphone
-            _InfoRow(icon: Icons.phone_rounded, text: '06 68 03 64 03', bold: true, url: 'tel:+33668036403'),
+            const _InfoRow(icon: Icons.phone_rounded, text: '06 68 03 64 03', bold: true, url: 'tel:+33668036403'),
             const SizedBox(height: 8),
-            _InfoRow(icon: Icons.email_rounded, text: 'jmoraga@efficity.com', url: 'mailto:jmoraga@efficity.com'),
+            const _InfoRow(icon: Icons.email_rounded, text: 'jmoraga@efficity.com', url: 'mailto:jmoraga@efficity.com'),
             const SizedBox(height: 20),
 
             // Réseaux sociaux
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               _SocialBadge(
-                color: const Color(0xFF1877F2),
+                color: Color(0xFF1877F2),
                 icon: Icons.facebook_rounded,
                 handle: 'Jeremy Moraga',
               ),
-              const SizedBox(width: 16),
+              SizedBox(width: 16),
               _SocialBadge(
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   colors: [Color(0xFFE1306C), Color(0xFFF77737), Color(0xFF833AB4)],
                   begin: Alignment.topRight, end: Alignment.bottomLeft,
                 ),
@@ -257,8 +257,8 @@ class _CardWidget extends StatelessWidget {
                   version: QrVersions.auto,
                   size: 140,
                   backgroundColor: Colors.transparent,
-                  eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Color(0xFF2D3436)),
-                  dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Color(0xFF2D3436)),
+                  eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: kCharcoal),
+                  dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: kCharcoal),
                 ),
                 const SizedBox(height: 6),
                 const Text('Scanner pour enregistrer le contact',
@@ -273,7 +273,7 @@ class _CardWidget extends StatelessWidget {
               _EfficityDots(),
               const SizedBox(width: 8),
               const Text('efficity',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF2D3436), letterSpacing: -0.5)),
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: kCharcoal, letterSpacing: -0.5)),
             ]),
           ]),
         ),
@@ -294,14 +294,14 @@ class _InfoRow extends StatelessWidget {
     Widget row = Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(icon, size: 16, color: const kGreen),
+        Icon(icon, size: 16, color: kGreen),
         const SizedBox(width: 8),
         Text(text, style: TextStyle(
           fontSize: bold ? 17 : 14,
           fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
-          color: const Color(0xFF2D3436),
+          color: kCharcoal,
           decoration: url != null ? TextDecoration.underline : null,
-          decorationColor: const kGreen,
+          decorationColor: kGreen,
         )),
       ],
     );
@@ -347,19 +347,19 @@ class _EfficityDots extends StatelessWidget {
     const size = 6.0;
     const gap = 3.0;
     return Column(children: [
-      Row(children: [
+      const Row(children: [
         _Dot(color, size), SizedBox(width: gap),
         _Dot(color, size), SizedBox(width: gap),
         _Dot(color, size),
       ]),
-      SizedBox(height: gap),
+      const SizedBox(height: gap),
       Row(children: [
-        _Dot(color, size), SizedBox(width: gap),
-        _Dot(color.withValues(alpha: 0.5), size), SizedBox(width: gap),
-        _Dot(color, size),
+        const _Dot(color, size), const SizedBox(width: gap),
+        _Dot(color.withValues(alpha: 0.5), size), const SizedBox(width: gap),
+        const _Dot(color, size),
       ]),
-      SizedBox(height: gap),
-      Row(children: [
+      const SizedBox(height: gap),
+      const Row(children: [
         _Dot(color, size), SizedBox(width: gap),
         _Dot(color, size), SizedBox(width: gap),
         _Dot(color, size),

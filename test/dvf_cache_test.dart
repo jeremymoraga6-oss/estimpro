@@ -5,7 +5,7 @@ import 'package:estimpro/services/dvf_cache.dart';
 /// Sérialisation du cache DVF : logique pure, sans accès disque.
 void main() {
   group('DvfTransaction — aller-retour cache', () {
-    final tx = DvfTransaction(
+    const tx = DvfTransaction(
       dateMutation: '2025-04-12',
       valeurFonciere: 385000,
       adresse: '12 route des Alpes',

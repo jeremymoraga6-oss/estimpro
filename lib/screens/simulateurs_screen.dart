@@ -11,9 +11,13 @@ double _calcFreAgence(double prix) {
   if (prix <= 0) return 0;
   const t1 = 100000.0, t2 = 300000.0;
   double f;
-  if (prix <= t1)      f = prix * 0.05;
-  else if (prix <= t2) f = t1 * 0.05 + (prix - t1) * 0.04;
-  else                 f = t1 * 0.05 + (t2 - t1) * 0.04 + (prix - t2) * 0.03;
+  if (prix <= t1) {
+    f = prix * 0.05;
+  } else if (prix <= t2) {
+    f = t1 * 0.05 + (prix - t1) * 0.04;
+  } else {
+    f = t1 * 0.05 + (t2 - t1) * 0.04 + (prix - t2) * 0.03;
+  }
   return max(f, 5000);
 }
 
@@ -384,7 +388,9 @@ class _NetVendeurScreenState extends State<_NetVendeurScreen> {
   @override
   void initState() {
     super.initState();
-    for (final c in _ctrls) c.addListener(_u);
+    for (final c in _ctrls) {
+      c.addListener(_u);
+    }
   }
 
   void _u() => setState(() {});
@@ -427,7 +433,7 @@ class _NetVendeurScreenState extends State<_NetVendeurScreen> {
               ),
             // ── Prix de vente ──────────────────────────────────────
             _Card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _SecTitle('Prix de vente', icon: Icons.home_rounded, color: _accent),
+              const _SecTitle('Prix de vente', icon: Icons.home_rounded, color: _accent),
               _Field(label: 'Prix de vente FAI (affiché)', hint: '350 000', suffix: '€', ctrl: _prixCtrl),
               if (prix > 0)
                 Container(
@@ -452,7 +458,7 @@ class _NetVendeurScreenState extends State<_NetVendeurScreen> {
             // ── Détail ─────────────────────────────────────────────
             if (prix > 0)
               _Card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _SecTitle('Détail', icon: Icons.receipt_long_rounded, color: _accent),
+                const _SecTitle('Détail', icon: Icons.receipt_long_rounded, color: _accent),
                 _Ligne(label: 'Prix de vente FAI', value: _fmtE(prix)),
                 _Ligne(label: '− Frais d\'agence', value: _fmtE(-agence), color: Colors.red.shade600),
                 if (credit > 0)  _Ligne(label: '− Capital restant dû', value: _fmtE(-credit), color: Colors.red.shade600),
@@ -512,12 +518,12 @@ class _FreAgenceScreenState extends State<_FreAgenceScreen> {
                 note: 'Taux effectif ${_fmtPct(taux)} · Prix FAI : ${_fmtE(fai)}',
               ),
             _Card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _SecTitle('Prix net vendeur', icon: Icons.home_rounded, color: _accent),
+              const _SecTitle('Prix net vendeur', icon: Icons.home_rounded, color: _accent),
               _Field(label: 'Prix net vendeur (sans frais d\'agence)', hint: '280 000', suffix: '€', ctrl: _prixCtrl),
             ])),
             if (prix > 0)
               _Card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _SecTitle('Résultat', icon: Icons.percent_rounded, color: _accent),
+                const _SecTitle('Résultat', icon: Icons.percent_rounded, color: _accent),
                 _Ligne(label: 'Prix net vendeur', value: _fmtE(prix)),
                 _Ligne(label: '+ Frais d\'agence TTC', value: _fmtE(frais), color: _accent),
                 _Ligne(label: 'Taux effectif', value: _fmtPct(taux)),
@@ -542,7 +548,7 @@ class _BaremeInfo extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       border: Border.all(color: const Color(0xFFE0E0E0)),
     ),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+    child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text('Barème progressif', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
       SizedBox(height: 6),
       Text('≤ 100 000 € : 5 %',           style: TextStyle(fontSize: 11, color: kGrey)),
@@ -617,7 +623,7 @@ class _FraisNotaireScreenState extends State<_FraisNotaireScreen> {
                 note: 'Budget total : ${_fmtE(prix + r.total)} · Taux : ${_fmtPct(r.total / prix * 100)}',
               ),
             _Card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _SecTitle('Paramètres', icon: Icons.gavel_rounded, color: _accent),
+              const _SecTitle('Paramètres', icon: Icons.gavel_rounded, color: _accent),
               _Field(label: 'Prix d\'acquisition', hint: '320 000', suffix: '€', ctrl: _prixCtrl),
               const SizedBox(height: 4),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -631,7 +637,7 @@ class _FraisNotaireScreenState extends State<_FraisNotaireScreen> {
             ])),
             if (r != null)
               _Card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _SecTitle('Détail', icon: Icons.receipt_long_rounded, color: _accent),
+                const _SecTitle('Détail', icon: Icons.receipt_long_rounded, color: _accent),
                 _Ligne(label: _neuf ? 'TPF réduite VEFA (0,715 %)' : 'Droits de mutation (6,32 %)', value: _fmtE(r.droits)),
                 _Ligne(label: 'Émoluments notaire TTC', value: _fmtE(r.emo)),
                 _Ligne(label: 'CSI – sécurité immobilière', value: _fmtE(r.csi)),
@@ -676,7 +682,9 @@ class _CapaciteEmpruntScreenState extends State<_CapaciteEmpruntScreen> {
   late final _ctrls = [_rev1Ctrl, _rev2Ctrl, _chargesCtrl, _apportCtrl, _tauxCtrl, _dureeCtrl];
 
   @override
-  void initState() { super.initState(); for (final c in _ctrls) c.addListener(_u); }
+  void initState() { super.initState(); for (final c in _ctrls) {
+    c.addListener(_u);
+  } }
   void _u() => setState(() {});
   void _reset() {
     _rev1Ctrl.clear(); _rev2Ctrl.clear(); _chargesCtrl.text = '0';
@@ -730,7 +738,7 @@ class _CapaciteEmpruntScreenState extends State<_CapaciteEmpruntScreen> {
               ]),
             ],
             _Card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _SecTitle('Revenus', icon: Icons.euro_rounded, color: _accent),
+              const _SecTitle('Revenus', icon: Icons.euro_rounded, color: _accent),
               _Fields2(
                 _Field(label: 'Revenus nets empr. 1', hint: '3 500', suffix: '€/mois', ctrl: _rev1Ctrl),
                 _Field(label: 'Revenus nets empr. 2', hint: '0', suffix: '€/mois', ctrl: _rev2Ctrl),
@@ -738,7 +746,7 @@ class _CapaciteEmpruntScreenState extends State<_CapaciteEmpruntScreen> {
               _Field(label: 'Charges existantes (crédits en cours)', hint: '0', suffix: '€/mois', ctrl: _chargesCtrl),
             ])),
             _Card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _SecTitle('Financement', icon: Icons.account_balance_rounded, color: _accent),
+              const _SecTitle('Financement', icon: Icons.account_balance_rounded, color: _accent),
               _Fields2(
                 _Field(label: 'Taux d\'intérêt', hint: '3.5', suffix: '%', ctrl: _tauxCtrl, decimal: true),
                 _Field(label: 'Durée', hint: '20', suffix: 'ans', ctrl: _dureeCtrl),
@@ -747,7 +755,7 @@ class _CapaciteEmpruntScreenState extends State<_CapaciteEmpruntScreen> {
             ])),
             if (revenus > 0 && credit > 0)
               _Card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _SecTitle('Détail', icon: Icons.savings_rounded, color: _accent),
+                const _SecTitle('Détail', icon: Icons.savings_rounded, color: _accent),
                 _Ligne(label: 'Revenus totaux', value: _fmtE(revenus)),
                 _Ligne(label: 'Mensualité max (35 % endettement)', value: _fmtE(mensMax), bold: true),
                 _Ligne(label: 'Capacité d\'emprunt', value: _fmtE(credit), color: _accent, bold: true, sep: true),
@@ -784,7 +792,9 @@ class _PlusValueScreenState extends State<_PlusValueScreen> {
   late final _ctrls = [_venteCtrl, _achatCtrl, _dureeCtrl, _travauxCtrl];
 
   @override
-  void initState() { super.initState(); for (final c in _ctrls) c.addListener(_u); }
+  void initState() { super.initState(); for (final c in _ctrls) {
+    c.addListener(_u);
+  } }
   void _u() => setState(() {});
   void _reset() {
     _venteCtrl.clear(); _achatCtrl.clear();
@@ -860,7 +870,7 @@ class _PlusValueScreenState extends State<_PlusValueScreen> {
           children: [
             // ── Régime fiscal ──────────────────────────────────────
             _Card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _SecTitle('Régime fiscal', icon: Icons.gavel_rounded, color: _accent),
+              const _SecTitle('Régime fiscal', icon: Icons.gavel_rounded, color: _accent),
               ...{0: 'Résidence principale', 1: 'Résidence secondaire', 2: 'Locatif / investissement'}
                   .entries.map((e) => GestureDetector(
                 onTap: () => setState(() => _regime = e.key),
@@ -926,17 +936,17 @@ class _PlusValueScreenState extends State<_PlusValueScreen> {
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: kGreen.withValues(alpha: 0.3)),
                   ),
-                  child: Row(children: [
+                  child: const Row(children: [
                     Icon(Icons.check_circle_rounded, color: kGreen, size: 28),
-                    const SizedBox(width: 12),
-                    const Expanded(child: Text('Moins-value : aucun impôt dû',
+                    SizedBox(width: 12),
+                    Expanded(child: Text('Moins-value : aucun impôt dû',
                         style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kGreen))),
                   ]),
                 ),
 
               // ── Saisie ─────────────────────────────────────────
               _Card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _SecTitle('Données du bien', icon: Icons.home_rounded, color: _accent),
+                const _SecTitle('Données du bien', icon: Icons.home_rounded, color: _accent),
                 _Fields2(
                   _Field(label: 'Prix de cession', hint: '400 000', suffix: '€', ctrl: _venteCtrl),
                   _Field(label: 'Prix d\'acquisition', hint: '250 000', suffix: '€', ctrl: _achatCtrl),
@@ -949,14 +959,14 @@ class _PlusValueScreenState extends State<_PlusValueScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text('✓ Forfait travaux 15 % appliqué : ${_fmtE(travauxForf)}',
-                        style: TextStyle(fontSize: 11, color: _accent, fontStyle: FontStyle.italic)),
+                        style: const TextStyle(fontSize: 11, color: _accent, fontStyle: FontStyle.italic)),
                   ),
               ])),
 
               // ── Détail calcul ──────────────────────────────────
               if (hasData && plusValue)
                 _Card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  _SecTitle('Calcul de la plus-value', icon: Icons.calculate_rounded, color: _accent),
+                  const _SecTitle('Calcul de la plus-value', icon: Icons.calculate_rounded, color: _accent),
                   _Ligne(label: 'PV brute', value: _fmtE(pvBrute)),
                   _Ligne(label: '− Frais acq. forfait 7,5 %', value: _fmtE(-fraisAcq), color: Colors.red.shade600),
                   _Ligne(label: '− Travaux', value: _fmtE(-travaux), color: Colors.red.shade600),
@@ -1004,7 +1014,9 @@ class _RendementLocatifScreenState extends State<_RendementLocatifScreen> {
                         _taxeCtrl, _gestionCtrl, _vacanceCtrl, _mensualiteCtrl];
 
   @override
-  void initState() { super.initState(); for (final c in _ctrls) c.addListener(_u); }
+  void initState() { super.initState(); for (final c in _ctrls) {
+    c.addListener(_u);
+  } }
   void _u() => setState(() {});
   void _reset() {
     _prixCtrl.clear(); _travauxCtrl.text = '0'; _loyerCtrl.clear();
@@ -1062,7 +1074,7 @@ class _RendementLocatifScreenState extends State<_RendementLocatifScreen> {
             ],
             // ── Investissement ─────────────────────────────────────
             _Card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _SecTitle('Investissement', icon: Icons.real_estate_agent_rounded, color: _accent),
+              const _SecTitle('Investissement', icon: Icons.real_estate_agent_rounded, color: _accent),
               _Fields2(
                 _Field(label: 'Prix d\'achat FAI', hint: '180 000', suffix: '€', ctrl: _prixCtrl),
                 _Field(label: 'Travaux', hint: '0', suffix: '€', ctrl: _travauxCtrl),
@@ -1076,7 +1088,7 @@ class _RendementLocatifScreenState extends State<_RendementLocatifScreen> {
             ])),
             // ── Loyer & charges ────────────────────────────────────
             _Card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _SecTitle('Loyer & charges', icon: Icons.home_work_rounded, color: _accent),
+              const _SecTitle('Loyer & charges', icon: Icons.home_work_rounded, color: _accent),
               _Fields2(
                 _Field(label: 'Loyer mensuel HC', hint: '850', suffix: '€/mois', ctrl: _loyerCtrl),
                 _Field(label: 'Vacance locative', hint: '1', suffix: 'mois/an', ctrl: _vacanceCtrl),
@@ -1093,7 +1105,7 @@ class _RendementLocatifScreenState extends State<_RendementLocatifScreen> {
             // ── Détail annuel ──────────────────────────────────────
             if (investTotal > 0 && loyer > 0)
               _Card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _SecTitle('Détail annuel', icon: Icons.bar_chart_rounded, color: _accent),
+                const _SecTitle('Détail annuel', icon: Icons.bar_chart_rounded, color: _accent),
                 _Ligne(label: 'Loyer annuel effectif', value: _fmtE(loyerAnnuel)),
                 _Ligne(label: '− Charges totales annuelles', value: _fmtE(-chargesTotal), color: Colors.red.shade600),
                 _Ligne(label: '= Revenu net annuel', value: _fmtE(revenuNet), bold: true, sep: true),

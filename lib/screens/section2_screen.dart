@@ -162,17 +162,17 @@ class _Section2ScreenState extends State<Section2Screen> {
                   const SizedBox(height: 3),
                   Row(children: [
                     Expanded(child: _e.surfaceBalcon > 12
-                        ? Text('Plafonné à 12 m²\ndans le calcul',
+                        ? const Text('Plafonné à 12 m²\ndans le calcul',
                             style: TextStyle(fontSize: 9, color: kLightGrey))
                         : const SizedBox()),
                     const SizedBox(width: 8),
                     Expanded(child: _e.surfaceCave > 15
-                        ? Text('Plafonné à 15 m²\ndans le calcul',
+                        ? const Text('Plafonné à 15 m²\ndans le calcul',
                             style: TextStyle(fontSize: 9, color: kLightGrey))
                         : const SizedBox()),
                     const SizedBox(width: 8),
                     Expanded(child: _e.surfaceTerrasse > 20
-                        ? Text('Plafonné à 20 m²\ndans le calcul',
+                        ? const Text('Plafonné à 20 m²\ndans le calcul',
                             style: TextStyle(fontSize: 9, color: kLightGrey))
                         : const SizedBox()),
                   ]),
@@ -418,7 +418,7 @@ class _Section2ScreenState extends State<Section2Screen> {
                   const Expanded(child: Text('Bien en copropriété', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal))),
                   Switch(
                     value: _e.enCopropriete,
-                    activeColor: kGreen,
+                    activeThumbColor: kGreen,
                     onChanged: (v) => _update(_e.copyWith(enCopropriete: v)),
                   ),
                 ]),
@@ -458,7 +458,7 @@ class _Section2ScreenState extends State<Section2Screen> {
                     const Expanded(child: Text('Procédures en cours', style: TextStyle(fontSize: 13, color: kCharcoal))),
                     Switch(
                       value: _e.coproProceduresEnCours,
-                      activeColor: kRed,
+                      activeThumbColor: kRed,
                       onChanged: (v) => _update(_e.copyWith(coproProceduresEnCours: v)),
                     ),
                   ]),
@@ -786,7 +786,7 @@ class _TerrainConstructibleWidgetState extends State<_TerrainConstructibleWidget
           const Text('Terrain constructible ?', style: TextStyle(fontSize: 12, color: kCharcoal)),
           Switch(
             value: hasConstructible,
-            activeColor: kGreen,
+            activeThumbColor: kGreen,
             onChanged: (v) {
               if (!v) {
                 _ctrl.clear();
@@ -842,7 +842,7 @@ class _TerrainConstructibleWidgetState extends State<_TerrainConstructibleWidget
             alignment: Alignment.centerRight,
             child: Switch(
               value: e.parcelleDivisible,
-              activeColor: kGreen,
+              activeThumbColor: kGreen,
               onChanged: (v) => widget.onChanged(e.copyWith(parcelleDivisible: v)),
             ),
           ),

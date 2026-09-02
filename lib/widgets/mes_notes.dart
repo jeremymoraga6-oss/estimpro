@@ -94,7 +94,7 @@ class _MesNotesState extends State<MesNotes> {
                         const Icon(Icons.check_circle_outline_rounded, color: kGreen, size: 14),
                         const SizedBox(width: 4),
                       ],
-                      Text('+', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: kGreen)),
+                      const Text('+', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: kGreen)),
                       const SizedBox(width: 6),
                       Icon(_open ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: kLightGrey, size: 18),
                     ]),

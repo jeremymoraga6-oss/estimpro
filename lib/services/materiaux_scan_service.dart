@@ -73,9 +73,9 @@ Règles :
 
   Future<MateriauxResult> analyzeImage(String imagePath) async {
     if (AppSettings.instance.anthropicKey.isEmpty) {
-      return MateriauxResult(
-        menuiseriesType: const [],
-        vitrage: const [],
+      return const MateriauxResult(
+        menuiseriesType: [],
+        vitrage: [],
         rawResponse: 'no_api_key',
       );
     }

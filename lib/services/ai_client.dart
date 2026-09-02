@@ -108,7 +108,7 @@ class AiClient {
 
       final body = jsonDecode(resp.body) as Map<String, dynamic>;
       lastRaw = (body['content'] as List).first['text'] as String;
-      final clean = _stripMarkdown(lastRaw!);
+      final clean = _stripMarkdown(lastRaw);
 
       try {
         return jsonDecode(clean) as Map<String, dynamic>;

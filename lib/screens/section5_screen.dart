@@ -175,12 +175,12 @@ class _Section5ScreenState extends State<Section5Screen> {
             if (_e.typeId != 'terrain')
               SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Row(children: [
-                    const Icon(Icons.bar_chart_rounded, color: kGreen, size: 18),
-                    const SizedBox(width: 8),
+                  const Row(children: [
+                    Icon(Icons.bar_chart_rounded, color: kGreen, size: 18),
+                    SizedBox(width: 8),
                     Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const Text('Ventes DVF', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kCharcoal)),
-                      const Text('Données officielles notaires', style: TextStyle(fontSize: 11, color: kGrey)),
+                      Text('Ventes DVF', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kCharcoal)),
+                      Text('Données officielles notaires', style: TextStyle(fontSize: 11, color: kGrey)),
                     ]),
                   ]),
                   Container(
@@ -219,10 +219,10 @@ class _Section5ScreenState extends State<Section5Screen> {
 
             // Results DVF — masqués pour terrain
             if (_e.typeId == 'terrain')
-              SectionCard(child: Row(children: [
-                const Icon(Icons.info_outline_rounded, color: kGrey, size: 16),
-                const SizedBox(width: 10),
-                const Expanded(child: Text(
+              const SectionCard(child: Row(children: [
+                Icon(Icons.info_outline_rounded, color: kGrey, size: 16),
+                SizedBox(width: 10),
+                Expanded(child: Text(
                   'Les ventes DVF résidentielles ne s\'appliquent pas aux terrains.\nUtilisez les comparables manuels ou la base locale.',
                   style: TextStyle(fontSize: 12, color: kGrey, height: 1.5),
                 )),
@@ -395,7 +395,7 @@ class _Section5ScreenState extends State<Section5Screen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border(left: BorderSide(color: const Color(0xFF7B1FA2), width: 4)),
+                  border: const Border(left: BorderSide(color: Color(0xFF7B1FA2), width: 4)),
                   boxShadow: const [BoxShadow(color: Color(0x0D000000), blurRadius: 8, offset: Offset(0, 2))],
                 ),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -721,10 +721,10 @@ class _RisquesCard extends StatelessWidget {
     return SectionCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Row(children: [
-            const Icon(Icons.warning_amber_rounded, color: kAmber, size: 18),
-            const SizedBox(width: 8),
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+          const Row(children: [
+            Icon(Icons.warning_amber_rounded, color: kAmber, size: 18),
+            SizedBox(width: 8),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Risques naturels & technologiques',
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kCharcoal)),
               Text('IAL — Source Géorisques (officiel)',
@@ -923,10 +923,10 @@ class _MarketStatsCard extends StatelessWidget {
         border: Border.all(color: const Color(0xFFE8EEE8), width: 1.5),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          const Icon(Icons.trending_up_rounded, size: 14, color: kGreen),
-          const SizedBox(width: 6),
-          const Text('Tendance marché — données DVF',
+        const Row(children: [
+          Icon(Icons.trending_up_rounded, size: 14, color: kGreen),
+          SizedBox(width: 6),
+          Text('Tendance marché — données DVF',
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
         ]),
         const SizedBox(height: 10),
@@ -1174,7 +1174,7 @@ class _SynthesePondereeCardState extends State<_SynthesePondereeCard> {
           ),
         )),
         const SizedBox(width: 8),
-        SizedBox(width: 32, child: Text('$pct%', textAlign: TextAlign.right, style: TextStyle(fontSize: 10, color: kGrey))),
+        SizedBox(width: 32, child: Text('$pct%', textAlign: TextAlign.right, style: const TextStyle(fontSize: 10, color: kGrey))),
       ]),
     );
   }

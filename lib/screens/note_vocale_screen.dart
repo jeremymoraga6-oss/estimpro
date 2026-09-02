@@ -257,13 +257,13 @@ class _NoteVocaleSheetState extends State<_NoteVocaleSheet>
                   ]),
                 ]),
               )
-            : Column(key: const ValueKey('idle'), children: [
-                const Icon(Icons.touch_app_rounded, color: kLightGrey, size: 28),
-                const SizedBox(height: 6),
-                const Text('Appuyez et maintenez',
+            : const Column(key: ValueKey('idle'), children: [
+                Icon(Icons.touch_app_rounded, color: kLightGrey, size: 28),
+                SizedBox(height: 6),
+                Text('Appuyez et maintenez',
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: kCharcoal)),
-                const SizedBox(height: 2),
-                const Text('Relâchez pour transcrire automatiquement',
+                SizedBox(height: 2),
+                Text('Relâchez pour transcrire automatiquement',
                     style: TextStyle(fontSize: 12, color: kGrey)),
               ]),
       ),
@@ -360,7 +360,7 @@ class _NoteVocaleSheetState extends State<_NoteVocaleSheet>
 
       // Transcription brute
       if (n.transcription.isNotEmpty) ...[
-        _SectionLabel('Transcription brute'),
+        const _SectionLabel('Transcription brute'),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(12),
@@ -393,7 +393,7 @@ class _NoteVocaleSheetState extends State<_NoteVocaleSheet>
             ]),
           )
         else if (_bienExtraction != null) ...[
-          _SectionLabel('Champs du bien détectés'),
+          const _SectionLabel('Champs du bien détectés'),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(

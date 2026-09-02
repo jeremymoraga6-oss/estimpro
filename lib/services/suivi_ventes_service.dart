@@ -1,7 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
-import '../models/estimation.dart';
-import '../models/estimation_passee.dart';
 import '../models/reference_locale.dart';
 import 'base_locale_service.dart';
 import 'database_service.dart';

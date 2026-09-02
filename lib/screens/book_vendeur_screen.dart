@@ -62,7 +62,9 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
     _pageController?.dispose();
     _pdfDocument?.dispose();
     _thumbScrollCtrl.dispose();
-    for (final t in _thumbs) t?.dispose();
+    for (final t in _thumbs) {
+      t?.dispose();
+    }
     WakelockPlus.disable(); // Amélioration 1 — sécurité si quitté en présentation
     super.dispose();
   }
@@ -120,7 +122,9 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
     _hideTimer?.cancel();
     _pageController?.dispose();
     _pageController = null;
-    for (final t in _thumbs) t?.dispose();
+    for (final t in _thumbs) {
+      t?.dispose();
+    }
     WakelockPlus.disable(); // Amélioration 1
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
@@ -178,7 +182,7 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
       try {
         const targetW = 140;
         final scale   = targetW / page.width;
-        final w = targetW;
+        const w = targetW;
         final h = (page.height * scale).round().clamp(1, 300);
 
         final pdfImg = await page.render(
@@ -272,7 +276,7 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
       lastDate: now.add(const Duration(days: 365)),
       builder: (ctx, child) => Theme(
         data: ThemeData.dark().copyWith(
-          colorScheme: ColorScheme.dark(
+          colorScheme: const ColorScheme.dark(
             primary: kGreen,
             surface: kCharcoal,
           ),
@@ -287,7 +291,7 @@ class _BookVendeurScreenState extends State<BookVendeurScreen> {
       initialTime: const TimeOfDay(hour: 10, minute: 0),
       builder: (ctx, child) => Theme(
         data: ThemeData.dark().copyWith(
-          colorScheme: ColorScheme.dark(
+          colorScheme: const ColorScheme.dark(
             primary: kGreen,
             surface: kCharcoal,
           ),
@@ -962,7 +966,7 @@ class _ZoomablePageState extends State<_ZoomablePage>
 class _PdfPageBitmap extends StatefulWidget {
   final PdfPage page;
   final BoxFit  fit;
-  const _PdfPageBitmap({required this.page, this.fit = BoxFit.contain, super.key});
+  const _PdfPageBitmap({required this.page, this.fit = BoxFit.contain});
 
   @override
   State<_PdfPageBitmap> createState() => _PdfPageBitmapState();
@@ -991,7 +995,9 @@ class _PdfPageBitmapState extends State<_PdfPageBitmap> {
     }
     if ((availW - _renderW).abs() < 30 &&
         (availH - _renderH).abs() < 30 &&
-        _image != null) return;
+        _image != null) {
+      return;
+    }
     _rendering = true;
     if (!mounted) { _rendering = false; return; }
     try {

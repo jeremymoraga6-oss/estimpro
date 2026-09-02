@@ -122,26 +122,4 @@ class EstimationsListScreen extends StatelessWidget {
     );
   }
 
-  void _confirmDelete(BuildContext context, Estimation e) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Supprimer'),
-        content: Text('Supprimer l\'estimation ${e.reference} ?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
-          TextButton(
-            onPressed: () async {
-              await DatabaseService().delete(e.id);
-              if (ctx.mounted) {
-                Navigator.pop(ctx);
-                onDeleted();
-              }
-            },
-            child: const Text('Supprimer', style: TextStyle(color: kRed)),
-          ),
-        ],
-      ),
-    );
-  }
 }

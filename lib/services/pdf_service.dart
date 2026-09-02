@@ -8,7 +8,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:open_file/open_file.dart';
 import '../models/estimation.dart';
-import '../models/pathologie_item.dart';
 import '../models/vendeur_note.dart';
 import 'georisques_service.dart';
 import 'gares_service.dart';
@@ -210,28 +209,28 @@ class PdfService {
     final body = <pw.Widget>[];
     // _b = bloc insécable (Container non splittable par MultiPage)
     // _s = section longue (Column splittable) — utilisé pour marché et photos
-    void _b(pw.Widget w) { body.add(pw.Container(child: w)); body.add(pw.SizedBox(height: 20)); }
-    void _s(pw.Widget w) { body.add(w); body.add(pw.SizedBox(height: 20)); }
+    void b(pw.Widget w) { body.add(pw.Container(child: w)); body.add(pw.SizedBox(height: 20)); }
+    void s(pw.Widget w) { body.add(w); body.add(pw.SizedBox(height: 20)); }
 
     // Arc narratif : bien → état → marché → méthode → prix → projection
-    _b(_titleSection(e, price, masquerPrix: masquerPrix));
-    _b(_infoSection(e));
-    _b(_descSection(e));
-    if (e.typeId == 'terrain') _b(_terrainSection(e));
-    _b(_etatSection(e));
-    _b(_prestationsSection(e));
-    _b(_diagnosticsSection(e));
-    _b(_chargesSection(e));
-    _s(_marcheSection(e, mapBytes));   // long, géré en interne (header insécable)
-    _b(_estimationSection(e, price));
-    _b(_simulationAcquereurSection(e));
-    if (e.risques != null && e.risques!.hasData) _b(_risquesSection(e.risques!));
-    if (!e.residencePrincipale) _b(_plusValueSection(e));
-    _b(_documentsSection(e));
-    if (e.conclusion.isNotEmpty) _b(_conclusionSection(e));
-    if (photoBytes.isNotEmpty) _s(_photosSection(photoBytes)); // potentiellement long
-    if (e.notesVendeur != null) _b(_notesVendeurSection(e.notesVendeur!));
-    if (_hasPathologiesSignalees(e)) _b(_pathologiesSection(e));
+    b(_titleSection(e, price, masquerPrix: masquerPrix));
+    b(_infoSection(e));
+    b(_descSection(e));
+    if (e.typeId == 'terrain') b(_terrainSection(e));
+    b(_etatSection(e));
+    b(_prestationsSection(e));
+    b(_diagnosticsSection(e));
+    b(_chargesSection(e));
+    s(_marcheSection(e, mapBytes));   // long, géré en interne (header insécable)
+    b(_estimationSection(e, price));
+    b(_simulationAcquereurSection(e));
+    if (e.risques != null && e.risques!.hasData) b(_risquesSection(e.risques!));
+    if (!e.residencePrincipale) b(_plusValueSection(e));
+    b(_documentsSection(e));
+    if (e.conclusion.isNotEmpty) b(_conclusionSection(e));
+    if (photoBytes.isNotEmpty) s(_photosSection(photoBytes)); // potentiellement long
+    if (e.notesVendeur != null) b(_notesVendeurSection(e.notesVendeur!));
+    if (_hasPathologiesSignalees(e)) b(_pathologiesSection(e));
 
     if (body.isNotEmpty && body.last is pw.SizedBox) body.removeLast();
     return body;
@@ -311,7 +310,7 @@ class PdfService {
                   pw.Container(
                     padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                     decoration: pw.BoxDecoration(
-                      color: PdfColor.fromInt(0x88000000),
+                      color: const PdfColor.fromInt(0x88000000),
                       borderRadius: pw.BorderRadius.circular(6),
                     ),
                     child: pw.Image(_logoImage!, height: 34, fit: pw.BoxFit.contain),
@@ -378,9 +377,9 @@ class PdfService {
                 pw.Container(
                   padding: const pw.EdgeInsets.fromLTRB(18, 14, 18, 14),
                   decoration: pw.BoxDecoration(
-                    color: PdfColor.fromInt(0xBB0D0D0D),
+                    color: const PdfColor.fromInt(0xBB0D0D0D),
                     border: pw.Border.all(
-                        color: PdfColor.fromInt(0x664DA050), width: 1.5),
+                        color: const PdfColor.fromInt(0x664DA050), width: 1.5),
                     borderRadius: pw.BorderRadius.circular(8),
                   ),
                   child: masquerPrix
@@ -539,7 +538,7 @@ class PdfService {
                               style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: _kGreen)),
                           pw.SizedBox(height: 8),
                           pw.Text('Présenté en rendez-vous',
-                              style: pw.TextStyle(fontSize: 16, color: _kCharcoal)),
+                              style: const pw.TextStyle(fontSize: 16, color: _kCharcoal)),
                         ])
                       : pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -860,58 +859,70 @@ class PdfService {
       rows.add(_row('Équipements', e.equipements.join(', ')));
     }
     if (!e.libreOccupation) {
-      if (e.loyerMensuel > 0)
+      if (e.loyerMensuel > 0) {
         rows.add(_row('Loyer mensuel',
             '${e.loyerMensuel} EUR/mois (bail ${e.typeBail})'));
-      if (e.dateFinBail.isNotEmpty)
+      }
+      if (e.dateFinBail.isNotEmpty) {
         rows.add(_row('Fin du bail', e.dateFinBail));
-      if (e.congeLocataire)
+      }
+      if (e.congeLocataire) {
         rows.add(_row('Conge locataire', 'Oui - bien libre a echeance'));
+      }
       rows.add(_row('Decote occupation', '${e.decoteOccupation.toInt()}%'));
     }
     return _card('ETAT & EQUIPEMENTS', rows);
   }
 
   pw.Widget _terrainSection(Estimation e) {
-    String fmtYN(bool v) => v ? 'Oui' : 'Non';
     final rows = <pw.Widget>[];
 
-    if (e.zonePlu.isNotEmpty)
+    if (e.zonePlu.isNotEmpty) {
       rows.add(_row('Zone PLU', e.zonePlu));
+    }
 
-    if (e.surfaceTerrain > 0)
+    if (e.surfaceTerrain > 0) {
       rows.add(_row('Surface', '${e.surfaceTerrain} m²'));
+    }
 
     if (e.terrainConstructibleM2 > 0) {
       rows.add(_row('Constructible',
           '${e.terrainConstructibleM2} m²${e.parcelleDivisible ? ' (divisible - 280 EUR/m2)' : ''}'));
-      if (e.terrainCos > 0)
+      if (e.terrainCos > 0) {
         rows.add(_row('COS / CES', '${e.terrainCos} → SHON max ≈ ${(e.surfaceTerrain * e.terrainCos).round()} m²'));
+      }
     } else {
       rows.add(_row('Constructible', 'Non précisé'));
     }
-    if (e.parcelleDivisible)
+    if (e.parcelleDivisible) {
       rows.add(_row('Parcelle', 'Potentiellement divisible'));
+    }
 
-    if (e.viabilisation.isNotEmpty)
+    if (e.viabilisation.isNotEmpty) {
       rows.add(_row('Viabilisation', e.viabilisation.join(', ')));
-    else
+    } else {
       rows.add(_row('Viabilisation', 'Non précisé'));
+    }
 
-    if (e.terrainAcces.isNotEmpty)
+    if (e.terrainAcces.isNotEmpty) {
       rows.add(_row('Accès', e.terrainAcces));
+    }
 
-    if (e.terrainPente.isNotEmpty)
+    if (e.terrainPente.isNotEmpty) {
       rows.add(_row('Pente', e.terrainPente));
+    }
 
-    if (e.terrainForme.isNotEmpty)
+    if (e.terrainForme.isNotEmpty) {
       rows.add(_row('Forme', e.terrainForme));
+    }
 
-    if (e.referenceCadastrale.isNotEmpty)
+    if (e.referenceCadastrale.isNotEmpty) {
       rows.add(_row('Réf. cadastrale', e.referenceCadastrale));
+    }
 
-    if (e.terrainServitudes.isNotEmpty)
+    if (e.terrainServitudes.isNotEmpty) {
       rows.add(_row('Servitudes / contraintes', e.terrainServitudes));
+    }
 
     if (rows.isEmpty) rows.add(_row('Détail', 'Non renseigné'));
     return _card('CARACTERISTIQUES DU TERRAIN', rows);
@@ -975,8 +986,9 @@ class PdfService {
     final filled = e.diagnostics.entries
         .where((en) => (en.value['statut'] ?? '').isNotEmpty)
         .toList();
-    if (filled.isEmpty)
+    if (filled.isEmpty) {
       return _card('DIAGNOSTICS', [_row('Statut', 'Non renseignes')]);
+    }
     final rows = filled.map((en) {
       final label = labels[en.key] ?? en.key;
       final statut = en.value['statut'] ?? '';
@@ -993,9 +1005,8 @@ class PdfService {
   }
 
   pw.Widget _marcheSection(Estimation e, [Uint8List? mapBytes]) {
-    final fmt =
-        (double v) => '${v.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} EUR';
-    final fmtM2 = (double v) => '${v.round()} EUR/m²';
+    String fmt(double v) => '${v.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} EUR';
+    String fmtM2(double v) => '${v.round()} EUR/m²';
 
     final rows = <pw.Widget>[];
 
@@ -1218,9 +1229,9 @@ class PdfService {
     const cardTitle = 'ANALYSE DU MARCHE — REFERENCES DVF';
     pw.Widget cardHeader() => pw.Container(
       padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: pw.BoxDecoration(
+      decoration: const pw.BoxDecoration(
         color: _kGreen,
-        borderRadius: const pw.BorderRadius.only(
+        borderRadius: pw.BorderRadius.only(
           topLeft: pw.Radius.circular(6), topRight: pw.Radius.circular(6)),
       ),
       child: pw.Text(cardTitle,
@@ -1249,13 +1260,13 @@ class PdfService {
       // Continuation (atomique mais peut aller sur la page suivante)
       pw.Container(
         padding: const pw.EdgeInsets.fromLTRB(12, 0, 12, 6),
-        decoration: pw.BoxDecoration(
-          border: const pw.Border(
+        decoration: const pw.BoxDecoration(
+          border: pw.Border(
             left:   pw.BorderSide(color: PdfColors.grey300, width: 0.5),
             right:  pw.BorderSide(color: PdfColors.grey300, width: 0.5),
             bottom: pw.BorderSide(color: PdfColors.grey300, width: 0.5),
           ),
-          borderRadius: const pw.BorderRadius.only(
+          borderRadius: pw.BorderRadius.only(
             bottomLeft:  pw.Radius.circular(6),
             bottomRight: pw.Radius.circular(6),
           ),
@@ -1457,16 +1468,21 @@ class PdfService {
 
   pw.Widget _notesVendeurSection(VendeurNote n) {
     final rows = <pw.Widget>[];
-    if (n.motivationVente.isNotEmpty)
+    if (n.motivationVente.isNotEmpty) {
       rows.add(_row('Motivation vente', n.motivationVente));
-    if (n.delaiSouhaite.isNotEmpty)
+    }
+    if (n.delaiSouhaite.isNotEmpty) {
       rows.add(_row('Délai souhaité', n.delaiSouhaite));
-    if (n.prixSouhaite.isNotEmpty)
+    }
+    if (n.prixSouhaite.isNotEmpty) {
       rows.add(_row('Prix souhaité', n.prixSouhaite));
-    if (n.travauxDeclares.isNotEmpty)
+    }
+    if (n.travauxDeclares.isNotEmpty) {
       rows.add(_row('Travaux déclarés', n.travauxDeclares));
-    if (n.situationPersonnelle.isNotEmpty)
+    }
+    if (n.situationPersonnelle.isNotEmpty) {
       rows.add(_row('Situation', n.situationPersonnelle));
+    }
     if (n.pointsForts.isNotEmpty) {
       rows.add(
           _row('Points forts', n.pointsForts.map((s) => '- $s').join('\n')));
@@ -1644,7 +1660,7 @@ class PdfService {
     final nbOk =
         docs.where((d) => checked[d['id']] == true).length;
     return _card(
-        'DOCUMENTS A REUNIR (${nbOk}/${docs.length} collectes)', rows);
+        'DOCUMENTS A REUNIR ($nbOk/${docs.length} collectes)', rows);
   }
 
   pw.Widget _conclusionSection(Estimation e) => _card('CONCLUSION', [
@@ -1702,7 +1718,7 @@ class PdfService {
             // Pointe de flèche pour la classe active
             if (isActive)
               pw.CustomPaint(
-                size: PdfPoint(9, 16),
+                size: const PdfPoint(9, 16),
                 painter: (canvas, size) {
                   canvas
                     ..setFillColor(color)
@@ -1849,9 +1865,9 @@ class PdfService {
                     child: pw.Column(children: [
                       pw.Container(
                         padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        decoration: pw.BoxDecoration(
-                          color: const PdfColor.fromInt(0xFFF8F9FA),
-                          borderRadius: const pw.BorderRadius.only(
+                        decoration: const pw.BoxDecoration(
+                          color: PdfColor.fromInt(0xFFF8F9FA),
+                          borderRadius: pw.BorderRadius.only(
                             topLeft: pw.Radius.circular(6), topRight: pw.Radius.circular(6)),
                         ),
                         child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
@@ -1885,7 +1901,7 @@ class PdfService {
                     child: pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
                       pw.Container(
                         width: 18, height: 18,
-                        decoration: pw.BoxDecoration(color: _kGreen, shape: pw.BoxShape.circle),
+                        decoration: const pw.BoxDecoration(color: _kGreen, shape: pw.BoxShape.circle),
                         child: pw.Center(
                           child: pw.Text('${entry.key + 1}',
                               style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold,
@@ -1935,7 +1951,7 @@ class PdfService {
       'END:VCARD',
     ].join('\n');
 
-    pw.Widget _qrBlock(String data, String label) => pw.Column(
+    pw.Widget qrBlock(String data, String label) => pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.center,
       children: [
         pw.Container(
@@ -1993,7 +2009,7 @@ class PdfService {
                     // Cercle initiales
                     pw.Container(
                       width: 64, height: 64,
-                      decoration: pw.BoxDecoration(color: _kGreen, shape: pw.BoxShape.circle),
+                      decoration: const pw.BoxDecoration(color: _kGreen, shape: pw.BoxShape.circle),
                       child: pw.Center(
                         child: pw.Text('JM',
                             style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold,
@@ -2042,10 +2058,10 @@ class PdfService {
                     mainAxisAlignment: pw.MainAxisAlignment.center,
                     children: [
                       if (url.isNotEmpty) ...[
-                        _qrBlock(url, 'VOTRE ESTIMATION EN LIGNE'),
+                        qrBlock(url, 'VOTRE ESTIMATION EN LIGNE'),
                         pw.SizedBox(width: 48),
                       ],
-                      _qrBlock(vCard, 'MES COORDONNÉES'),
+                      qrBlock(vCard, 'MES COORDONNÉES'),
                     ],
                   ),
 
@@ -2165,9 +2181,9 @@ class PdfService {
           pw.Container(
             padding:
                 const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            decoration: pw.BoxDecoration(
+            decoration: const pw.BoxDecoration(
               color: _kGreen,
-              borderRadius: const pw.BorderRadius.only(
+              borderRadius: pw.BorderRadius.only(
                 topLeft: pw.Radius.circular(6),
                 topRight: pw.Radius.circular(6),
               ),

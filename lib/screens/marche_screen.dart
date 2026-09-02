@@ -66,10 +66,10 @@ class _MarcheScreenState extends State<MarcheScreen> {
             decoration: kCardDecoration(),
             padding: const EdgeInsets.all(14),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                const Icon(Icons.search_rounded, color: kGreen, size: 18),
-                const SizedBox(width: 8),
-                const Text('Prix au m² en temps réel',
+              const Row(children: [
+                Icon(Icons.search_rounded, color: kGreen, size: 18),
+                SizedBox(width: 8),
+                Text('Prix au m² en temps réel',
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: kCharcoal)),
               ]),
               const SizedBox(height: 4),
@@ -170,10 +170,10 @@ class _MarcheScreenState extends State<MarcheScreen> {
             padding: const EdgeInsets.all(14),
             decoration: kCardDecoration(),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                const Icon(Icons.info_outline, color: kGreen, size: 18),
-                const SizedBox(width: 8),
-                const Text('À propos des données',
+              const Row(children: [
+                Icon(Icons.info_outline, color: kGreen, size: 18),
+                SizedBox(width: 8),
+                Text('À propos des données',
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kCharcoal)),
               ]),
               const SizedBox(height: 10),

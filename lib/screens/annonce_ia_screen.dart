@@ -141,22 +141,22 @@ class _AnnonceIaScreenState extends State<AnnonceIaScreen> {
     );
   }
 
-  Widget _buildNoKey() => Center(
+  Widget _buildNoKey() => const Center(
         child: Padding(
-          padding: const EdgeInsets.all(30),
+          padding: EdgeInsets.all(30),
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            const Icon(Icons.key_rounded, size: 48, color: kAmber),
-            const SizedBox(height: 16),
-            const Text('Clé API Anthropic manquante',
+            Icon(Icons.key_rounded, size: 48, color: kAmber),
+            SizedBox(height: 16),
+            Text('Clé API Anthropic manquante',
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: kCharcoal)),
-            const SizedBox(height: 8),
-            const Text(
+            SizedBox(height: 8),
+            Text(
               'Pour activer la génération d\'annonce IA, configure ta clé API dans Profil → Clé API Anthropic.',
               style: TextStyle(fontSize: 13, color: kGrey),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
-            const Text(
+            SizedBox(height: 8),
+            Text(
               'Crée ta clé sur console.anthropic.com (env. \$5 de crédit suffit pour des centaines d\'annonces).',
               style: TextStyle(fontSize: 11, color: kLightGrey, fontStyle: FontStyle.italic),
               textAlign: TextAlign.center,

@@ -28,11 +28,8 @@ jobs:
       - name: flutter test
         run: flutter test
 
-  # NOTE : android et ios ne dependent volontairement PAS encore de `qa`.
-  # Les tests n'ont jamais tourne (pas de Flutter sur la machine de dev), on ne
-  # veut pas qu'un test faux prive de build. Des que `qa` est vert une premiere
-  # fois, remettre `needs: [qa]` ici et sur `ios` pour qu'un test rouge bloque.
   android:
+    needs: [qa]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -98,6 +95,7 @@ jobs:
           path: build/app/outputs/flutter-apk/app-release.apk
 
   ios:
+    needs: [qa]
     runs-on: macos-latest
     continue-on-error: true
     steps:

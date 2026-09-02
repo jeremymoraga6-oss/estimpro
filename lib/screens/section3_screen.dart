@@ -281,10 +281,10 @@ class _Section3ScreenState extends State<Section3Screen> {
             const SizedBox(height: 14),
 
             if (_e.typeId == 'terrain') ...[
-              SectionCard(child: Row(children: [
-                const Icon(Icons.info_outline_rounded, color: kGrey, size: 16),
-                const SizedBox(width: 10),
-                const Expanded(child: Text(
+              const SectionCard(child: Row(children: [
+                Icon(Icons.info_outline_rounded, color: kGrey, size: 16),
+                SizedBox(width: 10),
+                Expanded(child: Text(
                   'Les dépendances (garage, cave, piscine…) ne s\'appliquent pas à un terrain nu.',
                   style: TextStyle(fontSize: 12, color: kGrey, height: 1.5),
                 )),
@@ -427,7 +427,7 @@ class _ToggleRow extends StatelessWidget {
             Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kCharcoal)),
             Text(sub, style: const TextStyle(fontSize: 11, color: kGrey)),
           ])),
-          Switch(value: value, onChanged: onChanged, activeColor: kGreen),
+          Switch(value: value, onChanged: onChanged, activeThumbColor: kGreen),
         ]),
       );
 }
@@ -443,7 +443,7 @@ class _ExpandedCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border(left: BorderSide(color: kGreen, width: 4)),
+          border: const Border(left: BorderSide(color: kGreen, width: 4)),
           boxShadow: const [BoxShadow(color: Color(0x12000000), blurRadius: 12, offset: Offset(0, 2))],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

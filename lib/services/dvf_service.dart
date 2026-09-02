@@ -435,7 +435,7 @@ class DvfService {
       final nearby = await GeoService()
           .communesInDept(dep: dep, lat: latitude, lon: longitude);
       // Buffer de 5 km : les communes peuvent s'étendre au-delà de leur centre
-      final buffer = 5.0;
+      const buffer = 5.0;
       // Limite à 25 communes max pour ne pas exploser le nombre de requêtes
       final filtered = nearby
           .where((c) => c.distanceKm <= radiusKm + buffer)
@@ -695,81 +695,9 @@ class DvfService {
 
   /// Mini-parser CSV RFC-4180 (gère les guillemets et "" échappés).
   /// DVF utilise la virgule comme séparateur.
-  List<Map<String, String>> _parseCsv(String body) {
-    final lines = _splitCsvLines(body);
-    if (lines.isEmpty) return const [];
-    final headers = _parseLine(lines[0]);
-    final rows = <Map<String, String>>[];
-    for (var i = 1; i < lines.length; i++) {
-      final line = lines[i];
-      if (line.isEmpty) continue;
-      final values = _parseLine(line);
-      final map = <String, String>{};
-      for (var j = 0; j < headers.length; j++) {
-        map[headers[j]] = j < values.length ? values[j] : '';
-      }
-      rows.add(map);
-    }
-    return rows;
-  }
 
   /// Split body on actual line breaks (in DVF, no embedded CRLF in fields).
-  List<String> _splitCsvLines(String body) {
-    final out = <String>[];
-    final buf = StringBuffer();
-    var inQuotes = false;
-    for (var i = 0; i < body.length; i++) {
-      final c = body[i];
-      if (c == '"') {
-        inQuotes = !inQuotes;
-        buf.write(c);
-      } else if (!inQuotes && (c == '\n' || c == '\r')) {
-        // Ignore \r, finalize on \n
-        if (c == '\n') {
-          out.add(buf.toString());
-          buf.clear();
-        }
-      } else {
-        buf.write(c);
-      }
-    }
-    if (buf.isNotEmpty) out.add(buf.toString());
-    return out;
-  }
 
-  List<String> _parseLine(String line) {
-    final result = <String>[];
-    final buf = StringBuffer();
-    var inQuotes = false;
-    var i = 0;
-    while (i < line.length) {
-      final c = line[i];
-      if (inQuotes) {
-        if (c == '"') {
-          if (i + 1 < line.length && line[i + 1] == '"') {
-            buf.write('"');
-            i++;
-          } else {
-            inQuotes = false;
-          }
-        } else {
-          buf.write(c);
-        }
-      } else {
-        if (c == ',') {
-          result.add(buf.toString());
-          buf.clear();
-        } else if (c == '"' && buf.isEmpty) {
-          inQuotes = true;
-        } else {
-          buf.write(c);
-        }
-      }
-      i++;
-    }
-    result.add(buf.toString());
-    return result;
-  }
 }
 
 class _YearResult {
@@ -792,5 +720,4 @@ class _YearResult {
     this.secours = false,
   });
 
-  factory _YearResult.empty() => _YearResult();
 }

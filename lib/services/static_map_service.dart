@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -228,7 +227,7 @@ class StaticMapService {
     ))
       ..pushStyle(ui.TextStyle(color: const ui.Color(0xCC333333)))
       ..addText(label);
-    final para = builder.build()..layout(ui.ParagraphConstraints(width: 220));
+    final para = builder.build()..layout(const ui.ParagraphConstraints(width: 220));
     // Fond semi-transparent.
     canvas.drawRect(
       ui.Rect.fromLTWH(width - 232, height - 26.0, 232, 26),

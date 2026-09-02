@@ -714,7 +714,7 @@ class _CandidatsSheetState extends State<_CandidatsSheet> {
     final myAdresse = est?.adresseComplete ?? passee?.adresse ?? '—';
     final myType = est?.typeId ?? passee?.typeId ?? '—';
     final mySurface = est?.surfaceHabitable ?? passee?.surface ?? 0;
-    final myPrix = est?.prixFinal ?? passee?.prixEstime?.toDouble() ?? 0;
+    final myPrix = est?.prixFinal ?? passee?.prixEstime.toDouble() ?? 0;
     final myDate = est != null ? _fmtDate(est.createdAt) : passee?.dateEstimation ?? '—';
 
     return Padding(

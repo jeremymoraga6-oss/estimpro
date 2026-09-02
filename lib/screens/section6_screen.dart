@@ -64,9 +64,9 @@ class _Section6ScreenState extends State<Section6Screen> {
           Row(children: [
             Icon(Icons.shield_outlined, color: confianceColor, size: 22),
             const SizedBox(width: 10),
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Indice de confiance', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: kCharcoal)),
-              Text('Comment est calculé ce score ?', style: const TextStyle(fontSize: 12, color: kGrey)),
+            const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Indice de confiance', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: kCharcoal)),
+              Text('Comment est calculé ce score ?', style: TextStyle(fontSize: 12, color: kGrey)),
             ]),
             const Spacer(),
             Container(
@@ -263,7 +263,7 @@ class _Section6ScreenState extends State<Section6Screen> {
                     child: Switch(
                       value: _e.actualisationActive,
                       onChanged: (v) => _update(_e.copyWith(actualisationActive: v)),
-                      activeColor: kGreen,
+                      activeThumbColor: kGreen,
                     ),
                   ),
                 ]),
@@ -355,9 +355,9 @@ class _Section6ScreenState extends State<Section6Screen> {
               ),
               const SizedBox(height: 8),
               // Légende couleurs
-              Row(children: [
+              const Row(children: [
                 _AdjLegend(color: kGreen, label: 'Plus-value (+)'),
-                const SizedBox(width: 14),
+                SizedBox(width: 14),
                 _AdjLegend(color: kRed, label: 'Décote (−)'),
               ]),
               const SizedBox(height: 14),
@@ -386,7 +386,7 @@ class _Section6ScreenState extends State<Section6Screen> {
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kAmber)),
                       const SizedBox(height: 3),
                       Text(
-                        '${nLeviers} facteurs cumulés : '
+                        '$nLeviers facteurs cumulés : '
                         '${[
                           if (_e.coefficientPrestations <= -5) 'prestations très dégradées (${_e.coefficientPrestations.toInt()}%)',
                           if (_e.ajustEtat <= -3) 'état/travaux (${_e.ajustEtat.toInt()}%)',
@@ -483,10 +483,10 @@ class _Section6ScreenState extends State<Section6Screen> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: const Color(0xFFBBCCFF)),
                   ),
-                  child: Row(children: [
-                    const Icon(Icons.info_outline_rounded, size: 12, color: Color(0xFF3F51B5)),
-                    const SizedBox(width: 6),
-                    const Expanded(child: Text(
+                  child: const Row(children: [
+                    Icon(Icons.info_outline_rounded, size: 12, color: Color(0xFF3F51B5)),
+                    SizedBox(width: 6),
+                    Expanded(child: Text(
                       'Coefficient hors effet énergie — la performance énergétique est déjà comptée via le DPE.',
                       style: TextStyle(fontSize: 9.5, color: Color(0xFF3F51B5), height: 1.4),
                     )),
@@ -558,10 +558,10 @@ class _Section6ScreenState extends State<Section6Screen> {
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: kAmber.withValues(alpha: 0.45)),
                         ),
-                        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          const Icon(Icons.warning_amber_rounded, size: 15, color: kAmber),
-                          const SizedBox(width: 7),
-                          const Expanded(child: Text(
+                        child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Icon(Icons.warning_amber_rounded, size: 15, color: kAmber),
+                          SizedBox(width: 7),
+                          Expanded(child: Text(
                             'Excédent constructible important — la valorisation linéaire atteint ses limites, prévoir une approche par lots.',
                             style: TextStyle(fontSize: 10, color: kAmber, height: 1.4),
                           )),
@@ -800,7 +800,7 @@ class _Section6ScreenState extends State<Section6Screen> {
                 child: Column(children: [
                   Text(_fmt(base), style: const TextStyle(fontSize: 12, color: kLightGrey, decoration: TextDecoration.lineThrough)),
                   const SizedBox(height: 4),
-                  Text('↓ ajustements appliqués', style: TextStyle(fontSize: 11, color: kGreen)),
+                  const Text('↓ ajustements appliqués', style: TextStyle(fontSize: 11, color: kGreen)),
                   const SizedBox(height: 4),
                   Text(_fmt(raw), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: kCharcoal, letterSpacing: -0.5)),
                   const SizedBox(height: 6),
@@ -1131,12 +1131,12 @@ class _AdjRow extends StatelessWidget {
           ),
         ],
         SliderTheme(
-          data: SliderThemeData(
+          data: const SliderThemeData(
             activeTrackColor: kGreen,
-            inactiveTrackColor: const Color(0xFFE0E0E0),
+            inactiveTrackColor: Color(0xFFE0E0E0),
             thumbColor: Colors.white,
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 9),
-            overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+            thumbShape: RoundSliderThumbShape(enabledThumbRadius: 9),
+            overlayShape: RoundSliderOverlayShape(overlayRadius: 16),
             trackHeight: 4,
           ),
           child: Slider(value: val.clamp(min, max), min: min, max: max, divisions: ((max - min) * 2).round(),
@@ -1380,13 +1380,13 @@ class _AutoVigilanceCard extends StatelessWidget {
         border: Border.all(color: kAmber.withValues(alpha: 0.3), width: 1.5),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          const Icon(Icons.tips_and_updates_rounded, color: kAmber, size: 16),
-          const SizedBox(width: 8),
-          const Text('Points de vigilance suggérés',
+        const Row(children: [
+          Icon(Icons.tips_and_updates_rounded, color: kAmber, size: 16),
+          SizedBox(width: 8),
+          Text('Points de vigilance suggérés',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal)),
-          const Spacer(),
-          const Text('Appuyer pour insérer', style: TextStyle(fontSize: 10, color: kGrey, fontStyle: FontStyle.italic)),
+          Spacer(),
+          Text('Appuyer pour insérer', style: TextStyle(fontSize: 10, color: kGrey, fontStyle: FontStyle.italic)),
         ]),
         const SizedBox(height: 10),
         ...points.map((p) => GestureDetector(
@@ -1467,10 +1467,10 @@ class _PrixMandatCard extends StatelessWidget {
         inactiveColor: kGreen.withValues(alpha: 0.15),
         onChanged: (v) => onChanged(e.copyWith(margeNegociation: v)),
       ),
-      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        const Text('0%', style: TextStyle(fontSize: 10, color: kLightGrey)),
-        const Text('10%', style: TextStyle(fontSize: 10, color: kLightGrey)),
-        const Text('20%', style: TextStyle(fontSize: 10, color: kLightGrey)),
+      const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text('0%', style: TextStyle(fontSize: 10, color: kLightGrey)),
+        Text('10%', style: TextStyle(fontSize: 10, color: kLightGrey)),
+        Text('20%', style: TextStyle(fontSize: 10, color: kLightGrey)),
       ]),
       const SizedBox(height: 14),
 
@@ -1484,10 +1484,10 @@ class _PrixMandatCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: kAmber.withValues(alpha: 0.45)),
           ),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Icon(Icons.warning_amber_rounded, size: 16, color: kAmber),
-            const SizedBox(width: 8),
-            const Expanded(child: Text(
+          child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(Icons.warning_amber_rounded, size: 16, color: kAmber),
+            SizedBox(width: 8),
+            Expanded(child: Text(
               'Le prix de présentation sort de la fourchette de valeur annoncée.',
               style: TextStyle(fontSize: 10.5, color: kAmber, height: 1.4),
             )),
@@ -1516,10 +1516,10 @@ class _PrixMandatCard extends StatelessWidget {
 
       // Prix plancher
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Row(children: [
-          const Icon(Icons.south_rounded, size: 13, color: kLightGrey),
-          const SizedBox(width: 4),
-          const Text('Prix plancher (−5%)', style: TextStyle(fontSize: 11, color: kGrey)),
+        const Row(children: [
+          Icon(Icons.south_rounded, size: 13, color: kLightGrey),
+          SizedBox(width: 4),
+          Text('Prix plancher (−5%)', style: TextStyle(fontSize: 11, color: kGrey)),
         ]),
         Text(_fmt(plancher), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kGrey)),
       ]),
@@ -1569,10 +1569,10 @@ class _PrixMandatCard extends StatelessWidget {
               onChanged: (v) => onChanged(e.copyWith(tauxAgence: v)),
             ),
           ),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            const Text('2%', style: TextStyle(fontSize: 10, color: kLightGrey)),
-            const Text('5%', style: TextStyle(fontSize: 10, color: kLightGrey)),
-            const Text('8%', style: TextStyle(fontSize: 10, color: kLightGrey)),
+          const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text('2%', style: TextStyle(fontSize: 10, color: kLightGrey)),
+            Text('5%', style: TextStyle(fontSize: 10, color: kLightGrey)),
+            Text('8%', style: TextStyle(fontSize: 10, color: kLightGrey)),
           ]),
           const SizedBox(height: 10),
           _PriceDetailRow('Prix mandat (FAI) :', _fmt(mandat)),
@@ -2008,7 +2008,7 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: sel ? kGreen : kBorderColor, width: 1.5),
                       ),
-                      child: Text('${d} ans', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: sel ? Colors.white : kGrey)),
+                      child: Text('$d ans', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: sel ? Colors.white : kGrey)),
                     ),
                   );
                 }),
@@ -2029,10 +2029,10 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
                 inactiveColor: kGrey.withValues(alpha: 0.15),
                 onChanged: (v) => setState(() => _taux = (v * 4).round() / 4),
               ),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const Text('2%', style: TextStyle(fontSize: 10, color: kLightGrey)),
-                const Text('Taux marché 2025 : ~3.5–4%', style: TextStyle(fontSize: 10, color: kGrey)),
-                const Text('6%', style: TextStyle(fontSize: 10, color: kLightGrey)),
+              const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Text('2%', style: TextStyle(fontSize: 10, color: kLightGrey)),
+                Text('Taux marché 2025 : ~3.5–4%', style: TextStyle(fontSize: 10, color: kGrey)),
+                Text('6%', style: TextStyle(fontSize: 10, color: kLightGrey)),
               ]),
               const SizedBox(height: 14),
 
@@ -2309,10 +2309,10 @@ class _CalibrationLocaleCardState extends State<_CalibrationLocaleCard> {
             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
             decoration: BoxDecoration(
                 color: kGreen.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.check_circle_outline_rounded, size: 12, color: kGreen),
-              const SizedBox(width: 4),
-              const Text('Appliqué', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kGreen)),
+            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.check_circle_outline_rounded, size: 12, color: kGreen),
+              SizedBox(width: 4),
+              Text('Appliqué', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kGreen)),
             ]),
           ),
         ]),
@@ -2476,10 +2476,10 @@ class _PlusValueCard extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(color: kGreen.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
-          child: Row(children: [
-            const Icon(Icons.check_circle_outline, color: kGreen, size: 18),
-            const SizedBox(width: 10),
-            const Expanded(child: Text('Résidence principale — exonération totale de plus-value.',
+          child: const Row(children: [
+            Icon(Icons.check_circle_outline, color: kGreen, size: 18),
+            SizedBox(width: 10),
+            Expanded(child: Text('Résidence principale — exonération totale de plus-value.',
                 style: TextStyle(fontSize: 13, color: kGreen, fontWeight: FontWeight.w600))),
           ]),
         ),
@@ -2487,9 +2487,9 @@ class _PlusValueCard extends StatelessWidget {
     }
 
     if (e.prixAchat == 0 || e.anneeAchat == 0 || e.prixFinal == 0) {
-      return SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const CardTitleRow(icon: Icons.account_balance_outlined, label: 'Plus-value'),
-        const Text('Renseignez le prix d\'achat et l\'année d\'acquisition (Section 1) pour calculer la plus-value.',
+      return const SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        CardTitleRow(icon: Icons.account_balance_outlined, label: 'Plus-value'),
+        Text('Renseignez le prix d\'achat et l\'année d\'acquisition (Section 1) pour calculer la plus-value.',
             style: TextStyle(fontSize: 12, color: kGrey, fontStyle: FontStyle.italic)),
       ]));
     }
@@ -2503,9 +2503,9 @@ class _PlusValueCard extends StatelessWidget {
     final pvBrute = (e.prixFinal - prixRevientNet).toDouble();
 
     if (pvBrute <= 0) {
-      return SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const CardTitleRow(icon: Icons.account_balance_outlined, label: 'Plus-value'),
-        const Text('Moins-value — aucune imposition.',
+      return const SectionCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        CardTitleRow(icon: Icons.account_balance_outlined, label: 'Plus-value'),
+        Text('Moins-value — aucune imposition.',
             style: TextStyle(fontSize: 13, color: kGrey)),
       ]));
     }
@@ -2543,7 +2543,7 @@ class _PlusValueCard extends StatelessWidget {
       if (!exonerePS) _pvRow('Abattement PS (${abPS.toStringAsFixed(0)}%)', '−${fmt(pvBrute * abPS / 100)}'),
       const SizedBox(height: 8),
       if (exonereTotale)
-        _alertBox(kGreen, Icons.check_circle_outline, 'Exonération totale — ${ans} ans de détention.')
+        _alertBox(kGreen, Icons.check_circle_outline, 'Exonération totale — $ans ans de détention.')
       else ...[
         if (!exonereIR) _pvRow('Impôt sur le revenu (19%)', fmt(impotIR), color: kRed),
         if (!exonerePS) _pvRow('Prélèvements sociaux (17,2%)', fmt(impotPS), color: kRed),
@@ -2656,7 +2656,7 @@ class _DocumentsCard extends StatelessWidget {
         ),
       ]),
       const SizedBox(height: 4),
-      Text('Adapté à ce bien — cochez les documents collectés', style: TextStyle(fontSize: 11, color: kLightGrey, fontStyle: FontStyle.italic)),
+      const Text('Adapté à ce bien — cochez les documents collectés', style: TextStyle(fontSize: 11, color: kLightGrey, fontStyle: FontStyle.italic)),
       const SizedBox(height: 10),
       ...docs.asMap().entries.map((entry) {
         final i = entry.key;

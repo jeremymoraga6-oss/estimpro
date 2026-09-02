@@ -63,11 +63,6 @@ class _BaseLocaleScreenState extends State<BaseLocaleScreen> {
     return '$s €';
   }
 
-  String _fmtDate(DateTime d) {
-    const months = ['jan.','fév.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
-    return '${d.day} ${months[d.month - 1]} ${d.year}';
-  }
-
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -177,7 +172,7 @@ class _BaseLocaleScreenState extends State<BaseLocaleScreen> {
 
   Future<void> _showAddForm(BuildContext context) async {
     final estimations = await DatabaseService().loadAll();
-    if (!mounted) return;
+    if (!context.mounted) return;
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -195,7 +190,7 @@ class _BaseLocaleScreenState extends State<BaseLocaleScreen> {
 
   Future<void> _showEditForm(BuildContext context, ReferenceLocale ref) async {
     final estimations = await DatabaseService().loadAll();
-    if (!mounted) return;
+    if (!context.mounted) return;
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -311,7 +306,7 @@ class _RefCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
-            border: Border(left: BorderSide(color: kGreen, width: 4)),
+            border: const Border(left: BorderSide(color: kGreen, width: 4)),
             boxShadow: const [BoxShadow(color: Color(0x0D000000), blurRadius: 8, offset: Offset(0, 2))],
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -513,7 +508,7 @@ class _RefFormState extends State<_RefForm> {
       if (data?.text != null && data!.text!.isNotEmpty) initial = data.text!;
     } catch (_) {}
 
-    if (!mounted) return;
+    if (!context.mounted) return;
 
     final ctrl = TextEditingController(text: initial);
     final ok = await showDialog<bool>(
@@ -521,7 +516,7 @@ class _RefFormState extends State<_RefForm> {
       builder: (_) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(children: const [
+        title: const Row(children: [
           Icon(Icons.smart_toy_outlined, color: Color(0xFF7C4DFF), size: 20),
           SizedBox(width: 8),
           Text('Coller depuis Claude', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kCharcoal)),
@@ -581,7 +576,7 @@ class _RefFormState extends State<_RefForm> {
     if (ok != true) return;
 
     final result = ClaudeEstimationParser.parse(ctrl.text);
-    if (!mounted) return;
+    if (!context.mounted) return;
 
     if (result == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -811,7 +806,7 @@ class _RefFormState extends State<_RefForm> {
               const FieldLabel('DPE'),
               const SizedBox(height: 6),
               DropdownButtonFormField<String>(
-                value: _dpeClasse,
+                initialValue: _dpeClasse,
                 items: _dpes.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
                 onChanged: (v) => setState(() => _dpeClasse = v ?? 'D'),
                 decoration: InputDecoration(

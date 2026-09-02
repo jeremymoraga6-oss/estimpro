@@ -156,14 +156,14 @@ class _Section4ScreenState extends State<Section4Screen> {
               const SizedBox(height: 12),
 
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Row(children: const [
+                const Row(children: [
                   Icon(Icons.wifi_outlined, size: 16, color: kGreen),
                   SizedBox(width: 8),
                   Text('Fibre optique', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal)),
                 ]),
                 Switch(
                   value: _e.fibreOptique,
-                  activeColor: kGreen,
+                  activeThumbColor: kGreen,
                   onChanged: (v) => _update(_e.copyWith(fibreOptique: v)),
                 ),
               ]),
@@ -336,10 +336,10 @@ List<_DocGroup> _buildDocGroups(Estimation e) {
 
   // ── 3. Copropriété (appartement) ──────────────────────────────────────────
   if (isAppart) {
-    groups.add(_DocGroup(
+    groups.add(const _DocGroup(
       title: 'Copropriété',
       icon: Icons.apartment_outlined,
-      items: const [
+      items: [
         _DocItem('reglement_copro',
             'Règlement de copropriété', note: 'Et état descriptif de division'),
         _DocItem('pv_ag', '3 derniers PV d\'assemblée générale'),
@@ -842,7 +842,9 @@ class _DiagnosticsCardState extends State<_DiagnosticsCard> {
 
   @override
   void dispose() {
-    for (final c in _dateCtrl.values) c.dispose();
+    for (final c in _dateCtrl.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -1033,8 +1035,12 @@ class _PathologiesCardState extends State<_PathologiesCard> {
 
   @override
   void dispose() {
-    for (final c in _noteCtrlMap.values) c.dispose();
-    for (final c in _provCtrlMap.values) c.dispose();
+    for (final c in _noteCtrlMap.values) {
+      c.dispose();
+    }
+    for (final c in _provCtrlMap.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 

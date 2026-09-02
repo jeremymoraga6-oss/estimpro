@@ -68,7 +68,7 @@ class DpeOcrService {
       return _parse(text);
     } catch (e) {
       debugPrint('[DPE-OCR] error: $e');
-      return DpeOcrResult(rawText: '', confidence: 0, );
+      return const DpeOcrResult(rawText: '', confidence: 0, );
     } finally {
       await recognizer.close();
     }

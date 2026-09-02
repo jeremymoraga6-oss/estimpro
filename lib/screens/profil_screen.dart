@@ -176,20 +176,20 @@ class _ProfilScreenState extends State<ProfilScreen> {
             const SizedBox(height: 12),
             _CarteDeVisiteCard(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CarteDeVisiteScreen()))),
             const SizedBox(height: 12),
-            _Section(title: 'Coordonnées', items: [
+            const _Section(title: 'Coordonnées', items: [
               _Item(Icons.phone_outlined, 'Téléphone', '06 68 03 64 03'),
               _Item(Icons.email_outlined, 'Email', 'jeremy.moraga@efficity.com'),
               _Item(Icons.location_on_outlined, 'Zone', 'Faucigny, Haute-Savoie'),
             ]),
             const SizedBox(height: 12),
-            _Section(title: 'Paramètres', items: [
+            const _Section(title: 'Paramètres', items: [
               _Item(Icons.palette_outlined, 'Couleur accent',
                   '#4DA050 (vert charte)'),
               _Item(Icons.notifications_outlined, 'Notifications', 'Activées'),
               _Item(Icons.cloud_sync_outlined, 'Sauvegarde', 'Automatique'),
             ]),
             const SizedBox(height: 12),
-            _Section(title: 'Application', items: [
+            const _Section(title: 'Application', items: [
               _Item(Icons.info_outline, 'Version', '1.0.0'),
               _Item(Icons.privacy_tip_outlined, 'Confidentialité',
                   'Données locales uniquement'),
@@ -213,7 +213,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
             _ActionCard(
               icon: Icons.share_rounded,
               iconColor: kGreen,
-              iconBg: Color(0xFFE8F5E9),
+              iconBg: const Color(0xFFE8F5E9),
               title: 'Partager ma page Efficity',
               subtitle: 'www.efficity.com/jmoraga',
               trailing: 'Partager',
@@ -254,10 +254,10 @@ class _ProfilScreenState extends State<ProfilScreen> {
                           size: 18, color: kAmber),
                     ),
                     const SizedBox(width: 12),
-                    Expanded(
+                    const Expanded(
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
+                          children: [
                             Text('Journal de débogage',
                                 style: TextStyle(
                                     fontSize: 14,
@@ -460,31 +460,6 @@ class _CarteDeVisiteCardState extends State<_CarteDeVisiteCard> {
     );
   }
 
-  void _showFullScreen() {
-    if (_cardImage == null) return;
-    Navigator.push(context, MaterialPageRoute(
-      builder: (_) => Scaffold(
-        backgroundColor: Colors.black,
-        appBar: AppBar(
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
-          title: const Text('Carte de visite'),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.share_rounded),
-              onPressed: () => Share.shareXFiles([XFile(_cardImage!.path)], subject: 'Carte de visite — Jérémy Moraga'),
-            ),
-          ],
-        ),
-        body: Center(
-          child: InteractiveViewer(
-            child: Image.file(_cardImage!, fit: BoxFit.contain),
-          ),
-        ),
-      ),
-    ));
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -508,7 +483,7 @@ class _CarteDeVisiteCardState extends State<_CarteDeVisiteCard> {
                       onTap: _showOptions,
                       child: Container(
                         padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                        decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
                         child: const Icon(Icons.edit_rounded, color: Colors.white, size: 18),
                       ),
                     ),

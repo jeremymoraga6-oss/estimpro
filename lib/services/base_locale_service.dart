@@ -125,19 +125,19 @@ class BaseLocaleService {
     String scope = '';
 
     // Filtre : ventes avec estimation et sans outlier grossier
-    List<ReferenceLocale> _eligible(List<ReferenceLocale> src) => src
+    List<ReferenceLocale> eligible0(List<ReferenceLocale> src) => src
         .where((r) => r.hasEstime && r.ecartPct.abs() <= 20)
         .toList();
 
     if (codeInsee.isNotEmpty) {
       final communeRefs = await loadByCommune(codeInsee);
-      final e = _eligible(communeRefs);
+      final e = eligible0(communeRefs);
       if (e.length >= 3) { eligible = e; scope = 'commune'; }
     }
 
     if (eligible.isEmpty) {
       final allRefs = await loadAll();
-      final e = _eligible(allRefs);
+      final e = eligible0(allRefs);
       if (e.length >= 5) { eligible = e; scope = 'globale'; }
     }
 
