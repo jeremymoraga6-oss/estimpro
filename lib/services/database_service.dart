@@ -25,8 +25,13 @@ class DatabaseService {
   /// Non nul = des données ont été isolées et méritent d'être signalées.
   static String? lastCorruption;
 
+  /// Redirige le stockage vers un autre dossier — réservé aux tests, qui
+  /// n'ont pas accès au répertoire documents de l'app.
+  @visibleForTesting
+  static Directory? directoryOverride;
+
   Future<File> get _file async {
-    final dir = await getApplicationDocumentsDirectory();
+    final dir = directoryOverride ?? await getApplicationDocumentsDirectory();
     return File('${dir.path}/estimations.json');
   }
 
