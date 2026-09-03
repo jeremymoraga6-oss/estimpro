@@ -45,10 +45,14 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        // Limite aux architectures des vrais appareils Android.
+        // arm64 uniquement.
+        //
         // x86 (émulateur) fait échouer la compilation native de pdfrx (CMake).
+        // armeabi-v7a (32 bits) doublait le poids des bibliothèques natives —
+        // moteur Flutter, ML Kit, pdfrx — pour des appareils antérieurs à 2015
+        // que personne n'utilise plus. L'APK passe d'environ 135 Mo à ~75 Mo.
         ndk {
-            abiFilters += setOf("arm64-v8a", "armeabi-v7a")
+            abiFilters += setOf("arm64-v8a")
         }
     }
 
