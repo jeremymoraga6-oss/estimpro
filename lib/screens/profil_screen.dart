@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import '../theme.dart';
 import '../services/crash_reporter.dart';
 import '../services/app_settings.dart';
+import '../services/backup_service.dart';
 import '../services/dvf_cache.dart';
 import 'carte_de_visite_screen.dart';
 
@@ -173,6 +174,10 @@ class _ProfilScreenState extends State<ProfilScreen> {
                 ),
               ]),
             ),
+            const SizedBox(height: 12),
+            // Sauvegarde — seule protection contre une desinstallation ou un
+            // changement de telephone.
+            const _BackupCard(),
             const SizedBox(height: 12),
             _CarteDeVisiteCard(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CarteDeVisiteScreen()))),
             const SizedBox(height: 12),
@@ -515,6 +520,164 @@ class _CarteDeVisiteCardState extends State<_CarteDeVisiteCard> {
         ),
       ),
     ]);
+  }
+}
+
+/// Sauvegarde complète : export vers un zip partageable, et réimport fusionné.
+///
+/// Les estimations vivent dans le stockage privé de l'app : une désinstallation
+/// les efface définitivement. C'est le seul filet avant un changement de
+/// téléphone ou une réinstallation.
+class _BackupCard extends StatefulWidget {
+  const _BackupCard();
+  @override
+  State<_BackupCard> createState() => _BackupCardState();
+}
+
+class _BackupCardState extends State<_BackupCard> {
+  bool _busy = false;
+
+  void _toast(String msg, {Color? color}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: color ?? kCharcoal,
+      duration: const Duration(seconds: 4),
+    ));
+  }
+
+  Future<void> _export() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final path = await BackupService.exportBackup();
+      if (path == null) {
+        _toast('Export impossible — réessaie.', color: kRed);
+      }
+      // Succès : la feuille de partage s'est ouverte, pas de message
+      // supplémentaire qui la recouvrirait.
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _import() async {
+    if (_busy) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Restaurer une sauvegarde'),
+        content: const Text(
+          'Choisis un fichier .zip exporté depuis EstimPro.\n\n'
+          'Les données sont fusionnées, jamais remplacées : pour une estimation '
+          'présente des deux côtés, la version la plus récente est conservée. '
+          'Rien de ce qui est sur ce téléphone ne sera perdu.',
+          style: TextStyle(fontSize: 13, color: kGrey, height: 1.45),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler', style: TextStyle(color: kGrey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: kGreen, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Choisir le fichier'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    setState(() => _busy = true);
+    try {
+      final res = await BackupService.importBackup();
+      if (res == null) {
+        _toast('Aucun fichier importé.', color: kGrey);
+      } else if (!res.hasChanges) {
+        _toast('Sauvegarde déjà à jour — rien à ajouter.');
+      } else {
+        _toast('$res Rouvre la liste pour les voir.', color: kGreen);
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: kCardDecoration(),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            width: 32, height: 32,
+            decoration: BoxDecoration(
+              color: kGreen.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.shield_outlined, size: 18, color: kGreen),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Sauvegarde',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kCharcoal)),
+              SizedBox(height: 2),
+              Text('Estimations, base locale et réglages',
+                  style: TextStyle(fontSize: 11, color: kGrey)),
+            ]),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        if (_busy)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 10),
+            child: Center(
+              child: SizedBox(
+                width: 20, height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2.2, color: kGreen),
+              ),
+            ),
+          )
+        else
+          Row(children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _export,
+                icon: const Icon(Icons.ios_share_rounded, size: 17),
+                label: const Text('Exporter'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: kGreen,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 11),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _import,
+                icon: const Icon(Icons.download_outlined, size: 17),
+                label: const Text('Restaurer'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: kCharcoal,
+                  side: const BorderSide(color: kBorderColor, width: 1.5),
+                  padding: const EdgeInsets.symmetric(vertical: 11),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ]),
+        const SizedBox(height: 8),
+        const Text(
+          'À faire avant toute réinstallation : désinstaller l\'app efface '
+          'définitivement les estimations du téléphone.',
+          style: TextStyle(fontSize: 10, color: kLightGrey, height: 1.4, fontStyle: FontStyle.italic),
+        ),
+      ]),
+    );
   }
 }
 
