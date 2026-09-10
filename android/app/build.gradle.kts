@@ -45,12 +45,12 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        // arm64 uniquement.
-        //
-        // x86 (émulateur) fait échouer la compilation native de pdfrx (CMake).
-        // armeabi-v7a (32 bits) doublait le poids des bibliothèques natives —
-        // moteur Flutter, ML Kit, pdfrx — pour des appareils antérieurs à 2015
-        // que personne n'utilise plus. L'APK passe d'environ 135 Mo à ~75 Mo.
+        // Attention : ce filtre est SANS EFFET sur un build `flutter build apk`.
+        // Verifie en inspectant l APK publie — il contenait bien arm64-v8a,
+        // armeabi-v7a et x86_64 malgre ce reglage. Le plugin Gradle Flutter
+        // pilote lui-meme les ABI ; le seul levier reel est l option
+        // --target-platform passee a la commande de build (cf. build.yml).
+        // Conserve uniquement pour les eventuelles compilations CMake locales.
         ndk {
             abiFilters += setOf("arm64-v8a")
         }

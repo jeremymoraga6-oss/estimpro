@@ -74,8 +74,12 @@ jobs:
             printf 'keyAlias=%s\n'      "$KEY_ALIAS"
           } > android/key.properties
 
+      # --target-platform est le seul levier qui filtre reellement les ABI :
+      # abiFilters cote Gradle est ignore par le plugin Flutter, l APK
+      # embarquait donc arm64-v8a + armeabi-v7a + x86_64, soit ~70 Mo de
+      # binaires natifs inutiles sur un telephone recent.
       - name: Build APK
-        run: flutter build apk --release
+        run: flutter build apk --release --target-platform android-arm64
 
       # Trace l'empreinte SHA-256 du certificat : elle doit rester identique
       # d'une release à l'autre, sinon les mises à jour seront refusées.
