@@ -27,18 +27,38 @@ les mises à jour s'installent normalement, en conservant les données.
 
 ## 1. Générer la clé (une seule fois)
 
+Le Mac n'a pas de Java installé, donc pas de `keytool` utilisable. On passe par
+`openssl`, présent d'origine, qui produit un magasin **PKCS12** — le format
+moderne, accepté tel quel par Gradle (`storeType = PKCS12`).
+
+**Étape A** — créer la clé privée et son certificat, valable 27 ans :
+
 ```bash
-keytool -genkey -v \
-  -keystore ~/estimpro-upload-key.jks \
-  -keyalg RSA -keysize 2048 -validity 10000 \
-  -alias estimpro
+openssl req -x509 -newkey rsa:2048 -sha256 -days 10000 -nodes \
+  -keyout /tmp/estimpro.key -out /tmp/estimpro.crt \
+  -subj "/CN=Jeremy Moraga/O=Faucigny Immobilier/C=FR"
 ```
 
-`keytool` demande un mot de passe puis quelques informations d'identité (nom,
-organisation, pays). Le mot de passe du magasin et celui de la clé peuvent être
-identiques.
+**Étape B** — empaqueter dans le magasin, sous l'alias `estimpro` :
 
-> ⚠️ **Sauvegarde ce fichier `.jks` et son mot de passe hors du dépôt**
+```bash
+openssl pkcs12 -export \
+  -inkey /tmp/estimpro.key -in /tmp/estimpro.crt \
+  -name estimpro -out ~/estimpro-upload-key.p12
+```
+
+Un mot de passe est demandé deux fois (saisie puis confirmation). **Retenez-le** :
+c'est celui à déclarer en secret GitHub. En PKCS12 le mot de passe du magasin et
+celui de la clé sont le même — les deux secrets recevront donc la même valeur.
+
+**Étape C** — effacer les fichiers intermédiaires, qui contiennent la clé
+privée en clair :
+
+```bash
+rm -f /tmp/estimpro.key /tmp/estimpro.crt
+```
+
+> ⚠️ **Sauvegarde le fichier `.p12` et son mot de passe hors du dépôt**
 > (gestionnaire de mots de passe, disque chiffré). En cas de perte, il devient
 > impossible de publier une mise à jour installable : il faudrait à nouveau
 > désinstaller l'app, donc reperdre les données. Le `.gitignore` empêche
@@ -51,7 +71,7 @@ identiques.
 Encoder le keystore sur une seule ligne :
 
 ```bash
-base64 -i ~/estimpro-upload-key.jks | tr -d '\n' | pbcopy
+base64 -i ~/estimpro-upload-key.p12 | tr -d '\n' | pbcopy
 ```
 
 Puis dans **Settings → Secrets and variables → Actions**, créer quatre secrets :
@@ -59,8 +79,8 @@ Puis dans **Settings → Secrets and variables → Actions**, créer quatre secr
 | Secret | Valeur |
 |---|---|
 | `ANDROID_KEYSTORE_BASE64` | le contenu collé depuis `pbcopy` |
-| `ANDROID_STORE_PASSWORD` | mot de passe du magasin |
-| `ANDROID_KEY_PASSWORD` | mot de passe de la clé |
+| `ANDROID_STORE_PASSWORD` | le mot de passe choisi a l'etape B |
+| `ANDROID_KEY_PASSWORD` | le meme mot de passe (format PKCS12) |
 | `ANDROID_KEY_ALIAS` | `estimpro` |
 
 Le workflow échoue désormais explicitement si `ANDROID_KEYSTORE_BASE64` est
@@ -74,7 +94,8 @@ Pour signer aussi depuis le Mac, créer `android/key.properties` (déjà ignoré
 git) :
 
 ```properties
-storeFile=/Users/moraga/estimpro-upload-key.jks
+storeFile=/Users/moraga/estimpro-upload-key.p12
+storeType=PKCS12
 storePassword=…
 keyPassword=…
 keyAlias=estimpro
@@ -109,11 +130,21 @@ l'appareil.
 Cette désinstallation est la dernière : toutes les mises à jour suivantes
 s'installeront normalement.
 
-**Avant de désinstaller**, exporter ce qui doit être conservé. Le seul export
-disponible aujourd'hui est celui de la section 7, **estimation par estimation**
-(`Exporter le dossier` → ZIP / e-mail).
+**Avant de désinstaller**, exporter ce qui doit être conservé.
 
-`lib/services/backup_service.dart` implémente pourtant un export global
-(`exportBackup()` / `importBackup()`) mais **n'est branché à aucun écran** — il
-est donc inutilisable en l'état. Le câbler dans l'écran Profil avant la bascule
-rendrait la migration bien plus sûre.
+L'APK installé aujourd'hui est antérieur à l'ajout du bouton de sauvegarde : le
+seul export disponible dessus est celui de la section 7, **estimation par
+estimation** (`Exporter le dossier` → ZIP / e-mail).
+
+À partir de la version signée, l'écran Profil offre un export global
+(estimations, base locale et réglages dans un seul zip) et une restauration qui
+fusionne sans écraser. C'est ce qu'il faudra utiliser pour toutes les
+sauvegardes suivantes.
+
+## Ordre recommandé
+
+1. Exporter les dossiers importants depuis la section 7 de l'app actuelle.
+2. Créer la clé et déclarer les quatre secrets (étapes 1 et 2).
+3. Laisser la CI produire un APK signé.
+4. Désinstaller, puis installer cet APK — **la dernière désinstallation**.
+5. Vérifier que l'export global du Profil fonctionne, et le prendre en habitude.

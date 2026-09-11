@@ -66,9 +66,10 @@ jobs:
             echo "::warning::Il ne pourra pas remplacer une installation existante. Voir docs/signature-android.md."
             exit 0
           fi
-          printf '%s' "$KEYSTORE_B64" | base64 -d > android/app/upload-keystore.jks
+          printf '%s' "$KEYSTORE_B64" | base64 -d > android/app/upload-keystore.p12
           {
-            printf 'storeFile=upload-keystore.jks\n'
+            printf 'storeFile=upload-keystore.p12\n'
+            printf 'storeType=PKCS12\n'
             printf 'storePassword=%s\n' "$STORE_PASSWORD"
             printf 'keyPassword=%s\n'   "$KEY_PASSWORD"
             printf 'keyAlias=%s\n'      "$KEY_ALIAS"
@@ -91,7 +92,7 @@ jobs:
 
       - name: Nettoie les secrets du runner
         if: always()
-        run: rm -f android/app/upload-keystore.jks android/key.properties
+        run: rm -f android/app/upload-keystore.p12 android/key.properties
 
       - uses: actions/upload-artifact@v4
         with:

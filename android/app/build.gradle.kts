@@ -75,6 +75,10 @@ android {
                 storePassword = keystoreProperties.getProperty("storePassword")
                 keyAlias = keystoreProperties.getProperty("keyAlias")
                 keyPassword = keystoreProperties.getProperty("keyPassword")
+                // PKCS12 par defaut : le magasin est cree avec openssl, aucun
+                // JDK n etant installe sur la machine de dev. JKS reste
+                // accepte en renseignant storeType dans key.properties.
+                storeType = keystoreProperties.getProperty("storeType") ?: "PKCS12"
             }
         }
     }
