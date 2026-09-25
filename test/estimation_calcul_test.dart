@@ -162,6 +162,53 @@ void main() {
     });
   });
 
+  group('coût du crédit', () {
+    test('mensualité d\'un prêt amortissable — valeurs de référence', () {
+      // Vérifiées independamment : 200 000 € à 3,7 % sur 20 ans = 1 180,58 €/mois
+      expect(Estimation.mensualiteCredit(200000, 3.7, 20), closeTo(1180.58, 0.05));
+      expect(Estimation.mensualiteCredit(300000, 3.5, 25), closeTo(1501.87, 0.05));
+    });
+
+    test('taux nul : simple division du capital', () {
+      expect(Estimation.mensualiteCredit(150000, 0, 15), closeTo(833.33, 0.01));
+      expect(Estimation.interetsCredit(150000, 0, 15), closeTo(0, 0.01));
+    });
+
+    test('capital ou durée nuls : zéro, pas de division par zéro', () {
+      expect(Estimation.mensualiteCredit(0, 3.7, 20), 0);
+      expect(Estimation.mensualiteCredit(-5000, 3.7, 20), 0);
+      expect(Estimation.mensualiteCredit(200000, 3.7, 0), 0);
+      expect(Estimation.interetsCredit(0, 3.7, 20), 0);
+      expect(Estimation.assuranceCredit(0, 0.34, 20), 0);
+    });
+
+    test('intérêts = somme des mensualités moins le capital', () {
+      expect(Estimation.interetsCredit(200000, 3.7, 20), closeTo(83338.95, 1));
+      expect(Estimation.interetsCredit(300000, 3.5, 25), closeTo(150561.21, 1));
+    });
+
+    test('intérêts croissants avec le taux et avec la durée', () {
+      final bas = Estimation.interetsCredit(200000, 2.0, 20);
+      final haut = Estimation.interetsCredit(200000, 5.0, 20);
+      expect(haut, greaterThan(bas));
+
+      final court = Estimation.interetsCredit(200000, 3.7, 15);
+      final long = Estimation.interetsCredit(200000, 3.7, 25);
+      expect(long, greaterThan(court));
+    });
+
+    test('assurance assise sur le capital initial', () {
+      expect(Estimation.assuranceCredit(200000, 0.34, 20), closeTo(13600, 0.01));
+      // Proportionnelle a la duree comme au taux
+      expect(Estimation.assuranceCredit(200000, 0.34, 10), closeTo(6800, 0.01));
+      expect(Estimation.assuranceCredit(200000, 0.68, 20), closeTo(27200, 0.01));
+    });
+
+    test('taux d\'assurance nul : aucune cotisation', () {
+      expect(Estimation.assuranceCredit(200000, 0, 20), 0);
+    });
+  });
+
   group('primeTerrain', () {
     test('appartement : jamais de prime', () {
       final e = _bien(typeId: 'appartement', surfaceTerrain: 2000);

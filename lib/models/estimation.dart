@@ -716,6 +716,36 @@ class Estimation {
   double get fraisNotaireAcquereur => calcFraisNotaire(prixMandat);
   double get budgetTotalAcquereur => prixMandat + fraisNotaireAcquereur;
 
+  // ── Coût d'un crédit immobilier ───────────────────────────────────────────
+  // Fonctions pures, testables : la simulation acquéreur de la section 6 les
+  // utilise plutôt que de recalculer dans le widget.
+
+  /// Mensualité d'un prêt amortissable à taux fixe, hors assurance.
+  /// [tauxAnnuel] en pourcentage (3.7 = 3,7 %).
+  static double mensualiteCredit(double capital, double tauxAnnuel, int dureeAnnees) {
+    if (capital <= 0 || dureeAnnees <= 0) return 0;
+    final n = dureeAnnees * 12;
+    final r = tauxAnnuel / 100 / 12;
+    if (r == 0) return capital / n;
+    final denom = 1 - math.pow(1 + r, -n);
+    return capital * r / denom;
+  }
+
+  /// Intérêts payés sur toute la durée : somme des mensualités moins le capital.
+  static double interetsCredit(double capital, double tauxAnnuel, int dureeAnnees) {
+    if (capital <= 0 || dureeAnnees <= 0) return 0;
+    return mensualiteCredit(capital, tauxAnnuel, dureeAnnees) * dureeAnnees * 12 -
+        capital;
+  }
+
+  /// Assurance emprunteur, cotisation assise sur le capital initial — pratique
+  /// la plus répandue en France (taux constant, non dégressif).
+  /// [tauxAnnuel] en % du capital par an (0.34 = 0,34 %).
+  static double assuranceCredit(double capital, double tauxAnnuel, int dureeAnnees) {
+    if (capital <= 0 || dureeAnnees <= 0 || tauxAnnuel <= 0) return 0;
+    return capital * tauxAnnuel / 100 * dureeAnnees;
+  }
+
   /// Frais de notaire exacts — régime ancien, dep. 74 (LF 2025).
   /// Émoluments arrêté 28/02/2020 + TVA 20 % (plancher 90 €).
   /// DMTO 6,32 % · CSI 0,10 % (min 15 €) · débours forfait 1 300 €.

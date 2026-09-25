@@ -1765,6 +1765,9 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
   late double _apport;
   int _duree = 20;
   double _taux = 3.7;
+  // Assurance emprunteur : 0,34 %/an du capital, ordre de grandeur courant
+  // pour un emprunteur de 35-45 ans sans surprime.
+  double _tauxAssurance = 0.34;
 
   static const _durees = [10, 15, 20, 25];
 
@@ -1811,15 +1814,29 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
   // Coût total acquéreur = prix + frais notaire (ce que la banque évalue)
   double get _coutTotal => widget.prixMandat + _fraisNotaire;
 
+  double get _montantEmprunte =>
+      (_coutTotal - _apport).clamp(0, double.infinity).toDouble();
+
   // Mensualité réelle si on finance (coutTotal - apport) sur _duree ans
-  double get _mensualiteRequise {
-    final montant = (_coutTotal - _apport).clamp(0, double.infinity);
-    if (montant == 0) return 0;
-    final r = _taux / 100 / 12;
-    final n = _duree * 12;
-    if (r == 0) return montant / n;
-    return montant * r / (1 - pow(1 + r, -n.toDouble()));
-  }
+  double get _mensualiteRequise =>
+      Estimation.mensualiteCredit(_montantEmprunte, _taux, _duree);
+
+  // ── Coût du crédit ────────────────────────────────────────────────────────
+
+  double get _interetsTotaux =>
+      Estimation.interetsCredit(_montantEmprunte, _taux, _duree);
+
+  double get _assuranceTotale =>
+      Estimation.assuranceCredit(_montantEmprunte, _tauxAssurance, _duree);
+
+  double get _assuranceMensuelle =>
+      _duree > 0 ? _assuranceTotale / (_duree * 12) : 0;
+
+  /// Ce que l'emprunt coûte en plus du bien lui-même.
+  double get _coutCredit => _interetsTotaux + _assuranceTotale;
+
+  double get _mensualiteAvecAssurance =>
+      _mensualiteRequise + _assuranceMensuelle;
 
   // Capacité d'emprunt basée sur ce que la banque accepte (35% revenus)
   double get _capaciteEmprunt {
@@ -2034,6 +2051,28 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
                 Text('Taux marché 2025 : ~3.5–4%', style: TextStyle(fontSize: 10, color: kGrey)),
                 Text('6%', style: TextStyle(fontSize: 10, color: kLightGrey)),
               ]),
+              const SizedBox(height: 10),
+
+              // Assurance emprunteur — systématiquement oubliée dans les
+              // simulations, alors qu'elle pèse plusieurs milliers d'euros.
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                const Text('Assurance emprunteur', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kCharcoal)),
+                Text('${_tauxAssurance.toStringAsFixed(2)}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
+              ]),
+              Slider(
+                value: _tauxAssurance,
+                min: 0,
+                max: 1.0,
+                divisions: 100,
+                activeColor: kGrey,
+                inactiveColor: kGrey.withValues(alpha: 0.15),
+                onChanged: (v) => setState(() => _tauxAssurance = (v * 100).round() / 100),
+              ),
+              const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Text('0%', style: TextStyle(fontSize: 10, color: kLightGrey)),
+                Text('Usuel : 0,30–0,40% du capital / an', style: TextStyle(fontSize: 10, color: kGrey)),
+                Text('1%', style: TextStyle(fontSize: 10, color: kLightGrey)),
+              ]),
               const SizedBox(height: 14),
 
               // Résultat
@@ -2108,6 +2147,36 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
                     const Text('Budget total acquéreur :', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCharcoal)),
                     Text(_fmt(_budgetTotal), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: accessible ? kGreen : kRed)),
                   ]),
+
+                  const Divider(height: 14),
+                  const Text('CE QUE COÛTE LE CRÉDIT',
+                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: kGreen, letterSpacing: 0.8)),
+                  const SizedBox(height: 6),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    Text('Intérêts sur $_duree ans :', style: const TextStyle(fontSize: 12, color: kGrey)),
+                    Text(_fmt(_interetsTotaux), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
+                  ]),
+                  const SizedBox(height: 4),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    Text('Assurance (${_tauxAssurance.toStringAsFixed(2)}%/an) :', style: const TextStyle(fontSize: 12, color: kGrey)),
+                    Text(_fmt(_assuranceTotale), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
+                  ]),
+                  const SizedBox(height: 4),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    const Text('Coût total du crédit :', style: TextStyle(fontSize: 12, color: kGrey, fontWeight: FontWeight.w600)),
+                    Text(_fmt(_coutCredit), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: kAmber)),
+                  ]),
+                  const SizedBox(height: 4),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    const Text('Mensualité assurance comprise :', style: TextStyle(fontSize: 12, color: kGrey)),
+                    Text('${_mensualiteAvecAssurance.round()} €/mois',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal)),
+                  ]),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Soit ${_fmt(widget.prixMandat + _coutCredit + _fraisNotaire)} déboursés au total pour un bien à ${_fmt(widget.prixMandat)}.',
+                    style: const TextStyle(fontSize: 10, color: kLightGrey, height: 1.4, fontStyle: FontStyle.italic),
+                  ),
                   const SizedBox(height: 8),
                   Container(
                     width: double.infinity,
