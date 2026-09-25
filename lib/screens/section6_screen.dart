@@ -1838,6 +1838,27 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
   double get _mensualiteAvecAssurance =>
       _mensualiteRequise + _assuranceMensuelle;
 
+  // ── Pouvoir d'achat acquéreur ─────────────────────────────────────────────
+  // Le facteur le plus déterminant du marché actuel : les taux sont passés
+  // d'environ 1,2 % (2021) à ~3,7 %, ce qui a amputé d'un quart la capacité
+  // d'emprunt à mensualité égale. Les comparables DVF de 2022-2023 ont été
+  // achetés par des ménages nettement plus solvables.
+  static const _tauxReference2021 = 1.2;
+
+  /// Revenu ménage requis pour assumer la mensualité (règle HCSF 35 %).
+  double get _revenuNecessaire =>
+      Estimation.revenuNecessaire(_mensualiteAvecAssurance);
+
+  /// Ce que la même mensualité finançait au taux de 2021.
+  double get _capitalAuTaux2021 => Estimation.capitalFinancable(
+      _mensualiteRequise, _tauxReference2021, _duree);
+
+  /// Perte de pouvoir d'achat en %, entre le taux de 2021 et le taux courant.
+  double get _pertePouvoirAchatPct {
+    if (_capitalAuTaux2021 <= 0 || _montantEmprunte <= 0) return 0;
+    return (1 - _montantEmprunte / _capitalAuTaux2021) * 100;
+  }
+
   // Capacité d'emprunt basée sur ce que la banque accepte (35% revenus)
   double get _capaciteEmprunt {
     final r = _taux / 100 / 12;
@@ -2177,6 +2198,42 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
                     'Soit ${_fmt(widget.prixMandat + _coutCredit + _fraisNotaire)} déboursés au total pour un bien à ${_fmt(widget.prixMandat)}.',
                     style: const TextStyle(fontSize: 10, color: kLightGrey, height: 1.4, fontStyle: FontStyle.italic),
                   ),
+
+                  const Divider(height: 14),
+                  const Text('POUVOIR D\'ACHAT ACQUÉREUR',
+                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: kGreen, letterSpacing: 0.8)),
+                  const SizedBox(height: 6),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    const Text('Revenu ménage nécessaire :', style: TextStyle(fontSize: 12, color: kGrey, fontWeight: FontWeight.w600)),
+                    Text('${_revenuNecessaire.round()} €/mois',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: kCharcoal)),
+                  ]),
+                  const SizedBox(height: 2),
+                  const Text('Règle HCSF : l\'endettement ne peut dépasser 35 % des revenus.',
+                      style: TextStyle(fontSize: 10, color: kLightGrey)),
+                  if (_pertePouvoirAchatPct > 1) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                      decoration: BoxDecoration(
+                        color: kAmber.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: kAmber.withValues(alpha: 0.4)),
+                      ),
+                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Icon(Icons.trending_down_rounded, size: 15, color: kAmber),
+                        const SizedBox(width: 7),
+                        Expanded(
+                          child: Text(
+                            'À ${_tauxReference2021.toStringAsFixed(1)} % (taux 2021), la même mensualité finançait '
+                            '${_fmt(_capitalAuTaux2021)} — soit ${_pertePouvoirAchatPct.toStringAsFixed(0)} % de pouvoir '
+                            'd\'achat en plus. Les ventes DVF de 2022-2023 ont été faites par des acquéreurs plus solvables.',
+                            style: const TextStyle(fontSize: 10, color: kAmber, height: 1.4),
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   Container(
                     width: double.infinity,

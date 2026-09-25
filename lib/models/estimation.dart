@@ -738,6 +738,21 @@ class Estimation {
         capital;
   }
 
+  /// Capital finançable avec une mensualité donnée — inverse de
+  /// [mensualiteCredit]. Sert à mesurer le pouvoir d'achat d'un acquéreur.
+  static double capitalFinancable(double mensualite, double tauxAnnuel, int dureeAnnees) {
+    if (mensualite <= 0 || dureeAnnees <= 0) return 0;
+    final n = dureeAnnees * 12;
+    final r = tauxAnnuel / 100 / 12;
+    if (r == 0) return mensualite * n;
+    return mensualite * (1 - math.pow(1 + r, -n)) / r;
+  }
+
+  /// Revenu mensuel du ménage nécessaire pour assumer [mensualite], selon la
+  /// règle HCSF qui plafonne l'endettement à 35 % des revenus.
+  static double revenuNecessaire(double mensualite) =>
+      mensualite <= 0 ? 0 : mensualite / 0.35;
+
   /// Assurance emprunteur, cotisation assise sur le capital initial — pratique
   /// la plus répandue en France (taux constant, non dégressif).
   /// [tauxAnnuel] en % du capital par an (0.34 = 0,34 %).

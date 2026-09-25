@@ -209,6 +209,41 @@ void main() {
     });
   });
 
+  group('pouvoir d\'achat acquéreur', () {
+    test('capitalFinancable est l\'inverse exact de mensualiteCredit', () {
+      final m = Estimation.mensualiteCredit(200000, 3.7, 20);
+      expect(Estimation.capitalFinancable(m, 3.7, 20), closeTo(200000, 0.5));
+    });
+
+    test('la hausse des taux ampute le pouvoir d\'achat', () {
+      // Meme mensualite, meme duree : seul le taux change.
+      const m = 1180.58;
+      final en2021 = Estimation.capitalFinancable(m, 1.2, 20);
+      final aujourdhui = Estimation.capitalFinancable(m, 3.7, 20);
+      expect(en2021, closeTo(251792, 5));
+      expect(aujourdhui, closeTo(200000, 5));
+      final perte = (1 - aujourdhui / en2021) * 100;
+      expect(perte, closeTo(20.6, 0.2));
+    });
+
+    test('taux nul : capital = mensualité × nombre de mois', () {
+      expect(Estimation.capitalFinancable(1000, 0, 20), closeTo(240000, 0.01));
+    });
+
+    test('mensualité ou durée nulles : zéro', () {
+      expect(Estimation.capitalFinancable(0, 3.7, 20), 0);
+      expect(Estimation.capitalFinancable(-100, 3.7, 20), 0);
+      expect(Estimation.capitalFinancable(1000, 3.7, 0), 0);
+    });
+
+    test('revenu nécessaire : mensualité rapportée au plafond HCSF de 35 %', () {
+      expect(Estimation.revenuNecessaire(1180.58), closeTo(3373.09, 0.05));
+      expect(Estimation.revenuNecessaire(0), 0);
+      // Une mensualite de 35 % du revenu correspond exactement au plafond
+      expect(Estimation.revenuNecessaire(3500 * 0.35), closeTo(3500, 0.01));
+    });
+  });
+
   group('primeTerrain', () {
     test('appartement : jamais de prime', () {
       final e = _bien(typeId: 'appartement', surfaceTerrain: 2000);
