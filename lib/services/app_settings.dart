@@ -18,9 +18,11 @@ class AppSettings {
 
   // ── Stockage sécurisé ─────────────────────────────────────────────────────
   static const _kApiKeyId = 'anthropic_api_key';
-  static const _secure = FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-  );
+  // encryptedSharedPreferences a été retiré en v10 : Google a déprécié la
+  // bibliothèque Jetpack Security sur laquelle il reposait. Le plugin migre
+  // automatiquement les valeurs déjà stockées vers ses propres chiffrements
+  // au premier accès — la clé API existante reste donc lisible.
+  static const _secure = FlutterSecureStorage();
 
   // ── État ──────────────────────────────────────────────────────────────────
   String _anthropicKey = '';
