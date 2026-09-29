@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -12,6 +13,31 @@ import 'package:path_provider/path_provider.dart';
 class CrashReporter {
   static const _filename = 'crash_log.txt';
   static const _maxBytes = 256 * 1024; // 256 Ko, on tronque ensuite
+  static const _separateur = '═══════════════════════════════════════════════';
+
+  /// Redirige le journal vers un autre dossier — réservé aux tests.
+  @visibleForTesting
+  static Directory? directoryOverride;
+
+  // File d'écriture. `writeAsString` en mode append perd des entrées dès que
+  // deux appels se chevauchent — vérifié : 30 appels concurrents ne laissent
+  // qu'une seule ligne. Or c'est exactement le cas d'usage du journal, une
+  // erreur de build() se répétant à chaque frame. On sérialise donc, comme
+  // pour la base des estimations.
+  static Future<void> _queue = Future<void>.value();
+
+  static Future<void> _serialized(Future<void> Function() action) {
+    final completer = Completer<void>();
+    _queue = _queue.then((_) async {
+      try {
+        await action();
+        completer.complete();
+      } catch (e, s) {
+        completer.completeError(e, s);
+      }
+    });
+    return completer.future;
+  }
 
   /// À appeler depuis main() avant runApp().
   /// Wrappe l'app dans une zone protégée et installe les hooks d'erreur.
@@ -69,11 +95,12 @@ class CrashReporter {
     required String error,
     String stack = '',
     String context = '',
-  }) async {
+  }) =>
+      _serialized(() async {
     try {
       final file = await _logFile();
       final entry = StringBuffer()
-        ..writeln('═══════════════════════════════════════════════')
+        ..writeln(_separateur)
         ..writeln('[${DateTime.now().toIso8601String()}] $type')
         ..writeln('Error: $error');
       if (context.isNotEmpty) entry.writeln('Context: $context');
@@ -84,22 +111,52 @@ class CrashReporter {
       }
       entry.writeln();
 
-      // Tronque si trop gros
-      var existing = '';
-      if (await file.exists()) {
-        final size = await file.length();
-        if (size < _maxBytes) {
-          existing = await file.readAsString();
-        } else {
-          // Garde la moitié la plus récente
-          final raw = await file.readAsString();
-          existing = raw.substring(raw.length ~/ 2);
-        }
+      // Rotation, opération rare : seulement quand le fichier dépasse la
+      // taille max, au lieu d'une relecture complète à chaque écriture.
+      if (await file.exists() && await file.length() > _maxBytes) {
+        await _rotate(file);
       }
-      await file.writeAsString(existing + entry.toString());
+
+      // Ajout en fin de fichier plutôt que relecture puis réécriture
+      // intégrale : une erreur de build() se répétant à chaque frame,
+      // l'ancienne approche réécrivait 256 Ko soixante fois par seconde.
+      // La file d'écriture ci-dessus garantit qu'aucune entrée ne se perd.
+      await file.writeAsString(
+        entry.toString(),
+        mode: FileMode.append,
+        flush: true,
+      );
       debugPrint('[CrashReporter] logged $type');
     } catch (e) {
       debugPrint('[CrashReporter] failed: $e');
+    }
+  });
+
+  /// Ne conserve que la fin du journal, en coupant sur une frontière d'entrée
+  /// pour ne pas laisser une trace amputée en tête.
+  ///
+  /// Le raisonnement est en **octets** : le séparateur est composé de « ═ »,
+  /// qui pèse 3 octets par caractère. Couper à la moitié des caractères
+  /// laissait un fichier encore largement au-dessus du plafond.
+  static Future<void> _rotate(File file) async {
+    try {
+      final raw = await file.readAsString();
+      final bytes = utf8.encode(raw);
+      const cible = _maxBytes ~/ 2;
+      if (bytes.length <= cible) return;
+
+      var queue = utf8.decode(
+        bytes.sublist(bytes.length - cible),
+        allowMalformed: true,
+      );
+      final frontiere = queue.indexOf(_separateur);
+      if (frontiere != -1) queue = queue.substring(frontiere);
+
+      await file.writeAsString(queue, flush: true);
+      debugPrint('[CrashReporter] journal tronqué : '
+          '${bytes.length} → ${utf8.encode(queue).length} octets');
+    } catch (e) {
+      debugPrint('[CrashReporter] rotation impossible : $e');
     }
   }
 
@@ -127,7 +184,7 @@ class CrashReporter {
   }
 
   static Future<File> _logFile() async {
-    final dir = await getApplicationDocumentsDirectory();
+    final dir = directoryOverride ?? await getApplicationDocumentsDirectory();
     return File('${dir.path}/$_filename');
   }
 }
