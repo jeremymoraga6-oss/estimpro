@@ -11,6 +11,9 @@ import '../services/georisques_service.dart';
 import '../services/base_locale_service.dart';
 import '../services/pricehubble_parser.dart';
 import '../services/concurrence_service.dart';
+import '../services/dpe_marche_service.dart';
+import '../models/dpe_recent.dart';
+import '../widgets/dvf_map_widget.dart';
 
 class Section5Screen extends StatefulWidget {
   final Estimation estimation;
@@ -27,6 +30,7 @@ class Section5Screen extends StatefulWidget {
 class _Section5ScreenState extends State<Section5Screen> {
   late Estimation _e;
   DvfFetchResult? _result;
+  List<DpeRecent> _dpe = [];
   bool _loading = false;
   bool _loadingRisques = false;
   List<ReferenceLocale> _localRefs = [];
@@ -42,6 +46,7 @@ class _Section5ScreenState extends State<Section5Screen> {
     super.initState();
     _e = widget.estimation;
     _loadDvf();
+    _loadDpe();
     _loadLocalRefs();
     _loadCommuneStats();
     if (_e.risques == null) _loadRisques();
@@ -113,6 +118,19 @@ class _Section5ScreenState extends State<Section5Screen> {
   }
 
   List<DvfTransaction> get _filtered => _result?.transactions ?? [];
+
+  /// Diagnostics récents du secteur : un DPE précède presque toujours une
+  /// mise en vente, donc ils annoncent la concurrence à venir — bien avant
+  /// que DVF, qui ne recense que les ventes signées, ne la fasse apparaître.
+  Future<void> _loadDpe() async {
+    if (_e.latitude == 0 || _e.longitude == 0) return;
+    final r = await DpeMarcheService().fetch(
+      latitude: _e.latitude,
+      longitude: _e.longitude,
+      rayonKm: _e.dvfRadiusKm > 0 ? _e.dvfRadiusKm : 3,
+    );
+    if (mounted) setState(() => _dpe = r.dpe);
+  }
 
   double get _median {
     final prices = _e.comparables.map<double>((c) => (c['prixM2'] as num?)?.toDouble() ?? 0).where((p) => p > 0).toList()..sort();
@@ -311,6 +329,32 @@ class _Section5ScreenState extends State<Section5Screen> {
                 ]),
               ),
               _MarketStatsCard(transactions: _filtered),
+
+              // Carte du secteur : ventes DVF, plus les diagnostics récents
+              // en couche optionnelle (bouton étiquette, en haut à droite).
+              if (_e.latitude != 0 && _e.longitude != 0) ...[
+                const SizedBox(height: 10),
+                Row(children: [
+                  const Icon(Icons.map_outlined, size: 14, color: kGreen),
+                  const SizedBox(width: 6),
+                  const Text('Carte du secteur',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kCharcoal)),
+                  const Spacer(),
+                  if (_dpe.isNotEmpty)
+                    Text('${_dpe.length} diagnostic${_dpe.length > 1 ? 's' : ''} récent${_dpe.length > 1 ? 's' : ''}',
+                        style: const TextStyle(fontSize: 10, color: kLightGrey)),
+                ]),
+                const SizedBox(height: 6),
+                DvfMapWidget(
+                  transactions: _filtered,
+                  centerLat: _e.latitude,
+                  centerLon: _e.longitude,
+                  adresseCentre: _e.adresseComplete,
+                  prixMoyen: _e.prixMoyen,
+                  dpeRecents: _dpe,
+                ),
+                const SizedBox(height: 10),
+              ],
               if (_e.trendInfo.isNotEmpty || _e.tauxEvolutionAnnuel != 0) ...[
                 const SizedBox(height: 4),
                 Container(

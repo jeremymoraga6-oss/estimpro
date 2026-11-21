@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme.dart';
+import '../models/dpe_recent.dart';
 import '../services/dvf_service.dart';
 
 /// Carte interactive des comparables DVF — visuel pour présentation vendeur.
@@ -15,6 +16,10 @@ class DvfMapWidget extends StatefulWidget {
   final String adresseCentre;
   final double prixMoyen; // prix m² médian pour calibrer les couleurs
 
+  /// Diagnostics récents du secteur — biens susceptibles d'arriver en vente.
+  /// Couche optionnelle, masquée par défaut.
+  final List<DpeRecent> dpeRecents;
+
   const DvfMapWidget({
     super.key,
     required this.transactions,
@@ -22,6 +27,7 @@ class DvfMapWidget extends StatefulWidget {
     required this.centerLon,
     required this.adresseCentre,
     required this.prixMoyen,
+    this.dpeRecents = const [],
   });
 
   @override
@@ -30,7 +36,14 @@ class DvfMapWidget extends StatefulWidget {
 
 class _DvfMapWidgetState extends State<DvfMapWidget> {
   DvfTransaction? _selected;
+  DpeRecent? _selectedDpe;
+  bool _afficheDpe = false;
   late final MapController _controller;
+
+  /// Violet : volontairement hors de l'échelle de prix DVF, pour qu'on ne
+  /// confonde pas « vendu » (le passé, avec un prix) et « diagnostic récent »
+  /// (l'avenir probable, sans prix).
+  static const _couleurDpe = Color(0xFF7B5EA7);
 
   @override
   void initState() {
@@ -81,6 +94,8 @@ class _DvfMapWidgetState extends State<DvfMapWidget> {
     final txWithCoords = widget.transactions
         .where((t) => t.latitude != 0 && t.longitude != 0)
         .toList();
+    final dpeAvecCoords =
+        widget.dpeRecents.where((d) => d.aCoordonnees).toList();
 
     return Column(children: [
       ClipRRect(
@@ -95,7 +110,10 @@ class _DvfMapWidgetState extends State<DvfMapWidget> {
                 initialZoom: 13,
                 minZoom: 9,
                 maxZoom: 18,
-                onTap: (_, __) => setState(() => _selected = null),
+                onTap: (_, __) => setState(() {
+                  _selected = null;
+                  _selectedDpe = null;
+                }),
               ),
               children: [
                 TileLayer(
@@ -119,13 +137,30 @@ class _DvfMapWidgetState extends State<DvfMapWidget> {
                           width: 30,
                           height: 30,
                           child: GestureDetector(
-                            onTap: () => setState(() => _selected = tx),
+                            onTap: () => setState(() {
+                              _selected = tx;
+                              _selectedDpe = null;
+                            }),
                             child: _DvfMarker(
                               color: _colorForPrice(tx.prixM2),
                               selected: _selected == tx,
                             ),
                           ),
                         )),
+                    // Diagnostics récents — concurrence à venir
+                    if (_afficheDpe)
+                      ...dpeAvecCoords.map((d) => Marker(
+                            point: LatLng(d.latitude, d.longitude),
+                            width: 26,
+                            height: 26,
+                            child: GestureDetector(
+                              onTap: () => setState(() {
+                                _selectedDpe = d;
+                                _selected = null;
+                              }),
+                              child: _DpeMarker(selected: _selectedDpe == d),
+                            ),
+                          )),
                   ],
                 ),
               ],
@@ -166,6 +201,28 @@ class _DvfMapWidgetState extends State<DvfMapWidget> {
                 _zoomBtn(Icons.remove, () => _controller.move(_controller.camera.center, _controller.camera.zoom - 1)),
                 const SizedBox(height: 6),
                 _zoomBtn(Icons.my_location, () => _controller.move(center, 14)),
+                if (dpeAvecCoords.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  GestureDetector(
+                    onTap: () => setState(() {
+                      _afficheDpe = !_afficheDpe;
+                      if (!_afficheDpe) _selectedDpe = null;
+                    }),
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: _afficheDpe ? _couleurDpe : Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                            color: _afficheDpe ? _couleurDpe : kBorderColor),
+                      ),
+                      child: Icon(Icons.sell_outlined,
+                          size: 17,
+                          color: _afficheDpe ? Colors.white : kGrey),
+                    ),
+                  ),
+                ],
               ]),
             ),
           ]),
@@ -207,6 +264,54 @@ class _DvfMapWidgetState extends State<DvfMapWidget> {
               Text('${_fmtPrice(_selected!.prixM2)}/m²',
                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _colorForPrice(_selected!.prixM2))),
             ]),
+          ]),
+        ),
+      ],
+      if (_selectedDpe != null) ...[
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+                color: _couleurDpe.withValues(alpha: 0.4), width: 1.5),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(
+                width: 12, height: 12,
+                decoration: const BoxDecoration(
+                    color: _couleurDpe, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(
+                    _selectedDpe!.adresse.isNotEmpty
+                        ? _selectedDpe!.adresse
+                        : _selectedDpe!.commune,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kCharcoal),
+                  ),
+                  Text(
+                    [
+                      if (_selectedDpe!.typeBatiment.isNotEmpty) _selectedDpe!.typeBatiment,
+                      if (_selectedDpe!.surface > 0) '${_selectedDpe!.surface.round()} m²',
+                      'DPE ${_selectedDpe!.etiquette.isNotEmpty ? _selectedDpe!.etiquette : '?'}',
+                    ].join(' · '),
+                    style: const TextStyle(fontSize: 11, color: kGrey),
+                  ),
+                ]),
+              ),
+              Text('Diagnostic\n${_selectedDpe!.libelleAge}',
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: _couleurDpe)),
+            ]),
+            const SizedBox(height: 6),
+            const Text(
+              'Un DPE récent précède souvent une mise en vente — mais il peut aussi concerner une location ou un projet abandonné. Aucun prix n\'est publié.',
+              style: TextStyle(fontSize: 9.5, color: kLightGrey, height: 1.35, fontStyle: FontStyle.italic),
+            ),
           ]),
         ),
       ],
@@ -276,6 +381,29 @@ class _DvfMarker extends StatelessWidget {
           shape: BoxShape.circle,
           border: Border.all(color: Colors.white, width: selected ? 3 : 2),
           boxShadow: const [BoxShadow(color: Color(0x55000000), blurRadius: 3, offset: Offset(0, 1))],
+        ),
+      );
+}
+
+/// Marqueur d'un diagnostic récent : losange violet, volontairement distinct
+/// des pastilles rondes des ventes DVF.
+class _DpeMarker extends StatelessWidget {
+  final bool selected;
+  const _DpeMarker({required this.selected});
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Transform.rotate(
+          angle: 0.785398, // 45°
+          child: Container(
+            width: selected ? 17 : 13,
+            height: selected ? 17 : 13,
+            decoration: BoxDecoration(
+              color: const Color(0xFF7B5EA7),
+              border: Border.all(
+                  color: Colors.white, width: selected ? 2.5 : 1.5),
+            ),
+          ),
         ),
       );
 }
