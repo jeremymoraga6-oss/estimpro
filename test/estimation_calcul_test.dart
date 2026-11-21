@@ -209,6 +209,41 @@ void main() {
     });
   });
 
+  group('taux de marché indicatifs', () {
+    test('un barème par durée, croissant avec la durée', () {
+      final t15 = Estimation.tauxMarcheIndicatif(15);
+      final t20 = Estimation.tauxMarcheIndicatif(20);
+      final t25 = Estimation.tauxMarcheIndicatif(25);
+      expect(t15, lessThan(t20));
+      expect(t20, lessThanOrEqualTo(t25));
+    });
+
+    test('valeurs de la source : Observatoire CSA octobre 2026', () {
+      expect(Estimation.tauxMarcheIndicatif(15), 3.32);
+      expect(Estimation.tauxMarcheIndicatif(20), 3.54);
+      expect(Estimation.tauxMarcheIndicatif(25), 3.57);
+    });
+
+    test('durées intermédiaires et extrêmes rattachées à un palier', () {
+      expect(Estimation.tauxMarcheIndicatif(7), 3.32);
+      expect(Estimation.tauxMarcheIndicatif(18), 3.54);
+      expect(Estimation.tauxMarcheIndicatif(30), 3.57);
+    });
+
+    test('la date de référence est affichable', () {
+      expect(Estimation.dateReferenceTaux, isNotEmpty);
+      expect(Estimation.dateReferenceTaux, contains('2026'));
+    });
+
+    test('restent dans une plage plausible pour un crédit immobilier', () {
+      for (final d in [10, 15, 20, 25, 30]) {
+        final t = Estimation.tauxMarcheIndicatif(d);
+        expect(t, greaterThan(0.5));
+        expect(t, lessThan(8.0));
+      }
+    });
+  });
+
   group('pouvoir d\'achat acquéreur', () {
     test('capitalFinancable est l\'inverse exact de mensualiteCredit', () {
       final m = Estimation.mensualiteCredit(200000, 3.7, 20);

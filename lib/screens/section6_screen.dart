@@ -1764,7 +1764,8 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
   double _revenus = 3500;
   late double _apport;
   int _duree = 20;
-  double _taux = 3.7;
+  // Aligné sur le taux de marché de la durée choisie (Observatoire CSA).
+  double _taux = Estimation.tauxMarcheIndicatif(20);
   // Assurance emprunteur : 0,34 %/an du capital, ordre de grandeur courant
   // pour un emprunteur de 35-45 ans sans surprime.
   double _tauxAssurance = 0.34;
@@ -2037,7 +2038,15 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
                 ..._durees.map((d) {
                   final sel = _duree == d;
                   return GestureDetector(
-                    onTap: () => setState(() => _duree = d),
+                    onTap: () => setState(() {
+                      // Le taux suit la durée tant que l'utilisateur ne l'a
+                      // pas réglé lui-même : les barèmes diffèrent nettement
+                      // entre 15 et 25 ans.
+                      final suivait =
+                          (_taux - Estimation.tauxMarcheIndicatif(_duree)).abs() < 0.01;
+                      _duree = d;
+                      if (suivait) _taux = Estimation.tauxMarcheIndicatif(d);
+                    }),
                     child: Container(
                       margin: const EdgeInsets.only(right: 8),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -2067,11 +2076,25 @@ class _SimulationCreditCardState extends State<_SimulationCreditCard> {
                 inactiveColor: kGrey.withValues(alpha: 0.15),
                 onChanged: (v) => setState(() => _taux = (v * 4).round() / 4),
               ),
-              const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Text('2%', style: TextStyle(fontSize: 10, color: kLightGrey)),
-                Text('Taux marché 2025 : ~3.5–4%', style: TextStyle(fontSize: 10, color: kGrey)),
-                Text('6%', style: TextStyle(fontSize: 10, color: kLightGrey)),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                const Text('2%', style: TextStyle(fontSize: 10, color: kLightGrey)),
+                Text(
+                  'Marché $_duree ans : ${Estimation.tauxMarcheIndicatif(_duree).toStringAsFixed(2)}% '
+                  '(CSA ${Estimation.dateReferenceTaux})',
+                  style: const TextStyle(fontSize: 10, color: kGrey),
+                ),
+                const Text('6%', style: TextStyle(fontSize: 10, color: kLightGrey)),
               ]),
+              if ((_taux - Estimation.tauxMarcheIndicatif(_duree)).abs() >= 0.5)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    _taux > Estimation.tauxMarcheIndicatif(_duree)
+                        ? 'Taux saisi nettement au-dessus du marché — la mensualité sera pessimiste.'
+                        : 'Taux saisi nettement sous le marché — réservé aux très bons dossiers.',
+                    style: const TextStyle(fontSize: 9.5, color: kAmber, fontStyle: FontStyle.italic),
+                  ),
+                ),
               const SizedBox(height: 10),
 
               // Assurance emprunteur — systématiquement oubliée dans les

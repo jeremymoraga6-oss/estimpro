@@ -738,6 +738,28 @@ class Estimation {
         capital;
   }
 
+  // ── Taux de marché indicatifs ─────────────────────────────────────────────
+  //
+  // Source : Observatoire Crédit Logement / CSA, production d'octobre 2026
+  // (taux moyens du marché concurrentiel, prêts à taux fixe).
+  // Toutes durées confondues : 3,49 %.
+  //
+  // Tendance à la hausse marquée : +24 points de base depuis juin 2026,
+  // +33 depuis décembre 2025. Meilleurtaux relevait 3,70 % sur 20 ans au
+  // 18 novembre 2026, ce qui confirme la poursuite du mouvement.
+  //
+  // Ces valeurs vieillissent : à rafraîchir tous les trimestres depuis
+  // lobservatoire.creditlogement.fr. La date ci-dessous est affichée dans
+  // l'app pour que personne ne prenne un chiffre périmé pour argent comptant.
+  static const dateReferenceTaux = 'octobre 2026';
+
+  /// Taux de marché indicatif pour une durée d'emprunt, en pourcentage.
+  static double tauxMarcheIndicatif(int dureeAnnees) {
+    if (dureeAnnees <= 15) return 3.32;
+    if (dureeAnnees <= 20) return 3.54;
+    return 3.57;
+  }
+
   /// Capital finançable avec une mensualité donnée — inverse de
   /// [mensualiteCredit]. Sert à mesurer le pouvoir d'achat d'un acquéreur.
   static double capitalFinancable(double mensualite, double tauxAnnuel, int dureeAnnees) {
